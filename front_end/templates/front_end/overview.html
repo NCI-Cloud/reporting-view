@@ -1,0 +1,94 @@
+{% load staticfiles %}
+
+<!DOCTYPE html>
+<head>
+    <title>
+    Tenjin Reporting
+    </title>
+    <link rel="stylesheet" href="{% static 'front_end/base.css' %}" type="text/css">
+</head>
+<body>
+
+    <h1>Tenjin Overview - Usage Information</h1>
+    <h2>Current Resources</h2>
+
+    <table>
+    <tr>
+	<th>&nbsp;</th>
+	<th>Cores</th>
+	<th>Memory</th>
+	<th>Storage</th>
+	<th>Ceph</th>
+    </tr>
+    <tr>
+	<td>Available</td>
+	<td>{{ overview.vcpus }}</td>
+	<td>{{ overview.memory }}</td>
+	<td>{{ overview.local }}</td>
+	<td>{{ overview.ceph }}</td>
+    </tr>
+    <tr>
+	<td>Used</td>
+	<td>{{ overview.vcpus_used }}</td>
+	<td>{{ overview.memory_used }}</td>
+	<td>{{ overview.local_used }}</td>
+	<td>{{ overview.ceph_used }}</td>
+    </tr>
+    </table>
+
+    <h2>Current Usage</h2>
+    <table>
+	<caption>CPU Usage (current instances)</caption>
+	<tr>
+	    <th>Instances</th>
+	    <th>Wall Time</th>
+	    <th>CPU Time</th>
+	    <th>Efficiency</th>
+	</tr>
+	<tr>
+	    <td>{{ overview.instance_count }}</td>
+	    <td>{{ overview.wall_time }}</td>
+	    <td>{{ overview.cpu_time }}</td>
+	    <td>{{ overview.eff }}</td>
+	</tr>
+    </table>
+    <table>
+	<caption>CPU Usage (last month)</caption>
+	<tr>
+	    <th>Instances</th>
+	    <th>Wall Time</th>
+	    <th>CPU Time</th>
+	    <th>Usage</th>
+	</tr>
+	<tr>
+	    <td>{{ overview.historical_instance_count }}</td>
+	    <td>{{ overview.historical_wall_time }}</td>
+	    <td>{{ overview.historical_cpu_time }}</td>
+	    <td>{{ overview.historical_eff }}</td>
+	</tr>
+    <table>
+
+    <h2>Top Projects</h2>
+    <table>
+	<caption>Projects by resource usage</caption>
+	<tr>
+	    <th>Project</th>
+	    <th>Instances</th>
+	    <th>Cores</th>
+	    <th>Memory</th>
+	    <th>Local Storage</th>
+	    <th>Ceph Storage</th>
+	</tr>
+	{% for project in overview.top_projects %}
+	<tr>
+	    <td><a href="project/{{ project.uuid }}">{{ project.display_name }}</a></td>
+	    <td>{{ project.instance_count }}</td>
+	    <td>{{ project.vcpus }}</td>
+	    <td>{{ project.memory }}</td>
+	    <td>{{ project.local }}</td>
+	    <td>{{ project.volume_total }}</td>
+	</tr>
+	{% endfor %}
+    </table>
+</body>
+
