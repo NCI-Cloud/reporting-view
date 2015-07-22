@@ -148,6 +148,7 @@ from
 group by p.uuid 
 order by cores desc
 """
+QUERIES = ['total_resources_used', 'current_usage', 'top_projects']
 
 # the available resources
 class Overview:
