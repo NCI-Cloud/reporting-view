@@ -2,8 +2,10 @@
 <!DOCTYPE html>
 <head>
 <title>yes</title>
-<link rel="stylesheet" href="{% static 'front_end/base.css' %}">
 <script src="//cdn.jsdelivr.net/jquery/2.1.4/jquery.min.js"></script>
+<script src="//cdn.datatables.net/1.10.7/js/jquery.dataTables.min.js"></script>
+<link rel="stylesheet" href="//cdn.datatables.net/1.10.7/css/jquery.dataTables.min.css">
+<link rel="stylesheet" href="{% static 'front_end/base.css' %}">
 <script>
     function query(url, success) {
         $.ajax({
@@ -24,7 +26,7 @@
 {% for key in queries %}
 <div class="query" id="q-{{key}}">
 <h1>{{ key }}</h1>
-<table></table>
+<table class="display"></table>
 </div>
 <script>
 (function($, window, document) {
@@ -54,6 +56,13 @@
                 tb.append(tr);
             }
             tbl.append(tb);
+
+            // give a dumb datatable by default, since we know nothing about the data
+            tbl.DataTable({
+                'paging':false,
+                'searching':false,
+                'info':false,
+            });
         });
     });
 })(jQuery, window, document);
