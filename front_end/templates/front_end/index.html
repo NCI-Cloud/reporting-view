@@ -1,0 +1,64 @@
+{% load staticfiles %}
+<!DOCTYPE html>
+<head>
+<title>yes</title>
+<link rel="stylesheet" href="{% static 'front_end/base.css' %}">
+<script src="//cdn.jsdelivr.net/jquery/2.1.4/jquery.min.js"></script>
+<script>
+    function query(url, success) {
+        $.ajax({
+            url : url,
+            headers : {
+                'accept' : 'application/json',
+            },
+            success : success,
+            error : function(data) {
+                console.log("Couldn't get data for query key '"+key+"'"); // TODO handle error
+            },
+        });
+    }
+</script>
+</head>
+<body>
+<h1>report</h1>
+{% for key in queries %}
+<div class="query" id="q-{{key}}">
+<h1>{{ key }}</h1>
+<table></table>
+</div>
+<script>
+(function($, window, document) {
+    $(function() {
+        query("{% url 'sqldump:query' key %}", function(data) {
+            var tbl = $('#q-{{key}} table');
+            if(data.length == 0) {
+                tbl.append('<thead><td>no data</td></thead>');
+                return;
+            }
+
+            // create a row with cells for column names, and add as thead
+            var tr = $('<tr/>');
+            cols = Object.keys(data[0]);
+            for(col in cols) {
+                tr.append($('<th/>').text(cols[col]));
+            }
+            tbl.append($('<thead/>').append(tr));
+
+            // append rows
+            var tb = $('<tbody/>');
+            for(row in data) {
+                var tr = $('<tr/>');
+                for(col in cols) {
+                    tr.append($('<td/>').text(data[row][cols[col]])); // idk javascript ok
+                }
+                tb.append(tr);
+            }
+            tbl.append(tb);
+        });
+    });
+})(jQuery, window, document);
+</script>
+{% endfor %}
+
+</body>
+</html>
