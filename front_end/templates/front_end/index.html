@@ -1,4 +1,5 @@
 {% load staticfiles %}
+{% load front_end_extras %}
 <!DOCTYPE html>
 <head>
 <title>yes</title>
@@ -26,47 +27,14 @@
 {% for key in queries %}
 <div class="query" id="q-{{key}}">
 <h1>{{ key }}</h1>
-<table class="display"></table>
+{% with 'front_end/q_'|add:key|add:'.html' as template %}
+  {% if template|template_exists %}
+    {% include template %}
+  {% else %}
+    {% include 'front_end/query_table.html' %}
+  {% endif %}
+{% endwith %}
 </div>
-<script>
-(function($, window, document) {
-    $(function() {
-        query("{% url 'sqldump:query' key %}", function(data) {
-            var tbl = $('#q-{{key}} table');
-            if(data.length == 0) {
-                tbl.append('<thead><td>no data</td></thead>');
-                return;
-            }
-
-            // create a row with cells for column names, and add as thead
-            var tr = $('<tr/>');
-            cols = Object.keys(data[0]);
-            for(col in cols) {
-                tr.append($('<th/>').text(cols[col]));
-            }
-            tbl.append($('<thead/>').append(tr));
-
-            // append rows
-            var tb = $('<tbody/>');
-            for(row in data) {
-                var tr = $('<tr/>');
-                for(col in cols) {
-                    tr.append($('<td/>').text(data[row][cols[col]])); // idk javascript ok
-                }
-                tb.append(tr);
-            }
-            tbl.append(tb);
-
-            // give a dumb datatable by default, since we know nothing about the data
-            tbl.DataTable({
-                'paging':false,
-                'searching':false,
-                'info':false,
-            });
-        });
-    });
-})(jQuery, window, document);
-</script>
 {% endfor %}
 
 </body>
