@@ -8,15 +8,15 @@
 <link rel="stylesheet" href="//cdn.datatables.net/1.10.7/css/jquery.dataTables.min.css">
 <link rel="stylesheet" href="{% static 'front_end/base.css' %}">
 <script>
-    function query(url, success) {
+    function query(url, success, error) {
         $.ajax({
             url : url,
             headers : {
                 'accept' : 'application/json',
             },
             success : success,
-            error : function(data) {
-                console.log("Couldn't get data for query key '"+key+"'"); // TODO handle error
+            error : error != undefined ? error : function(data) {
+                console.log("Couldn't get data from '"+url+"'");
             },
         });
     }
