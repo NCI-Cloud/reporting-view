@@ -1,3 +1,29 @@
+-- hypervisors!
+--
+-- no interaction with other tables at present.
+create table hypervisors (
+        id int(11),
+        hostname varchar(255),
+        ip_address varchar(39),
+        cpus int(11),
+        memory int(11),
+        local_storage int(11),
+        primary key (id),
+        key hypervisors_hostname (hostname),
+        key hypervisors_ip (ip_address)
+);
+
+insert into hypervisors
+select
+        id,
+        hypervisor_hostname as hostname,
+        host_ip as ip_address,
+        vcpus as cpus,
+        memory_mb as memory,
+        local_gb as local_storage
+from
+        nova.compute_nodes;
+
 -- projects comes first
 create table projects (
         uuid varchar(36),
