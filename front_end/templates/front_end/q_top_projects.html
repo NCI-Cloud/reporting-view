@@ -1,0 +1,83 @@
+{% spaceless %}
+<div class="piepiepie">
+<div class="ct-chart ct-square"></div>
+<div class="wrapper">
+<select>
+</select>
+<ul class="ct-legend"></ul>
+</div>
+<script>
+(function($, Chartist) {
+    var data;
+    var i_key = 'project'; // independent variable
+    var i_vals; // values corresponding to i_key
+    var d_keys = ['instances', 'cores', 'memory', 'local', 'ceph']; // dependent variables
+
+    function sum(a, b) { return Number(a)+Number(b); }
+
+    function extract(data, key) {
+        var ret = []
+        for(i in data) {
+            ret.push(data[i][key]);
+        }
+        return ret;
+    }
+
+    function plotBy(d_idx) {
+        var d_key = d_keys[d_idx];
+        var local_data = extract(data, d_key);
+        new Chartist.Pie(
+            '#q-{{key}} .ct-chart',
+            { series : local_data, },
+            {
+                labelOffset : 30,
+                labelInterpolationFnc : function(value) {
+                    return Math.round(value / local_data.reduce(sum) * 100) + '%';
+                },
+            }
+        );
+    }
+
+    $(function() {
+        var div = $('#q-{{key}} div.ct-chart');
+        div.addClass('loading');
+        div.append('<p>loading...</p>');
+        query("{% url 'sqldump:query' key %}",
+            function(received) {
+                div.find('p').remove();
+                div.removeClass('loading');
+                data = received;
+                i_vals = extract(data, i_key);
+
+                // create legend
+                $.each(i_vals, function(i, i_val) {
+                    // 15 is the number of series given by Chartist ('.ct-series-a' -- '.ct-series-o')
+                    // i am sure there is a proper way to find this number
+                    var series_class = 'ct-series-' + String.fromCharCode('a'.charCodeAt(0) + i%15),
+                        svg = '<svg width="10" height="10"><rect class="'+series_class+' ct-slice-pie ct-slice-donut" width="10" height="10"/></svg>';
+                    $('<li/>').addClass(series_class).html(svg+i_val).appendTo($('#q-{{key}} .ct-legend'));
+                });
+
+                // initialise chart-picking gui
+                var sel = $('#q-{{key}} select');
+                for(i in d_keys) {
+                    sel.append($('<option/>').html(d_keys[i]));
+                }
+                sel.change(function(e) {
+                    plotBy($(this).prop('selectedIndex'));
+                });
+
+                plotBy(0); // pick a dependent variable and plot by it
+            },
+            function(data) {
+                div.find('p').remove();
+                div.removeClass('loading');
+                div.addClass('error');
+                div.append('<p>error</p>');
+            }
+        );
+    });
+})(jQuery, Chartist);
+</script>
+</div>
+{% endspaceless %}
