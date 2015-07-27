@@ -1,14 +1,11 @@
 {% load staticfiles %}
-{% load front_end_extras %}
 <!DOCTYPE html>
 <head>
 <title>yes</title>
 <script src="//cdn.jsdelivr.net/d3js/3.5.6/d3.min.js"></script>
 <script src="//cdn.jsdelivr.net/jquery/2.1.4/jquery.min.js"></script>
 <script src="//cdn.datatables.net/1.10.7/js/jquery.dataTables.min.js"></script>
-<script src="//cdn.jsdelivr.net/chartist.js/0.9.1/chartist.min.js"></script>
 <link rel="stylesheet" href="//cdn.datatables.net/1.10.7/css/jquery.dataTables.min.css">
-<link rel="stylesheet" href="//cdn.jsdelivr.net/chartist.js/0.9.1/chartist.min.css">
 <link rel="stylesheet" href="{% static 'front_end/base.css' %}">
 <style>
 * {
@@ -95,25 +92,9 @@ table.loading::after {
     content: 'loading';
 }
 </style>
-<script>
-(function($) {
-})(jQuery);
-</script>
 </head>
 <body>
 <h1>report</h1>
-{% for key in queries %}
-<div class="query" id="q-{{key}}">
-<h1>{{ key }}</h1>
-{% with 'front_end/q_'|add:key|add:'.html' as template %}
-  {% if template|template_exists %}
-    {% include template %}
-  {% else %}
-    {% include 'front_end/query_table.html' %}
-  {% endif %}
-{% endwith %}
-</div>
-{% endfor %}
 
 <div class="query" id="rabs">
 <h1>Overview</h1>
@@ -122,7 +103,9 @@ table.loading::after {
 </div>
 
 <script>
-    // TODO don't know how to avoid namespace pollution here
+(function($) {
+    // query keys whose data should be loaded before any other data
+    var preload = {'projects':undefined, 'flavours':undefined};
 
     // get json data from sqldump app
     function sqldump(query_key, success, error) {
@@ -137,12 +120,6 @@ table.loading::after {
             },
         });
     }
-
-(function($) {
-
-    // query keys whose data should be loaded before any other data
-    var preload = {'projects':undefined, 'flavours':undefined};
-
 
     // get all preload data, then call success
     function fetch_preload(key, success) {
