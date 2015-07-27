@@ -2,7 +2,7 @@
 create table metadata (
 	table_name varchar(64), -- this should be an enum, but it's not worth doing that until we know what all the tables are
 	ts timestamp default current_timestamp on update current_timestamp
-);
+) comment "Database metadata";
 
 -- what else? Also, how to keep this up to date? Triggers, or just enforce it
 -- programmatically? Or is that metadata kept in the mysql information_schema
@@ -26,7 +26,7 @@ create table hypervisors (
         primary key (id),
         key hypervisors_hostname (hostname),
         key hypervisors_ip (ip_address)
-);
+) comment "Compute node details";
 
 insert into hypervisors
 select
@@ -51,7 +51,7 @@ create table projects (
         quota_snapshot int comment "Project quota - number of snapshots",
         quota_volume_count int comment "Project quota - number of volumes",
         primary key (uuid)
-);
+) comment "Project details and quota information";
 
 insert into projects
 select
@@ -120,7 +120,7 @@ create table flavours (
         ephemeral int comment "Size of ephemeral disk in GB",
         public boolean comment "Is this flavour publically available",
         primary key (id)
-);
+) comment "Flavour details";
 
 insert into flavours
 select
@@ -155,7 +155,7 @@ create table instances (
         foreign key (project_id) references projects(uuid),
         foreign key (flavour) references flavours(id),
         key instances_project_id_key (project_id)
-);
+) comment "Instance details";
 
 insert into instances
 select
@@ -189,7 +189,7 @@ create table volumes (
         instance_uuid varchar(36) comment "Instance the volume is attached to",
         primary key (uuid),
         foreign key (project_id) references projects(uuid)
-);
+) comment "Volume details";
 
 insert into volumes
 select
@@ -217,7 +217,7 @@ create table images (
         deleted datetime comment "Image deleted at",
         primary key (uuid),
         foreign key (project_id) references projects(uuid)
-);
+) comment "Image details";
 
 insert into images
 select
