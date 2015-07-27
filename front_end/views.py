@@ -205,4 +205,9 @@ def project(request, project_id):
     return HttpResponse(template.render(context))
 
 def index(request):
-    return render(request, 'front_end/index.html', context = {'queries' : QUERIES})
+    from sqldump.models import Query
+    return render(
+        request,
+        'front_end/index.html',
+        context = {'queries' : [q.key for q in Query.objects.all()]}
+    )
