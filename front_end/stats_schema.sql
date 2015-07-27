@@ -1,16 +1,57 @@
+-- metadata - note that this part of the design may change
+create table metadata (
+	table_name varchar(64), -- this should be an enum, but it's not worth doing that until we know what all the tables are
+	ts timestamp default current_timestamp on update current_timestamp
+) comment "Database metadata";
+
+-- what else? Also, how to keep this up to date? Triggers, or just enforce it
+-- programmatically? Or is that metadata kept in the mysql information_schema
+-- somewhere?
+--
+-- As defined, the timestamp will be updated whenever the matching row is
+-- updated, even when the ts column isn't actually set. In addition, we can
+-- set the ts value to null, which will update the timestamp to the current
+-- value.
+
+-- hypervisors!
+--
+-- no interaction with other tables at present.
+create table hypervisors (
+        id int(11) comment "Compute node ID",
+        hostname varchar(255) comment "Compute node hostname",
+        ip_address varchar(39) comment "Compute node IP address",
+        cpus int(11) comment "Number of installed CPUs",
+        memory int(11) comment "Total installed memory in MB",
+        local_storage int(11) comment "Total local disk in GB",
+        primary key (id),
+        key hypervisors_hostname (hostname),
+        key hypervisors_ip (ip_address)
+) comment "Compute node details";
+
+insert into hypervisors
+select
+        id,
+        hypervisor_hostname as hostname,
+        host_ip as ip_address,
+        vcpus as cpus,
+        memory_mb as memory,
+        local_gb as local_storage
+from
+        nova.compute_nodes;
+
 -- projects comes first
 create table projects (
-        uuid varchar(36),
-        display_name varchar(64),
-        enabled boolean,
-        quota_instances int,
-        quota_vcpus int,
-        quota_memory int,
-        quota_volume_total int,
-        quota_snapshot int,
-        quota_volume_count int,
+        uuid varchar(36) comment "Project UUID",
+        display_name varchar(64) comment "Project display name",
+        enabled boolean comment "Is project enabled",
+        quota_instances int comment "Project quota - concurrent number of instances",
+        quota_vcpus int comment "Project quota - concurrent vCPUs allocated",
+        quota_memory int comment "Project quota - concurrent memory allocated in MB",
+        quota_volume_total int comment "Project quota - total size of volumes in GB",
+        quota_snapshot int comment "Project quota - number of snapshots",
+        quota_volume_count int comment "Project quota - number of volumes",
         primary key (uuid)
-);
+) comment "Project details and quota information";
 
 insert into projects
 select
@@ -70,16 +111,16 @@ from
 -- but there are conflicts otherwise that require me to select only non-deleted
 -- records if I stick to the 'uuid' as key.
 create table flavours (
-        id int(11),
-        uuid varchar(36),
-        name varchar(255),
-        vcpus int,
-        memory int,
-        root int,
-        ephemeral int,
-        public boolean,
+        id int(11) comment "Flavour ID",
+        uuid varchar(36) comment "Flavour UUID - not unique",
+        name varchar(255) comment "Flavour name",
+        vcpus int comment "Number of vCPUs",
+        memory int comment "Memory in MB",
+        root int comment "Size of root disk in GB",
+        ephemeral int comment "Size of ephemeral disk in GB",
+        public boolean comment "Is this flavour publically available",
         primary key (id)
-);
+) comment "Flavour details";
 
 insert into flavours
 select
@@ -96,25 +137,25 @@ from
 
 -- instances depends on projects and flavours
 create table instances (
-        project_id varchar(36),
-        uuid varchar(36),
-        name varchar(64),
-        vcpus int,
-        memory int,
-        root int,
-        ephemeral int,
-        flavour int(11),
-        created datetime,
-        deleted datetime,
-        allocation_time int,
-        wall_time int,
-        cpu_time int,
-        active boolean,
+        project_id varchar(36) comment "Project UUID that owns this instance",
+        uuid varchar(36) comment "Instance UUID",
+        name varchar(64) comment "Instance name",
+        vcpus int comment "Number of vCPUs",
+        memory int comment "Memory in MB",
+        root int comment "Size of root disk in GB",
+        ephemeral int comment "Size of ephemeral disk in GB",
+        flavour int(11) comment "Flavour id used to create instance",
+        created datetime comment "Instance created at",
+        deleted datetime comment "Instance deleted at",
+        allocation_time int comment "Number of seconds instance has existed",
+        wall_time int comment "Number of seconds instance has been running",
+        cpu_time int comment "Number of seconds instnace has been using CPU",
+        active boolean comment "Is the instance active",
         primary key (uuid),
         foreign key (project_id) references projects(uuid),
         foreign key (flavour) references flavours(id),
         key instances_project_id_key (project_id)
-);
+) comment "Instance details";
 
 insert into instances
 select
@@ -138,17 +179,17 @@ from
 
 -- likewise, volumes (and all the others, in fact) depend on the projects table
 create table volumes (
-        uuid varchar(36),
-        project_id varchar(36),
-        display_name varchar(64),
-	size int(11),
-        created datetime,
-        deleted datetime,
-        attached boolean,
-        instance_uuid varchar(36),
+        uuid varchar(36) comment "Volume UUID",
+        project_id varchar(36) comment "Project ID that owns this volume",
+        display_name varchar(64) comment "Volume display name",
+	size int(11) comment "Size in MB",
+        created datetime comment "Volume created at",
+        deleted datetime comment "Volume deleted at",
+        attached boolean comment "Volume attached or not",
+        instance_uuid varchar(36) comment "Instance the volume is attached to",
         primary key (uuid),
         foreign key (project_id) references projects(uuid)
-);
+) comment "Volume details";
 
 insert into volumes
 select
@@ -164,19 +205,18 @@ from
         cinder.volumes;
 
 
-
 create table images (
-        uuid varchar(36),
-        project_id varchar(36),
-        name varchar(255),
-        size int,
-        status varchar(30),
-        public boolean,
-        created datetime,
-        deleted datetime,
+        uuid varchar(36) comment "Image UUID",
+        project_id varchar(36) comment "Project ID that owns this image",
+        name varchar(255) comment "Image display name",
+        size int comment "Size of image in MB",
+        status varchar(30) comment "Current status of image",
+        public boolean comment "Is this image publically available",
+        created datetime comment "Image created at",
+        deleted datetime comment "Image deleted at",
         primary key (uuid),
         foreign key (project_id) references projects(uuid)
-);
+) comment "Image details";
 
 insert into images
 select
