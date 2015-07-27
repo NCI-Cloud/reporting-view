@@ -26,5 +26,8 @@ def index(request):
     return render(
         request,
         'front_end/index.html',
-        context = {'queries' : [q.key for q in Query.objects.all()]}
+        context = {
+            'preload' : ['projects'],
+            'queries' : ['live_instances']
+        }
     )

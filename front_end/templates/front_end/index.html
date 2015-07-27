@@ -3,6 +3,7 @@
 <!DOCTYPE html>
 <head>
 <title>yes</title>
+<script src="//cdn.jsdelivr.net/d3js/3.5.6/d3.min.js"></script>
 <script src="//cdn.jsdelivr.net/jquery/2.1.4/jquery.min.js"></script>
 <script src="//cdn.datatables.net/1.10.7/js/jquery.dataTables.min.js"></script>
 <script src="//cdn.jsdelivr.net/chartist.js/0.9.1/chartist.min.js"></script>
@@ -29,6 +30,7 @@ div.query {
     margin-top: 4em;
     background: #fff;
     border: 1px solid #ccc;
+    padding: 20px;
 }
 div.query > h1 {
     font-size: 1.5em;
@@ -36,9 +38,7 @@ div.query > h1 {
     background: #eee;
     margin: 0;
     padding: 0.5em 0.666em;
-}
-div.query > * {
-    margin: 1em;
+    margin: -20px -20px 20px -20px;
 }
 div.piepiepie {
     width: 400px;
@@ -85,27 +85,18 @@ div.piepiepie li svg {
         margin-right: 0.2em;
     }
 }
+table.loading {
+    height:3em;
+    width:100%;
+}
+table.loading::after {
+    color: #900;
+    text-align:center;
+    content: 'loading';
+}
 </style>
 <script>
-function query(url, success, error) {
-    $.ajax({
-        url : url,
-        headers : {
-            'accept' : 'application/json',
-        },
-        success : success,
-        error : error != undefined ? error : function(data) {
-            console.log("Couldn't get data from '"+url+"'");
-        },
-    });
-}
-
 (function($) {
-    $(function() {
-        $('div.query > h1').click(function(e) {
-            $(this).siblings().toggle(100);
-        });
-    });
 })(jQuery);
 </script>
 </head>
@@ -123,6 +114,111 @@ function query(url, success, error) {
 {% endwith %}
 </div>
 {% endfor %}
+
+<div class="query" id="rabs">
+<h1>Overview</h1>
+<table class="loading display">
+</table>
+</div>
+
+<script>
+    // TODO don't know how to avoid namespace pollution here
+
+    // get json data from sqldump app
+    function sqldump(query_key, success, error) {
+        $.ajax({
+            url : '/dump/q/' + query_key, // TODO fragile
+            headers : {
+                'accept' : 'application/json',
+            },
+            success : success,
+            error : error != undefined ? error : function(data) {
+                console.log("Couldn't get sqldump for key '"+query_key+"'");
+            },
+        });
+    }
+
+(function($) {
+
+    // query keys whose data should be loaded before any other data
+    var preload = {'projects':undefined, 'flavours':undefined};
+
+
+    // get all preload data, then call success
+    function fetch_preload(key, success) {
+        sqldump(key, function(data) {
+            // restructure data to index by uuid (assumes uuid is unique.... TY OPENSTACK)
+            preload[key] = {};
+            data.forEach(function(row) {
+                preload[key][row.uuid] = row;
+            });
+
+            // check if any preload values are still undefined
+            if(Object.keys(preload).some(function(key) { return preload[key] == undefined; })) {
+                // TODO not sure if a race condition is possible here in js (single-threaded execution should be ok)
+                return;
+            }
+
+            // preloading is now all done, hooray
+            success();
+        });
+    }
+
+    function report() {
+        // let's use d3 to make a table showing live instances
+        // later we'll make something pretty instead of a table
+
+        sqldump('live_instances', function(data) {
+            if(data.length == 0) {
+                // TODO handle
+                return;
+            }
+
+            var tbl = d3.select('#rabs table');
+            if(tbl.classed('loading')) {
+                tbl.classed('loading', false); // remove .loading if it's there (which it will be until i make the loading process pretty and smart)
+            }
+            
+            // generate head
+            var cols = Object.keys(data[0]);
+            tbl.append('thead').append('tr')
+              .selectAll('th')
+                .data(cols)
+              .enter().append('th')
+                .text(function(d) { return d; });
+
+            // generate body
+            tbl.append('tbody')
+              .selectAll('tr')
+                .data(data)
+              .enter().append('tr')
+              .selectAll('td')
+                .data(function(row) {
+                    return cols.map(function(col) {
+                        return row[col];
+                    });
+                })
+              .enter().append('td')
+                .html(function(d) { return d; });
+
+            // show table TODO for development only
+            $(tbl.node()).DataTable();
+        });
+    }
+
+    // giant tables are annoying TODO for development only
+    $(function() {
+        $('div.query > h1').click(function(e) {
+            $(this).siblings().toggle(100);
+        });
+    });
+
+    // putting <script> at the end of document makes sure we have all the dom we need
+    Object.keys(preload).forEach(function(key) {
+        fetch_preload(key, report);
+    });
+})(jQuery);
+</script>
 
 </body>
 </html>

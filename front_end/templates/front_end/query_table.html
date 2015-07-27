@@ -6,7 +6,7 @@
         var tbl = $('#q-{{key}} table');
         tbl.addClass('loading');
         tbl.append('<tbody><tr><td>loading...</td></tr></tbody>');
-        query("{% url 'sqldump:query' key %}",
+        sqldump("{{ key }}",
             function(data) {
                 tbl.find('tbody').remove();
                 tbl.removeClass('loading');
