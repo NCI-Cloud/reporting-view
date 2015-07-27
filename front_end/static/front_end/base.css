@@ -1,7 +1,32 @@
-table {
-	border-collapse: collapse;
+* {
+    margin: 0;
+    padding: 0;
 }
-table, th, td {
-	border: 1px solid black;
+body {
+    font-family: sans-serif;
+    padding: 1em;
 }
-
+body > h1 {
+    font-size: 2em;
+}
+div.query {
+    margin-top: 3em;
+    border: 1px solid #ccc;
+    padding: 20px;
+}
+div.query > h1 {
+    font-size: 1.5em;
+    border-bottom: 1px solid #ccc;
+    background: #eee;
+    padding: 0.5em 0.666em;
+    margin: -20px -20px 20px -20px;
+}
+table.loading {
+    height:3em;
+    width:100%;
+}
+table.loading::after {
+    color: #900;
+    text-align:center;
+    content: 'loading'; /* this is so elegant */
+}
