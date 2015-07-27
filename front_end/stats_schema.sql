@@ -1,3 +1,18 @@
+-- metadata - note that this part of the design may change
+create table metadata (
+	table_name varchar(64), -- this should be an enum, but it's not worth doing that until we know what all the tables are
+	ts timestamp default current_timestamp on update current_timestamp
+);
+
+-- what else? Also, how to keep this up to date? Triggers, or just enforce it
+-- programmatically? Or is that metadata kept in the mysql information_schema
+-- somewhere?
+--
+-- As defined, the timestamp will be updated whenever the matching row is
+-- updated, even when the ts column isn't actually set. In addition, we can
+-- set the ts value to null, which will update the timestamp to the current
+-- value.
+
 -- hypervisors!
 --
 -- no interaction with other tables at present.
@@ -167,6 +182,7 @@ create table volumes (
         uuid varchar(36),
         project_id varchar(36),
         display_name varchar(64),
+	size int(11),
         created datetime,
         deleted datetime,
         attached boolean,
@@ -180,6 +196,7 @@ select
         id as uuid,
         project_id,
         display_name,
+	size,
         created_at as created,
         deleted_at as deleted,
         if(attach_status='attached',true,false) as attached,
