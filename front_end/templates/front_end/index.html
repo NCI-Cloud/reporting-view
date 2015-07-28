@@ -152,6 +152,18 @@
                 .attr('d', arc)
                 .on('mouseover', function(d, i) {}) // TODO eventually handle these
                 .on('mouseout',  function(d, i) {})
+                .on('click', function(d, i) {
+                    var col = overview_tbl.column('.project_id');
+                    d3.selectAll('path').classed('selected', false);
+                    if(col.search() == d.data.puuid) {
+                        // deselecting
+                        col.search('').draw();
+                    } else {
+                        // selecting
+                        col.search(d.data.puuid).draw();
+                        d3.select(this).classed('selected', true);
+                    }
+                 })
                 .each(function(d) { this._current = d; }); // store initial angles
 
             // TODO improve tooltips; e.g. https://github.com/Caged/d3-tip

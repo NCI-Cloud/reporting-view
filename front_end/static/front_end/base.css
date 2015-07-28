@@ -41,3 +41,6 @@ div.overview {
 path.arc {
     stroke: #fff;
 }
+path.selected {
+    fill: #900;
+}
