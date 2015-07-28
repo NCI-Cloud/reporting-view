@@ -22,7 +22,7 @@
 </div>
 
 <script>
-(function($) {
+//(function($) {
     // query keys whose data should be loaded before any other data
     var preload = {'projects':undefined, 'flavours':undefined};
 
@@ -32,8 +32,8 @@
     // cached query results
     var live_instances;
 
-    // pie chart
-    var pie;
+    // overview elements
+    var overview_pie, overview_tbl;
 
     // get json data from sqldump app
     function sqldump(query_key, success, error) {
@@ -72,6 +72,7 @@
     function pie_content_for(key) {
         return Object.keys(preload['projects']).map(function(p_uuid) {
             return {
+                puuid : p_uuid,
                 label : preload['projects'][p_uuid].display_name,
                 value : live_instances.reduce(
                     function(val, row) {
@@ -85,7 +86,7 @@
 
 
     function report_overview_by(key) {
-        pie.updateProp('data.content', pie_content_for(key));
+        overview_pie.updateProp('data.content', pie_content_for(key));
     }
 
     function report() {
@@ -110,7 +111,8 @@
               .selectAll('th')
                 .data(cols)
               .enter().append('th')
-                .text(function(d) { return d; });
+                .text(function(d) { return d; })
+                .attr('class', function(d) { return d; });
 
             // generate body
             tbl.append('tbody')
@@ -136,7 +138,7 @@
                 .text(function(d) { return d; })
 
             // make pie chart, using first agg_fields element for data
-            pie = new d3pie('#pie', {
+            overview_pie = new d3pie('#pie', {
                 effects : {
                     load : {
                         effect : 'none' // else it redraws every time the <select> changes
@@ -156,10 +158,21 @@
                         enabled : true,
                     },
                 },
+                callbacks : {
+                    onClickSegment : function(info) {
+                        var col = overview_tbl.column('.project_id');
+                        if(! info.expanded) {
+                            // this seems backwards to me, but "expanded" apparently means "not opened"
+                            col.search(info.data.puuid).draw();
+                        } else {
+                            col.search('').draw(); // clear search
+                        }
+                    },
+                },
             });
 
             // show table TODO for development only
-            $(tbl.node()).DataTable();
+            overview_tbl = $(tbl.node()).DataTable();
         });
     }
 
@@ -174,7 +187,7 @@
     Object.keys(preload).forEach(function(key) {
         fetch_preload(key, report);
     });
-})(jQuery);
+//})(jQuery);
 </script>
 
 </body>
