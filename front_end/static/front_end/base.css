@@ -38,3 +38,6 @@ div.overview svg {
 div.overview {
     display: inline-block; /* shrinks to fit */
 }
+path.arc {
+    stroke: #fff;
+}

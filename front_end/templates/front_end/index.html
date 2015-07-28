@@ -3,7 +3,6 @@
 <head>
 <title>yes</title>
 <script src="//cdn.jsdelivr.net/d3js/3.5.6/d3.min.js"></script>
-<script src="{% static 'front_end/d3pie.min.js' %}"></script>
 <script src="//cdn.jsdelivr.net/jquery/2.1.4/jquery.min.js"></script>
 <script src="//cdn.datatables.net/1.10.7/js/jquery.dataTables.min.js"></script>
 <link rel="stylesheet" href="//cdn.datatables.net/1.10.7/css/jquery.dataTables.min.css">
@@ -22,7 +21,7 @@
 </div>
 
 <script>
-//(function($) {
+(function($) {
     // query keys whose data should be loaded before any other data
     var preload = {'projects':undefined, 'flavours':undefined};
 
@@ -69,32 +68,22 @@
         });
     }
 
-    function pie_content_for(key) {
-        return Object.keys(preload['projects']).map(function(p_uuid) {
-            return {
-                puuid : p_uuid,
-                label : preload['projects'][p_uuid].display_name,
-                value : live_instances.reduce(
-                    function(val, row) {
-                        return val + row[key] * (row.project_id == p_uuid);
-                    },
-                    0
-                ),
-            };
-        });
-    }
-
-
-    function report_overview_by(key) {
-        overview_pie.updateProp('data.content', pie_content_for(key));
-    }
-
     function report() {
         // let's use d3 to make a table showing live instances
         // later we'll make something pretty instead of a table
 
         sqldump('live_instances', function(data) {
+            // precomute reductions for overview plots
             live_instances = data;
+            agg_live_instances = Object.keys(preload['projects']).map(function(puuid) {
+                var ret = {puuid : puuid};
+                agg_fields.forEach(function(field) {
+                    ret[field] = data.reduce(function(val, row) {
+                        return val + row[field] * (row.project_id == puuid);
+                    }, 0);
+                });
+                return ret;
+            });
             if(data.length == 0) {
                 // TODO handle
                 return;
@@ -131,45 +120,59 @@
             // generate <select> for controlling pie
             d3.select('.overview')
               .insert('select', '#pie')
-                .on('change',function(){report_overview_by(agg_fields[this.selectedIndex]);})
+                .on('change',change)
               .selectAll('option')
                 .data(agg_fields)
               .enter().append('option')
                 .text(function(d) { return d; })
 
-            // make pie chart, using first agg_fields element for data
-            overview_pie = new d3pie('#pie', {
-                effects : {
-                    load : {
-                        effect : 'none' // else it redraws every time the <select> changes
-                    }
-                },
-                tooltips : {
-                    enabled : true,
-                    type    : 'placeholder',
-                    string  : '{label}: {value}',
+            // generate pie chart; thanks to http://bl.ocks.org/mbostock/1346410
+            var width = 400, height = 400, radius = Math.min(width, height)*0.5; // TODO responsive svg
 
-                },
-                data : {
-                    content : pie_content_for(agg_fields[0])
-                },
-                misc : {
-                    gradient : {
-                        enabled : true,
-                    },
-                },
-                callbacks : {
-                    onClickSegment : function(info) {
-                        var col = overview_tbl.column('.project_id');
-                        if(! info.expanded) {
-                            // this seems backwards to me, but "expanded" apparently means "not opened"
-                            col.search(info.data.puuid).draw();
-                        } else {
-                            col.search('').draw(); // clear search
-                        }
-                    },
-                },
-            });
+            var color = d3.scale.category20();
+
+            var pie = d3.layout.pie()
+                .value(function(d) { return d[agg_fields[0]]; });
+
+            var arc = d3.svg.arc()
+                .innerRadius(0)
+                .outerRadius(radius - 10);
+
+            var svg = d3.select('div.overview').append('svg')
+                .attr('width', width)
+                .attr('height', height)
+              .append('g')
+                .attr('transform', 'translate(' + width*0.5 + ',' + height*0.5 + ')');
+
+            var path = svg.datum(agg_live_instances).selectAll('path')
+                .data(pie)
+              .enter().append('path')
+                .attr('class', 'arc')
+                .attr('fill', function(d, i) { return color(i); })
+                .attr('d', arc)
+                .on('mouseover', function(d, i) {}) // TODO eventually handle these
+                .on('mouseout',  function(d, i) {})
+                .each(function(d) { this._current = d; }); // store initial angles
+
+            // TODO improve tooltips; e.g. https://github.com/Caged/d3-tip
+            path
+              .append('svg:title') // idk if you're even allowed to put a title inside a path
+                .text(function(d) { return preload['projects'][d.data.puuid].display_name; });
+
+            function change() {
+                var value = this.value;
+                pie.value(function(d) { return d[value]; });
+                path = path.data(pie);
+                path.transition().duration(750).attrTween('d', arcTween);
+            }
+
+            function arcTween(a) {
+                var i = d3.interpolate(this._current, a);
+                this._current = i(0);
+                return function(t) {
+                    return arc(i(t));
+                };
+            }
 
             // show table TODO for development only
             overview_tbl = $(tbl.node()).DataTable();
@@ -187,7 +190,7 @@
     Object.keys(preload).forEach(function(key) {
         fetch_preload(key, report);
     });
-//})(jQuery);
+})(jQuery);
 </script>
 
 </body>
