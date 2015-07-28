@@ -142,8 +142,19 @@
                         effect : 'none' // else it redraws every time the <select> changes
                     }
                 },
+                tooltips : {
+                    enabled : true,
+                    type    : 'placeholder',
+                    string  : '{label}: {value}',
+
+                },
                 data : {
                     content : pie_content_for(agg_fields[0])
+                },
+                misc : {
+                    gradient : {
+                        enabled : true,
+                    },
                 },
             });
 
