@@ -30,3 +30,11 @@ table.loading::after {
     text-align:center;
     content: 'loading'; /* this is so elegant */
 }
+div.overview select {
+    float:right;
+}
+div.overview svg {
+}
+div.overview {
+    display: inline-block; /* shrinks to fit */
+}

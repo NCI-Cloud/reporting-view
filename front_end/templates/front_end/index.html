@@ -3,6 +3,7 @@
 <head>
 <title>yes</title>
 <script src="//cdn.jsdelivr.net/d3js/3.5.6/d3.min.js"></script>
+<script src="{% static 'front_end/d3pie.min.js' %}"></script>
 <script src="//cdn.jsdelivr.net/jquery/2.1.4/jquery.min.js"></script>
 <script src="//cdn.datatables.net/1.10.7/js/jquery.dataTables.min.js"></script>
 <link rel="stylesheet" href="//cdn.datatables.net/1.10.7/css/jquery.dataTables.min.css">
@@ -13,6 +14,9 @@
 
 <div class="query" id="rabs">
 <h1>Overview</h1>
+<div class="overview">
+<div id="pie"></div>
+</div>
 <table class="loading display">
 </table>
 </div>
@@ -21,6 +25,15 @@
 (function($) {
     // query keys whose data should be loaded before any other data
     var preload = {'projects':undefined, 'flavours':undefined};
+
+    // which fields might we want to sum over?
+    var agg_fields = ['vcpus','memory','wall_time','allocation_time'];
+
+    // cached query results
+    var live_instances;
+
+    // pie chart
+    var pie;
 
     // get json data from sqldump app
     function sqldump(query_key, success, error) {
@@ -56,11 +69,31 @@
         });
     }
 
+    function pie_content_for(key) {
+        return Object.keys(preload['projects']).map(function(p_uuid) {
+            return {
+                label : preload['projects'][p_uuid].display_name,
+                value : live_instances.reduce(
+                    function(val, row) {
+                        return val + row[key] * (row.project_id == p_uuid);
+                    },
+                    0
+                ),
+            };
+        });
+    }
+
+
+    function report_overview_by(key) {
+        pie.updateProp('data.content', pie_content_for(key));
+    }
+
     function report() {
         // let's use d3 to make a table showing live instances
         // later we'll make something pretty instead of a table
 
         sqldump('live_instances', function(data) {
+            live_instances = data;
             if(data.length == 0) {
                 // TODO handle
                 return;
@@ -70,7 +103,7 @@
             if(tbl.classed('loading')) {
                 tbl.classed('loading', false); // remove .loading if it's there (which it will be until i make the loading process pretty and smart)
             }
-            
+
             // generate head
             var cols = Object.keys(data[0]);
             tbl.append('thead').append('tr')
@@ -92,6 +125,27 @@
                 })
               .enter().append('td')
                 .html(function(d) { return d; });
+
+            // generate <select> for controlling pie
+            d3.select('.overview')
+              .insert('select', '#pie')
+                .on('change',function(){report_overview_by(agg_fields[this.selectedIndex]);})
+              .selectAll('option')
+                .data(agg_fields)
+              .enter().append('option')
+                .text(function(d) { return d; })
+
+            // make pie chart, using first agg_fields element for data
+            pie = new d3pie('#pie', {
+                effects : {
+                    load : {
+                        effect : 'none' // else it redraws every time the <select> changes
+                    }
+                },
+                data : {
+                    content : pie_content_for(agg_fields[0])
+                },
+            });
 
             // show table TODO for development only
             $(tbl.node()).DataTable();
