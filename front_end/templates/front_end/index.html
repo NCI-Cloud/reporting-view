@@ -7,6 +7,7 @@
   <script src="//cdn.jsdelivr.net/d3js/3.5.6/d3.min.js"></script>
   <script src="//cdn.jsdelivr.net/jquery/2.1.4/jquery.min.js"></script>
   <script src="//cdn.datatables.net/1.10.7/js/jquery.dataTables.min.js"></script>
+  <script src="//cdn.jsdelivr.net/humanize/0.0.9/humanize.min.js"></script>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link href="//fonts.googleapis.com/css?family=Raleway:400,300,600" rel="stylesheet" type="text/css">
   <link rel="stylesheet" href="{% static 'front_end/css/normalize.css' %}">
@@ -58,6 +59,7 @@
 (function($) {
     // query keys whose data should be loaded before any other data
     var preload = {'projects':undefined, 'flavours':undefined};
+    var projects, flavours;
 
     // which fields might we want to sum over?
     var agg_fields = ['vcpus','memory','wall_time','allocation_time'];
@@ -85,11 +87,20 @@
     // get all preload data, then call success
     function fetch_preload(key, success) {
         sqldump(key, function(data) {
-            // restructure data to index by uuid (assumes uuid is unique.... TY OPENSTACK)
-            preload[key] = {};
-            data.forEach(function(row) {
-                preload[key][row.uuid] = row;
-            });
+            if(key == 'projects') {
+                // restructure data to index by uuid
+                projects = {};
+                data.forEach(function(row) {
+                    projects[row.uuid] = row;
+                });
+            } else if(key == 'flavours') {
+                // restructure to index by id (since uuid is not unique, TY OPENSTACK)
+                flavours = {};
+                data.forEach(function(row) {
+                    flavours[row.id] = row;
+                });
+            }
+            preload[key] = true; // mark this dataset as obtained
 
             // check if any preload values are still undefined
             if(Object.keys(preload).some(function(key) { return preload[key] == undefined; })) {
@@ -109,7 +120,7 @@
         sqldump('live_instances', function(data) {
             // precomute reductions for overview plots
             live_instances = data;
-            agg_live_instances = Object.keys(preload['projects']).map(function(puuid) {
+            agg_live_instances = Object.keys(projects).map(function(puuid) {
                 var ret = {puuid : puuid};
                 agg_fields.forEach(function(field) {
                     ret[field] = data.reduce(function(val, row) {
@@ -203,7 +214,7 @@
             // TODO improve tooltips
             path
               .append('svg:title') // idk if you're even allowed to put a title inside a path
-                .text(function(d) { return preload['projects'][d.data.puuid].display_name+': '+d.data[d3.select('div.overview select').property('value')]; });
+                .text(function(d) { return projects[d.data.puuid].display_name+': '+d.data[d3.select('div.overview select').property('value')]; });
 
             function change() {
                 var value = this.value;
@@ -220,9 +231,86 @@
                 };
             }
 
-            // show table TODO for development only
-            overview_tbl = $(tbl.node()).DataTable();
+            // show table
+            overview_tbl = $(tbl.node()).DataTable({
+                paging: false,
+                info: false,
+                order: [[Object.keys(data[0]).indexOf('created'), 'desc']],
+                columnDefs: [
+                    {
+                        targets : ['active', 'project_id', 'uuid'],
+                        visible : false,
+                    },
+                    {
+                        targets : ['created', 'deleted'],
+                        type : 'date',
+                        className : 'date',
+                        render : {
+                            display : function(date) {
+                                var t = Date.parse(date);
+                                if(isNaN(t)) return '';
+                                return '<span title="'+date+'">'+humanize.relativeTime(t*1e-3)+'</span>';
+                            },
+                        },
+                    },
+                    {
+                        targets : ['memory'],
+                        className : 'memory',
+                        render : {
+                            display : function(memory_mb) {
+                                return si_bytes(memory_mb*1024*1024); // memory is in MB
+                            },
+                        },
+                    },
+                    {
+                        targets : ['root', 'ephemeral'],
+                        className : 'disk',
+                        render : {
+                            display : function(disk_gb) {
+                                return si_bytes(disk_gb*1024*1024*1024);
+                            }
+                        },
+                    },
+                    {
+                        targets : ['flavour'],
+                        className : 'flavour',
+                        render : {
+                            display : function(flavour_id) {
+                                var f = flavours[flavour_id];
+                                return '<abbr title="'+f.vcpus+' cpu / '
+                                                      +si_bytes(f.memory*1024*1024)+' / '
+                                                      +si_bytes((+f.root+(+f.ephemeral))*1024*1024*1024)
+                                       +'">'+f.name+'</abbr>';
+                            }
+                        },
+                    },
+                    {
+                        targets : ['allocation_time'],
+                        render : {
+                            display : function(secss) {
+                                var secs = +secss, days = Math.floor(secs/86400); // nobody likes leap seconds
+                                if(secs < 60) return secs + ' seconds';
+                                return '<span title="'
+                                       +(days >= 2 ? days+' days' : Math.floor(secs/3600)+' hours')+'">'
+                                       +humanize.relativeTime( humanize.time() + secs).replace('in ', '')
+                                       +'</span>';
+                            },
+                        },
+                    },
+                ],
+            });
         });
+    }
+
+    function si_bytes(bytes) {
+        return humanize.intword(
+            bytes, ['bytes', 'KiB', 'MiB', 'GiB', 'TiB', 'PiB'],
+            1024, // using binary units
+            0,    // show one decimal place
+            '',   // no thousands sep
+            '.',  // decimal point
+            ' '   // suffix sep
+        );
     }
 
     // putting <script> at the end of document makes sure we have all the dom we need

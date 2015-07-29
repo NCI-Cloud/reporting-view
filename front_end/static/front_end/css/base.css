@@ -27,6 +27,12 @@ table.loading::after {
     text-align:center;
     content: 'loading'; /* this is so elegant */
 }
+div.overview table {
+    font-size: 1.2rem;
+}
+div.overview td.date, div.overview td.disk, div.overview td.memory {
+    white-space: nowrap;
+}
 div.overview select {
     float:right;
 }
