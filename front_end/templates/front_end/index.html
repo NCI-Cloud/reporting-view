@@ -1,25 +1,59 @@
 {% load staticfiles %}
 <!DOCTYPE html>
+<html lang="en">
 <head>
-<title>yes</title>
-<script src="//cdn.jsdelivr.net/d3js/3.5.6/d3.min.js"></script>
-<script src="//cdn.jsdelivr.net/jquery/2.1.4/jquery.min.js"></script>
-<script src="//cdn.datatables.net/1.10.7/js/jquery.dataTables.min.js"></script>
-<link rel="stylesheet" href="//cdn.datatables.net/1.10.7/css/jquery.dataTables.min.css">
-<link rel="stylesheet" href="{% static 'front_end/base.css' %}">
+  <meta charset="utf-8">
+  <title>Tenjin</title>
+  <script src="//cdn.jsdelivr.net/d3js/3.5.6/d3.min.js"></script>
+  <script src="//cdn.jsdelivr.net/jquery/2.1.4/jquery.min.js"></script>
+  <script src="//cdn.datatables.net/1.10.7/js/jquery.dataTables.min.js"></script>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link href="//fonts.googleapis.com/css?family=Raleway:400,300,600" rel="stylesheet" type="text/css">
+  <link rel="stylesheet" href="{% static 'front_end/css/normalize.css' %}">
+  <link rel="stylesheet" href="{% static 'front_end/css/skeleton.css' %}">
+  <link rel="stylesheet" href="{% static 'front_end/css/base.css' %}">
+  <link rel="stylesheet" href="//cdn.datatables.net/1.10.7/css/jquery.dataTables.min.css">
 </head>
 <body>
-<h1>report</h1>
+<div class="container">
 
-<div class="query" id="rabs">
-<h1>Overview</h1>
-<div class="overview">
-<div id="pie"></div>
+<div class="title row">
+<div class="twelve column">
+<h2>Tenjin</h2>
+<p>{% lorem %}</p>
 </div>
-<table class="loading display">
-</table>
 </div>
 
+<section>
+<h3>Live usage</h3>
+<div class="row">
+  <div class="one-half column">
+    <h4>Overall resource usage</h4>
+    <p>{% lorem %}</p>
+  </div>
+  <div class="one-half column overview">
+    <h4>Per-project distribution</h4>
+  </div>
+</div>
+<div class="row">
+  <div class="twelve column overview">
+    <h4>Data table</h4>
+    <table class="loading display">
+    </table>
+  </div>
+</div>
+</section>
+<section>
+<h3>Historical usage</h3>
+<div class="row">
+  <div class="twelve column">
+    <h4>Historical usage</h4>
+    <p>{% lorem %}</p>
+  </div>
+</div>
+</section>
+
+</div>{# /container #}
 <script>
 (function($) {
     // query keys whose data should be loaded before any other data
@@ -89,7 +123,7 @@
                 return;
             }
 
-            var tbl = d3.select('#rabs table');
+            var tbl = d3.select('.overview table');
             if(tbl.classed('loading')) {
                 tbl.classed('loading', false); // remove .loading if it's there (which it will be until i make the loading process pretty and smart)
             }
@@ -119,7 +153,7 @@
 
             // generate <select> for controlling pie
             d3.select('.overview')
-              .insert('select', '#pie')
+              .append('select')
                 .on('change',change)
               .selectAll('option')
                 .data(agg_fields)
@@ -127,7 +161,7 @@
                 .text(function(d) { return d; })
 
             // generate pie chart; thanks to http://bl.ocks.org/mbostock/1346410
-            var width = 400, height = 400, radius = Math.min(width, height)*0.5; // TODO responsive svg
+            var width = 300, height = 300, radius = Math.min(width, height)*0.5; // TODO responsive svg
 
             var color = d3.scale.category20();
 
@@ -204,6 +238,5 @@
     });
 })(jQuery);
 </script>
-
 </body>
 </html>
