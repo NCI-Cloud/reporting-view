@@ -166,10 +166,10 @@
                  })
                 .each(function(d) { this._current = d; }); // store initial angles
 
-            // TODO improve tooltips; e.g. https://github.com/Caged/d3-tip
+            // TODO improve tooltips
             path
               .append('svg:title') // idk if you're even allowed to put a title inside a path
-                .text(function(d) { return preload['projects'][d.data.puuid].display_name; });
+                .text(function(d) { return preload['projects'][d.data.puuid].display_name+': '+d.data[d3.select('div.overview select').property('value')]; });
 
             function change() {
                 var value = this.value;

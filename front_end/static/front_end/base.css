@@ -44,3 +44,6 @@ path.arc {
 path.selected {
     fill: #900;
 }
+path:hover {
+    fill: crimson;
+}
