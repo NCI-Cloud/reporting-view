@@ -225,13 +225,6 @@
         });
     }
 
-    // giant tables are annoying TODO for development only
-    $(function() {
-        $('div.query > h1').click(function(e) {
-            $(this).siblings().toggle(100);
-        });
-    });
-
     // putting <script> at the end of document makes sure we have all the dom we need
     Object.keys(preload).forEach(function(key) {
         fetch_preload(key, report);
