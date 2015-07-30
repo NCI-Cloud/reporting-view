@@ -1,10 +1,9 @@
 div.title {
-    margin-top: 5rem;
     text-align: center;
 }
 section {
     border-top: 1px solid #ccc;
-    padding: 3rem 0;
+    padding: 7rem 0;
 }
 section > h3 {
     display: none;

@@ -18,13 +18,14 @@
 <body>
 <div class="container">
 
+<section>
 <div class="title row">
 <div class="twelve column">
 <h2>Tenjin</h2>
 <p>{% lorem %}</p>
 </div>
 </div>
-
+</section>
 <section>
 <h3>Live usage</h3>
 <div class="row">
@@ -238,7 +239,7 @@
                 order: [[Object.keys(data[0]).indexOf('created'), 'desc']],
                 columnDefs: [
                     {
-                        targets : ['active', 'project_id', 'uuid'],
+                        targets : ['active', 'project_id', 'uuid', 'deleted'],
                         visible : false,
                     },
                     {
