@@ -1,120 +1,323 @@
 {% load staticfiles %}
-{% load front_end_extras %}
 <!DOCTYPE html>
+<html lang="en">
 <head>
-<title>yes</title>
-<script src="//cdn.jsdelivr.net/jquery/2.1.4/jquery.min.js"></script>
-<script src="//cdn.datatables.net/1.10.7/js/jquery.dataTables.min.js"></script>
-<script src="//cdn.jsdelivr.net/chartist.js/0.9.1/chartist.min.js"></script>
-<link rel="stylesheet" href="//cdn.datatables.net/1.10.7/css/jquery.dataTables.min.css">
-<link rel="stylesheet" href="//cdn.jsdelivr.net/chartist.js/0.9.1/chartist.min.css">
-<link rel="stylesheet" href="{% static 'front_end/base.css' %}">
-<style>
-* {
-    margin: 0;
-    padding: 0;
-}
-body {
-    font-family: sans-serif;
-    padding: 1em;
-}
-body > h1 {
-    font-size: 2em;
-}
-.ct-label {
-    fill: rgba(255,255,255,1);
-    font-weight: bold;
-}
-div.query {
-    margin-top: 4em;
-    background: #fff;
-    border: 1px solid #ccc;
-}
-div.query > h1 {
-    font-size: 1.5em;
-    border-bottom: 1px solid #ccc;
-    background: #eee;
-    margin: 0;
-    padding: 0.5em 0.666em;
-}
-div.query > * {
-    margin: 1em;
-}
-div.piepiepie {
-    width: 400px;
-    display: inline-block;
-}
-div.piepiepie > div {
-    display: table-cell;
-}
-div.piepiepie > div.ct-chart {
-}
-div.piepiepie > div.wrapper {
-    vertical-align: top;
-}
-div.wrapper > * {
-    margin: 1em 0 0 2em;
-}
-div.piepiepie select {
-    display:block;
-}
-div.piepiepie ul {
-    list-style-type: none;
-    display:inline-block;
-}
-div.piepiepie ul * {
-    white-space: nowrap;
-    line-height: 1.6em;
-}
-div.piepiepie li svg {
-    margin-right: 1em;
-}
-@media (max-width: 850px ) { /* if two piepiepies won't fit, make one fill all space */
-    div.piepiepie {
-        width: 100%;
-    }
-    div.piepiepie > div {
-        display: block;
-        width: 100%;
-    }
-    div.piepiepie li {
-        display: inline-block;
-        margin-right: 1em;
-    }
-    div.piepiepie li svg {
-        margin-right: 0.2em;
-    }
-}
-</style>
+  <meta charset="utf-8">
+  <title>Tenjin</title>
+  <script src="//cdn.jsdelivr.net/d3js/3.5.6/d3.min.js"></script>
+  <script src="//cdn.jsdelivr.net/jquery/2.1.4/jquery.min.js"></script>
+  <script src="//cdn.datatables.net/1.10.7/js/jquery.dataTables.min.js"></script>
+  <script src="//cdn.jsdelivr.net/humanize/0.0.9/humanize.min.js"></script>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link href="//fonts.googleapis.com/css?family=Raleway:400,300,600" rel="stylesheet" type="text/css">
+  <link rel="stylesheet" href="{% static 'front_end/css/normalize.css' %}">
+  <link rel="stylesheet" href="{% static 'front_end/css/skeleton.css' %}">
+  <link rel="stylesheet" href="{% static 'front_end/css/base.css' %}">
+  <link rel="stylesheet" href="//cdn.datatables.net/1.10.7/css/jquery.dataTables.min.css">
+</head>
+<body>
+<div class="container">
+
+<div class="title row">
+<div class="twelve column">
+<h2>Tenjin</h2>
+<p>{% lorem %}</p>
+</div>
+</div>
+
+<section>
+<h3>Live usage</h3>
+<div class="row">
+  <div class="one-half column">
+    <h4>Overall resource usage</h4>
+    <p>{% lorem %}</p>
+  </div>
+  <div class="one-half column overview">
+    <h4>Per-project distribution</h4>
+  </div>
+</div>
+<div class="row">
+  <div class="twelve column overview">
+    <h4>Data table</h4>
+    <table class="loading display">
+    </table>
+  </div>
+</div>
+</section>
+<section>
+<h3>Historical usage</h3>
+<div class="row">
+  <div class="twelve column">
+    <h4>Historical usage</h4>
+    <p>{% lorem %}</p>
+  </div>
+</div>
+</section>
+
+</div>{# /container #}
 <script>
-    function query(url, success, error) {
+(function($) {
+    // query keys whose data should be loaded before any other data
+    var preload = {'projects':undefined, 'flavours':undefined};
+    var projects, flavours;
+
+    // which fields might we want to sum over?
+    var agg_fields = ['vcpus','memory','wall_time','allocation_time'];
+
+    // cached query results
+    var live_instances;
+
+    // overview elements
+    var overview_pie, overview_tbl;
+
+    // get json data from sqldump app
+    function sqldump(query_key, success, error) {
         $.ajax({
-            url : url,
+            url : '/dump/q/' + query_key, // TODO fragile
             headers : {
                 'accept' : 'application/json',
             },
             success : success,
             error : error != undefined ? error : function(data) {
-                console.log("Couldn't get data from '"+url+"'");
+                console.log("Couldn't get sqldump for key '"+query_key+"'");
             },
         });
     }
-</script>
-</head>
-<body>
-<h1>report</h1>
-{% for key in queries %}
-<div class="query" id="q-{{key}}">
-<h1>{{ key }}</h1>
-{% with 'front_end/q_'|add:key|add:'.html' as template %}
-  {% if template|template_exists %}
-    {% include template %}
-  {% else %}
-    {% include 'front_end/query_table.html' %}
-  {% endif %}
-{% endwith %}
-</div>
-{% endfor %}
 
+    // get all preload data, then call success
+    function fetch_preload(key, success) {
+        sqldump(key, function(data) {
+            if(key == 'projects') {
+                // restructure data to index by uuid
+                projects = {};
+                data.forEach(function(row) {
+                    projects[row.uuid] = row;
+                });
+            } else if(key == 'flavours') {
+                // restructure to index by id (since uuid is not unique, TY OPENSTACK)
+                flavours = {};
+                data.forEach(function(row) {
+                    flavours[row.id] = row;
+                });
+            }
+            preload[key] = true; // mark this dataset as obtained
+
+            // check if any preload values are still undefined
+            if(Object.keys(preload).some(function(key) { return preload[key] == undefined; })) {
+                // TODO not sure if a race condition is possible here in js (single-threaded execution should be ok)
+                return;
+            }
+
+            // preloading is now all done, hooray
+            success();
+        });
+    }
+
+    function report() {
+        // let's use d3 to make a table showing live instances
+        // later we'll make something pretty instead of a table
+
+        sqldump('live_instances', function(data) {
+            // precomute reductions for overview plots
+            live_instances = data;
+            agg_live_instances = Object.keys(projects).map(function(puuid) {
+                var ret = {puuid : puuid};
+                agg_fields.forEach(function(field) {
+                    ret[field] = data.reduce(function(val, row) {
+                        return val + row[field] * (row.project_id == puuid);
+                    }, 0);
+                });
+                return ret;
+            });
+            if(data.length == 0) {
+                // TODO handle
+                return;
+            }
+
+            var tbl = d3.select('.overview table');
+            if(tbl.classed('loading')) {
+                tbl.classed('loading', false); // remove .loading if it's there (which it will be until i make the loading process pretty and smart)
+            }
+
+            // generate head
+            var cols = Object.keys(data[0]);
+            tbl.append('thead').append('tr')
+              .selectAll('th')
+                .data(cols)
+              .enter().append('th')
+                .text(function(d) { return d; })
+                .attr('class', function(d) { return d; });
+
+            // generate body
+            tbl.append('tbody')
+              .selectAll('tr')
+                .data(data)
+              .enter().append('tr')
+              .selectAll('td')
+                .data(function(row) {
+                    return cols.map(function(col) {
+                        return row[col];
+                    });
+                })
+              .enter().append('td')
+                .html(function(d) { return d; });
+
+            // generate <select> for controlling pie
+            d3.select('.overview')
+              .append('select')
+                .on('change',change)
+              .selectAll('option')
+                .data(agg_fields)
+              .enter().append('option')
+                .text(function(d) { return d; })
+
+            // generate pie chart; thanks to http://bl.ocks.org/mbostock/1346410
+            var width = 300, height = 300, radius = Math.min(width, height)*0.5; // TODO responsive svg
+
+            var color = d3.scale.category20();
+
+            var pie = d3.layout.pie()
+                .value(function(d) { return d[agg_fields[0]]; });
+
+            var arc = d3.svg.arc()
+                .innerRadius(0)
+                .outerRadius(radius - 10);
+
+            var svg = d3.select('div.overview').append('svg')
+                .attr('width', width)
+                .attr('height', height)
+              .append('g')
+                .attr('transform', 'translate(' + width*0.5 + ',' + height*0.5 + ')');
+
+            var path = svg.datum(agg_live_instances).selectAll('path')
+                .data(pie)
+              .enter().append('path')
+                .attr('class', 'arc')
+                .attr('fill', function(d, i) { return color(i); })
+                .attr('d', arc)
+                .on('mouseover', function(d, i) {}) // TODO eventually handle these
+                .on('mouseout',  function(d, i) {})
+                .on('click', function(d, i) {
+                    var col = overview_tbl.column('.project_id');
+                    d3.selectAll('path').classed('selected', false);
+                    if(col.search() == d.data.puuid) {
+                        // deselecting
+                        col.search('').draw();
+                    } else {
+                        // selecting
+                        col.search(d.data.puuid).draw();
+                        d3.select(this).classed('selected', true);
+                    }
+                 })
+                .each(function(d) { this._current = d; }); // store initial angles
+
+            // TODO improve tooltips
+            path
+              .append('svg:title') // idk if you're even allowed to put a title inside a path
+                .text(function(d) { return projects[d.data.puuid].display_name+': '+d.data[d3.select('div.overview select').property('value')]; });
+
+            function change() {
+                var value = this.value;
+                pie.value(function(d) { return d[value]; });
+                path = path.data(pie);
+                path.transition().duration(750).attrTween('d', arcTween);
+            }
+
+            function arcTween(a) {
+                var i = d3.interpolate(this._current, a);
+                this._current = i(0);
+                return function(t) {
+                    return arc(i(t));
+                };
+            }
+
+            // show table
+            overview_tbl = $(tbl.node()).DataTable({
+                paging: false,
+                info: false,
+                order: [[Object.keys(data[0]).indexOf('created'), 'desc']],
+                columnDefs: [
+                    {
+                        targets : ['active', 'project_id', 'uuid'],
+                        visible : false,
+                    },
+                    {
+                        targets : ['created', 'deleted'],
+                        type : 'date',
+                        className : 'date',
+                        render : {
+                            display : function(date) {
+                                var t = Date.parse(date);
+                                if(isNaN(t)) return '';
+                                return '<span title="'+date+'">'+humanize.relativeTime(t*1e-3)+'</span>';
+                            },
+                        },
+                    },
+                    {
+                        targets : ['memory'],
+                        className : 'memory',
+                        render : {
+                            display : function(memory_mb) {
+                                return si_bytes(memory_mb*1024*1024); // memory is in MB
+                            },
+                        },
+                    },
+                    {
+                        targets : ['root', 'ephemeral'],
+                        className : 'disk',
+                        render : {
+                            display : function(disk_gb) {
+                                return si_bytes(disk_gb*1024*1024*1024);
+                            }
+                        },
+                    },
+                    {
+                        targets : ['flavour'],
+                        className : 'flavour',
+                        render : {
+                            display : function(flavour_id) {
+                                var f = flavours[flavour_id];
+                                return '<abbr title="'+f.vcpus+' cpu / '
+                                                      +si_bytes(f.memory*1024*1024)+' / '
+                                                      +si_bytes((+f.root+(+f.ephemeral))*1024*1024*1024)
+                                       +'">'+f.name+'</abbr>';
+                            }
+                        },
+                    },
+                    {
+                        targets : ['allocation_time'],
+                        render : {
+                            display : function(secss) {
+                                var secs = +secss, days = Math.floor(secs/86400); // nobody likes leap seconds
+                                if(secs < 60) return secs + ' seconds';
+                                return '<span title="'
+                                       +(days >= 2 ? days+' days' : Math.floor(secs/3600)+' hours')+'">'
+                                       +humanize.relativeTime( humanize.time() + secs).replace('in ', '')
+                                       +'</span>';
+                            },
+                        },
+                    },
+                ],
+            });
+        });
+    }
+
+    function si_bytes(bytes) {
+        return humanize.intword(
+            bytes, ['bytes', 'KiB', 'MiB', 'GiB', 'TiB', 'PiB'],
+            1024, // using binary units
+            0,    // show one decimal place
+            '',   // no thousands sep
+            '.',  // decimal point
+            ' '   // suffix sep
+        );
+    }
+
+    // putting <script> at the end of document makes sure we have all the dom we need
+    Object.keys(preload).forEach(function(key) {
+        fetch_preload(key, report);
+    });
+})(jQuery);
+</script>
 </body>
 </html>

@@ -223,7 +223,6 @@ from
         cinder.volumes;
 
 
-
 create table images (
         uuid varchar(36) comment "Image UUID",
         project_id varchar(36) comment "Project ID that owns this image",
