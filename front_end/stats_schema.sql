@@ -1,7 +1,15 @@
+-- some user definitions
+create user 'reporting-update'@'localhost' identified by 'needs to be set';
+grant select on *.* to 'reporting-update'@'localhost';
+grant select,update,insert,delete on reporting.* to 'reporting-update'@'localhost';
+create user 'reporting-query'@'%' identified by 'also needs to be set';
+grant execute on reporting.* to 'reporting-query'@'%';
+grant select on reporting.* to 'reporting-query'@'%';
+
 -- metadata - note that this part of the design may change
 create table metadata (
 	table_name varchar(64), -- this should be an enum, but it's not worth doing that until we know what all the tables are
-	ts timestamp default current_timestamp on update current_timestamp
+	ts timestamp default null on update current_timestamp
 ) comment "Database metadata";
 
 -- what else? Also, how to keep this up to date? Triggers, or just enforce it
@@ -28,7 +36,12 @@ create table hypervisors (
         key hypervisors_ip (ip_address)
 ) comment "Compute node details";
 
-insert into hypervisors
+create definer = 'reporting-update'@'localhost' procedure hypervisor_query()
+begin
+declare ts datetime;
+select ifnull(ts,from_unixtime(0)) into ts from metadata where table_name = 'hypervisors';
+if date_sub(now(), interval 600 second) > ts then
+replace into hypervisors
 select
         id,
         hypervisor_hostname as hostname,
@@ -38,6 +51,11 @@ select
         local_gb as local_storage
 from
         nova.compute_nodes;
+update metadata set ts = null where table_name = 'hypervisors';
+end if;
+select * from hypervisors;
+end;
+
 
 -- projects comes first
 create table projects (
