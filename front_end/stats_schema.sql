@@ -1,3 +1,10 @@
+drop database reporting;
+drop user 'reporting-update'@'localhost';
+drop user 'reporting-query'@'%';
+
+create database reporting;
+use reporting;
+
 -- some user definitions
 create user 'reporting-update'@'localhost' identified by 'needs to be set';
 grant select on *.* to 'reporting-update'@'localhost';
@@ -8,7 +15,8 @@ grant select on reporting.* to 'reporting-query'@'%';
 -- metadata - note that this part of the design may change
 create table metadata (
 	table_name varchar(64), -- this should be an enum, but it's not worth doing that until we know what all the tables are
-	ts timestamp default null on update current_timestamp
+	ts timestamp default current_timestamp on update current_timestamp,
+	primary key (table_name)
 ) comment "Database metadata";
 
 -- what else? Also, how to keep this up to date? Triggers, or just enforce it
@@ -35,6 +43,7 @@ create table hypervisors (
         key hypervisors_ip (ip_address)
 ) comment "Compute node details";
 
+delimiter //
 create definer = 'reporting-update'@'localhost' procedure hypervisors_update()
 deterministic
 begin
@@ -51,9 +60,12 @@ select
         local_gb as local_storage
 from
         nova.compute_nodes;
-update metadata set ts = null where table_name = 'hypervisors';
+insert into metadata (table_name, ts) values ('hypervisors', null)
+on duplicate key update metadata set ts = null where table_name = 'hypervisors';
 end if;
 end;
+//
+delimiter ;
 
 grant execute on procedure reporting.hypervisors_update to 'reporting-update'@'localhost';
 grant execute on procedure reporting.hypervisors_update to 'reporting-query'@'%';
@@ -71,6 +83,8 @@ create table projects (
         quota_volume_count int comment "Project quota - number of volumes",
         primary key (uuid)
 ) comment "Project details and quota information";
+
+delimiter //
 
 create definer = 'reporting-update'@'localhost' procedure projects_update()
 deterministic
@@ -130,9 +144,12 @@ from
         where deleted = 0 and resource like 'snapshots%'
         group by project_id
         ) as s on p.id = s.project_id;
-update metadata set ts = null where table_name = 'projects';
+insert into metadata (table_name, ts) values ('projects', null)
+on duplicate key update metadata set ts = null where table_name = 'projects';
 end if;
 end;
+//
+delimiter ;
 
 grant execute on procedure reporting.projects_update to 'reporting-update'@'localhost';
 grant execute on procedure reporting.projects_update to 'reporting-query'@'%';
@@ -153,6 +170,7 @@ create table flavours (
         primary key (id)
 ) comment "Flavour details";
 
+delimiter //
 create definer = 'reporting-update'@'localhost' procedure flavours_update()
 deterministic
 begin
@@ -171,9 +189,12 @@ select
         is_public as public
 from
         nova.instance_types;
-update metadata set ts = null where table_name = 'flavours';
+insert into metadata (table_name, ts) values ('flavours', null)
+on duplicate key update metadata set ts = null where table_name = 'flavours';
 end if;
 end;
+//
+delimiter ;
 
 grant execute on procedure reporting.flavours_update to 'reporting-update'@'localhost';
 grant execute on procedure reporting.flavours_update to 'reporting-query'@'%';
@@ -200,6 +221,8 @@ create table instances (
         key instances_project_id_key (project_id)
 ) comment "Instance details";
 
+delimiter //
+
 create definer = 'reporting-update'@'localhost' procedure instances_update()
 deterministic
 begin
@@ -224,9 +247,12 @@ select
         if(deleted<>0,false,true) as active
 from
         nova.instances;
-update metadata set ts = null where table_name = 'instances';
+insert into metadata (table_name, ts) values ('instances', null)
+on duplicate key update metadata set ts = null where table_name = 'instances';
 end if;
 end;
+//
+delimiter ;
 
 grant execute on procedure reporting.instances_update to 'reporting-update'@'localhost';
 grant execute on procedure reporting.instances_update to 'reporting-query'@'%';
@@ -244,6 +270,8 @@ create table volumes (
         primary key (uuid),
         foreign key (project_id) references projects(uuid)
 ) comment "Volume details";
+
+delimiter //
 
 create definer = 'reporting-update'@'localhost' procedure volumes_update()
 deterministic
@@ -263,13 +291,15 @@ select
         instance_uuid
 from
         cinder.volumes;
-update metadata set ts = null where table_name = 'volumes';
+insert into metadata (table_name, ts) values ('volumes', null)
+on duplicate key update metadata set ts = null where table_name = 'volumes';
 end if;
 end;
+//
+delimiter ;
 
 grant execute on procedure reporting.volumes_update to 'reporting-update'@'localhost';
 grant execute on procedure reporting.volumes_update to 'reporting-query'@'%';
-
 
 create table images (
         uuid varchar(36) comment "Image UUID",
@@ -283,6 +313,8 @@ create table images (
         primary key (uuid),
         foreign key (project_id) references projects(uuid)
 ) comment "Image details";
+
+delimiter //
 
 create definer = 'reporting-update'@'localhost' procedure images_update()
 deterministic
@@ -302,9 +334,12 @@ select
         deleted_at as deleted
 from
         glance.images;
-update metadata set ts = null where table_name = 'images';
+insert into metadata (table_name, ts) values ('images', null)
+on duplicate key update metadata set ts = null where table_name = 'images';
 end if;
 end;
+//
+delimiter ;
 
 grant execute on procedure reporting.images_update to 'reporting-update'@'localhost';
 grant execute on procedure reporting.images_update to 'reporting-query'@'%';
