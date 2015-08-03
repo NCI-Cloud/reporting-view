@@ -3,7 +3,6 @@ create user 'reporting-update'@'localhost' identified by 'needs to be set';
 grant select on *.* to 'reporting-update'@'localhost';
 grant select,update,insert,delete on reporting.* to 'reporting-update'@'localhost';
 create user 'reporting-query'@'%' identified by 'also needs to be set';
-grant execute on reporting.* to 'reporting-query'@'%';
 grant select on reporting.* to 'reporting-query'@'%';
 
 -- metadata - note that this part of the design may change
@@ -36,7 +35,8 @@ create table hypervisors (
         key hypervisors_ip (ip_address)
 ) comment "Compute node details";
 
-create definer = 'reporting-update'@'localhost' procedure hypervisor_query()
+create definer = 'reporting-update'@'localhost' procedure hypervisors_update()
+deterministic
 begin
 declare ts datetime;
 select ifnull(ts,from_unixtime(0)) into ts from metadata where table_name = 'hypervisors';
@@ -53,9 +53,10 @@ from
         nova.compute_nodes;
 update metadata set ts = null where table_name = 'hypervisors';
 end if;
-select * from hypervisors;
 end;
 
+grant execute on procedure reporting.hypervisors_update to 'reporting-update'@'localhost';
+grant execute on procedure reporting.hypervisors_update to 'reporting-query'@'localhost';
 
 -- projects comes first
 create table projects (
@@ -71,7 +72,13 @@ create table projects (
         primary key (uuid)
 ) comment "Project details and quota information";
 
-insert into projects
+create definer = 'reporting-update'@'localhost' procedure projects_update()
+deterministic
+begin
+declare ts datetime;
+select ifnull(ts,from_unixtime(0)) into ts from metadata where table_name = 'projects';
+if date_sub(now(), interval 600 second) > ts then
+replace into projects
 select
         distinct p.id as uuid,
         p.name as display_name,
@@ -123,6 +130,12 @@ from
         where deleted = 0 and resource like 'snapshots%'
         group by project_id
         ) as s on p.id = s.project_id;
+update metadata set ts = null where table_name = 'projects';
+end if;
+end;
+
+grant execute on procedure reporting.projects_update to 'reporting-update'@'localhost';
+grant execute on procedure reporting.projects_update to 'reporting-query'@'localhost';
 
 -- this one is a real pain, because the flavorid is very similar to the uuid
 -- elsewhere, but it's /not/ unique. I didn't want to expose that kind of shit,
@@ -140,7 +153,13 @@ create table flavours (
         primary key (id)
 ) comment "Flavour details";
 
-insert into flavours
+create definer = 'reporting-update'@'localhost' procedure flavours_update()
+deterministic
+begin
+declare ts datetime;
+select ifnull(ts,from_unixtime(0)) into ts from metadata where table_name = 'flavours';
+if date_sub(now(), interval 600 second) > ts then
+replace into flavours
 select
         id,
         flavorid as uuid,
@@ -152,6 +171,12 @@ select
         is_public as public
 from
         nova.instance_types;
+update metadata set ts = null where table_name = 'flavours';
+end if;
+end;
+
+grant execute on procedure reporting.flavours_update to 'reporting-update'@'localhost';
+grant execute on procedure reporting.flavours_update to 'reporting-query'@'localhost';
 
 -- instances depends on projects and flavours
 create table instances (
@@ -175,7 +200,13 @@ create table instances (
         key instances_project_id_key (project_id)
 ) comment "Instance details";
 
-insert into instances
+create definer = 'reporting-update'@'localhost' procedure instances_update()
+deterministic
+begin
+declare ts datetime;
+select ifnull(ts,from_unixtime(0)) into ts from metadata where table_name = 'instances';
+if date_sub(now(), interval 600 second) > ts then
+replace into instances
 select
         project_id,
         uuid,
@@ -193,7 +224,12 @@ select
         if(deleted<>0,false,true) as active
 from
         nova.instances;
+update metadata set ts = null where table_name = 'instances';
+end if;
+end;
 
+grant execute on procedure reporting.instances_update to 'reporting-update'@'localhost';
+grant execute on procedure reporting.instances_update to 'reporting-query'@'localhost';
 
 -- likewise, volumes (and all the others, in fact) depend on the projects table
 create table volumes (
@@ -209,7 +245,13 @@ create table volumes (
         foreign key (project_id) references projects(uuid)
 ) comment "Volume details";
 
-insert into volumes
+create definer = 'reporting-update'@'localhost' procedure volumes_update()
+deterministic
+begin
+declare ts datetime;
+select ifnull(ts,from_unixtime(0)) into ts from metadata where table_name = 'volumes';
+if date_sub(now(), interval 600 second) > ts then
+replace into volumes
 select
         id as uuid,
         project_id,
@@ -221,6 +263,12 @@ select
         instance_uuid
 from
         cinder.volumes;
+update metadata set ts = null where table_name = 'volumes';
+end if;
+end;
+
+grant execute on procedure reporting.volumes_update to 'reporting-update'@'localhost';
+grant execute on procedure reporting.volumes_update to 'reporting-query'@'localhost';
 
 
 create table images (
@@ -236,7 +284,13 @@ create table images (
         foreign key (project_id) references projects(uuid)
 ) comment "Image details";
 
-insert into images
+create definer = 'reporting-update'@'localhost' procedure images_update()
+deterministic
+begin
+declare ts datetime;
+select ifnull(ts,from_unixtime(0)) into ts from metadata where table_name = 'images';
+if date_sub(now(), interval 600 second) > ts then
+replace into images
 select
         id as uuid,
         owner as project_id,
@@ -248,5 +302,10 @@ select
         deleted_at as deleted
 from
         glance.images;
+update metadata set ts = null where table_name = 'images';
+end if;
+end;
 
+grant execute on procedure reporting.images_update to 'reporting-update'@'localhost';
+grant execute on procedure reporting.images_update to 'reporting-query'@'localhost';
 
