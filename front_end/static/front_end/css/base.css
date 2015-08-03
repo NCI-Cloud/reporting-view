@@ -1,10 +1,9 @@
 div.title {
-    margin-top: 5rem;
     text-align: center;
 }
 section {
     border-top: 1px solid #ccc;
-    padding: 3rem 0;
+    padding: 7rem 0;
 }
 section > h3 {
     display: none;
@@ -30,7 +29,7 @@ table.loading::after {
 div.overview table {
     font-size: 1.2rem;
 }
-div.overview td.date, div.overview td.disk, div.overview td.memory {
+div.overview td.date {
     white-space: nowrap;
 }
 div.overview select {

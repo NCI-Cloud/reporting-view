@@ -18,13 +18,14 @@
 <body>
 <div class="container">
 
+<section>
 <div class="title row">
 <div class="twelve column">
 <h2>Tenjin</h2>
 <p>{% lorem %}</p>
 </div>
 </div>
-
+</section>
 <section>
 <h3>Live usage</h3>
 <div class="row">
@@ -114,9 +115,6 @@
     }
 
     function report() {
-        // let's use d3 to make a table showing live instances
-        // later we'll make something pretty instead of a table
-
         sqldump('live_instances', function(data) {
             // precomute reductions for overview plots
             live_instances = data;
@@ -133,34 +131,6 @@
                 // TODO handle
                 return;
             }
-
-            var tbl = d3.select('.overview table');
-            if(tbl.classed('loading')) {
-                tbl.classed('loading', false); // remove .loading if it's there (which it will be until i make the loading process pretty and smart)
-            }
-
-            // generate head
-            var cols = Object.keys(data[0]);
-            tbl.append('thead').append('tr')
-              .selectAll('th')
-                .data(cols)
-              .enter().append('th')
-                .text(function(d) { return d; })
-                .attr('class', function(d) { return d; });
-
-            // generate body
-            tbl.append('tbody')
-              .selectAll('tr')
-                .data(data)
-              .enter().append('tr')
-              .selectAll('td')
-                .data(function(row) {
-                    return cols.map(function(col) {
-                        return row[col];
-                    });
-                })
-              .enter().append('td')
-                .html(function(d) { return d; });
 
             // generate <select> for controlling pie
             d3.select('.overview')
@@ -231,74 +201,82 @@
                 };
             }
 
+            var relativeDateDisplay = function(date) {
+                var t = Date.parse(date);
+                if(isNaN(t)) return '';
+                return '<span title="'+date+'">'+humanize.relativeTime(t*1e-3)+'</span>';
+            };
+            var flavourDisplay = function(flavour_id) {
+                var f = flavours[flavour_id];
+                return '<abbr title="'+f.vcpus+' cpu / '
+                                      +si_bytes(f.memory*1024*1024)+' / '
+                                      +si_bytes((+f.root+(+f.ephemeral))*1024*1024*1024)
+                       +'">'+f.name+'</abbr>';
+            };
+            var timeDisplay = function(secss) {
+                var secs = +secss, days = Math.floor(secs/86400); // nobody likes leap seconds
+                if(secs < 60) return secs + ' seconds';
+                return '<span title="'
+                       +(days >= 2 ? days+' days' : Math.floor(secs/3600)+' hours')+'">'
+                       +humanize.relativeTime( humanize.time() + secs).replace('in ', '')
+                       +'</span>';
+            };
+
             // show table
-            overview_tbl = $(tbl.node()).DataTable({
+            overview_tbl = $('.overview table').DataTable({
                 paging: false,
                 info: false,
-                order: [[Object.keys(data[0]).indexOf('created'), 'desc']],
-                columnDefs: [
+                data : live_instances,
+                columns : [
                     {
-                        targets : ['active', 'project_id', 'uuid'],
+                        title : 'Created',
+                        data : 'created',
+                        className : 'date',
+                        render : {
+                            display : relativeDateDisplay,
+                        },
+                    },
+                    {
+                        title : 'Project',
+                        data : function(live_instance) {
+                            return projects[live_instance.project_id].display_name;
+                        },
+                    },
+                    {
+                        title : 'Wall time',
+                        data : 'wall_time',
+                        render : { display : timeDisplay },
+                    },
+                    {
+                        title : 'CPU time',
+                        data : 'cpu_time',
+                        render : { display : timeDisplay },
+                    },
+                    {
+                        title : 'Name',
+                        data : 'name',
+                    },
+                    {
+                        title : 'Flavour',
+                        data : 'flavour',
+                        render : {
+                            display : flavourDisplay,
+                            filter : function(flavour_id) { return flavours[flavour_id].name; },
+                        },
+                    },
+                    {
+                        data : 'project_id',
+                        className : 'project_id', // to identify column for filtering
                         visible : false,
                     },
                     {
-                        targets : ['created', 'deleted'],
-                        type : 'date',
-                        className : 'date',
-                        render : {
-                            display : function(date) {
-                                var t = Date.parse(date);
-                                if(isNaN(t)) return '';
-                                return '<span title="'+date+'">'+humanize.relativeTime(t*1e-3)+'</span>';
-                            },
-                        },
-                    },
-                    {
-                        targets : ['memory'],
-                        className : 'memory',
-                        render : {
-                            display : function(memory_mb) {
-                                return si_bytes(memory_mb*1024*1024); // memory is in MB
-                            },
-                        },
-                    },
-                    {
-                        targets : ['root', 'ephemeral'],
-                        className : 'disk',
-                        render : {
-                            display : function(disk_gb) {
-                                return si_bytes(disk_gb*1024*1024*1024);
-                            }
-                        },
-                    },
-                    {
-                        targets : ['flavour'],
-                        className : 'flavour',
-                        render : {
-                            display : function(flavour_id) {
-                                var f = flavours[flavour_id];
-                                return '<abbr title="'+f.vcpus+' cpu / '
-                                                      +si_bytes(f.memory*1024*1024)+' / '
-                                                      +si_bytes((+f.root+(+f.ephemeral))*1024*1024*1024)
-                                       +'">'+f.name+'</abbr>';
-                            }
-                        },
-                    },
-                    {
-                        targets : ['allocation_time'],
-                        render : {
-                            display : function(secss) {
-                                var secs = +secss, days = Math.floor(secs/86400); // nobody likes leap seconds
-                                if(secs < 60) return secs + ' seconds';
-                                return '<span title="'
-                                       +(days >= 2 ? days+' days' : Math.floor(secs/3600)+' hours')+'">'
-                                       +humanize.relativeTime( humanize.time() + secs).replace('in ', '')
-                                       +'</span>';
-                            },
-                        },
+                        data : 'uuid',
+                        visible : false,
                     },
                 ],
+                order : [[0, 'desc']], // order by first col: most recently created first
             });
+            $('.overview table').removeClass('loading');
         });
     }
 
