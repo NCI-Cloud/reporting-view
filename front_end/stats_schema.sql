@@ -56,7 +56,7 @@ end if;
 end;
 
 grant execute on procedure reporting.hypervisors_update to 'reporting-update'@'localhost';
-grant execute on procedure reporting.hypervisors_update to 'reporting-query'@'localhost';
+grant execute on procedure reporting.hypervisors_update to 'reporting-query'@'%';
 
 -- projects comes first
 create table projects (
@@ -135,7 +135,7 @@ end if;
 end;
 
 grant execute on procedure reporting.projects_update to 'reporting-update'@'localhost';
-grant execute on procedure reporting.projects_update to 'reporting-query'@'localhost';
+grant execute on procedure reporting.projects_update to 'reporting-query'@'%';
 
 -- this one is a real pain, because the flavorid is very similar to the uuid
 -- elsewhere, but it's /not/ unique. I didn't want to expose that kind of shit,
@@ -176,7 +176,7 @@ end if;
 end;
 
 grant execute on procedure reporting.flavours_update to 'reporting-update'@'localhost';
-grant execute on procedure reporting.flavours_update to 'reporting-query'@'localhost';
+grant execute on procedure reporting.flavours_update to 'reporting-query'@'%';
 
 -- instances depends on projects and flavours
 create table instances (
@@ -229,7 +229,7 @@ end if;
 end;
 
 grant execute on procedure reporting.instances_update to 'reporting-update'@'localhost';
-grant execute on procedure reporting.instances_update to 'reporting-query'@'localhost';
+grant execute on procedure reporting.instances_update to 'reporting-query'@'%';
 
 -- likewise, volumes (and all the others, in fact) depend on the projects table
 create table volumes (
@@ -268,7 +268,7 @@ end if;
 end;
 
 grant execute on procedure reporting.volumes_update to 'reporting-update'@'localhost';
-grant execute on procedure reporting.volumes_update to 'reporting-query'@'localhost';
+grant execute on procedure reporting.volumes_update to 'reporting-query'@'%';
 
 
 create table images (
@@ -307,5 +307,5 @@ end if;
 end;
 
 grant execute on procedure reporting.images_update to 'reporting-update'@'localhost';
-grant execute on procedure reporting.images_update to 'reporting-query'@'localhost';
+grant execute on procedure reporting.images_update to 'reporting-query'@'%';
 
