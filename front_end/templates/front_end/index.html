@@ -29,18 +29,18 @@
 <section>
 <h3>Live usage</h3>
 <div class="row">
-  <div class="one-half column">
+  <div class="one-half column resources">
     <h4>Overall resource usage</h4>
     <p>{% lorem %}</p>
   </div>
-  <div class="one-half column overview">
+  <div class="one-half column overview loading">
     <h4>Per-project distribution</h4>
   </div>
 </div>
 <div class="row">
-  <div class="twelve column overview">
+  <div class="twelve column live loading">
     <h4>Data table</h4>
-    <table class="loading display">
+    <table class="display">
     </table>
   </div>
 </div>
@@ -87,31 +87,43 @@
 
     // get all preload data, then call success
     function fetch_preload(key, success) {
-        sqldump(key, function(data) {
-            if(key == 'projects') {
-                // restructure data to index by uuid
-                projects = {};
-                data.forEach(function(row) {
-                    projects[row.uuid] = row;
-                });
-            } else if(key == 'flavours') {
-                // restructure to index by id (since uuid is not unique, TY OPENSTACK)
-                flavours = {};
-                data.forEach(function(row) {
-                    flavours[row.id] = row;
-                });
-            }
-            preload[key] = true; // mark this dataset as obtained
+        sqldump(key,
+            function(data) {
+                if(key == 'projects') {
+                    // restructure data to index by uuid
+                    projects = {};
+                    data.forEach(function(row) {
+                        projects[row.uuid] = row;
+                    });
+                } else if(key == 'flavours') {
+                    // restructure to index by id (since uuid is not unique, TY OPENSTACK)
+                    flavours = {};
+                    data.forEach(function(row) {
+                        flavours[row.id] = row;
+                    });
+                } else {
+                    console.log("unknown preload data '%s'", key);
+                }
+                preload[key] = true; // mark this dataset as obtained
 
-            // check if any preload values are still undefined
-            if(Object.keys(preload).some(function(key) { return preload[key] == undefined; })) {
-                // TODO not sure if a race condition is possible here in js (single-threaded execution should be ok)
-                return;
-            }
+                // check if any preload values are still undefined
+                if(Object.keys(preload).some(function(key) { return preload[key] == undefined; })) {
+                    // TODO not sure if a race condition is possible here in js (single-threaded execution should be ok)
+                    return;
+                }
 
-            // preloading is now all done, hooray
-            success();
-        });
+                // preloading is now all done, hooray
+                success();
+            },
+            function(data) {
+                // error
+                if(key == 'projects') {
+                    $('.overview,.live').addClass('error');
+                } else if(key == 'flavours') {
+                    $('.live').addClass('error');
+                }
+            }
+        );
     }
 
     function relativeDateDisplay(date) {
@@ -190,6 +202,9 @@
              })
             .each(function(d) { this._current = d; }); // store initial angles
 
+        // done loading pie chart now
+        d3.select('div.overview').classed('loading', false);
+
         // generate <select> for controlling pie
         d3.select('.overview')
           .insert('select', 'svg')
@@ -205,7 +220,7 @@
             .text(function(d) { return projects[d.data.puuid].display_name+': '+d.data[d3.select('div.overview select').property('value')]; });
 
         // show table
-        overview_tbl = $('.overview table').DataTable({
+        overview_tbl = $('.live table').DataTable({
             paging: false,
             info: false,
             data : live_instances,
@@ -259,7 +274,7 @@
             order : [[0, 'desc']], // order by first col: most recently created first
             processing : true,
         });
-        $('.overview table').removeClass('loading');
+        $('.live').removeClass('loading');
     }
 
     function report() {

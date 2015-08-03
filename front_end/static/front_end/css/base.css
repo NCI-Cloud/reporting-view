@@ -17,19 +17,26 @@ path.selected {
 path:hover {
     fill: crimson;
 }
-table.loading {
-    height:3em;
-    width:100%;
+.loading,.error {
+    background-repeat: no-repeat;
+    background-position: center;
+    min-height: 20px;
+    min-width: 20px;
+    color: rgba(0,0,0,0.5);
 }
-table.loading::after {
-    color: #900;
-    text-align:center;
-    content: 'loading'; /* this is so elegant */
+.loading {
+    background-image: url(../img/loading.gif); /* From https://commons.wikimedia.org/wiki/File:Loading.gif (CC-BY-SA-2.5) */
 }
-div.overview table {
+.error {
+    background-image: url(../img/error.png);
+    background-color: rgba(255,0,0,0.1);
+    border: 2px dashed crimson;
+    border-radius: 1rem;
+}
+div.live table {
     font-size: 1.2rem;
 }
-div.overview td.date {
+div.live td.date {
     white-space: nowrap;
 }
 div.overview select {
