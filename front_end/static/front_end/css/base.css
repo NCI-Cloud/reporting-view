@@ -29,7 +29,7 @@ table.loading::after {
 div.overview table {
     font-size: 1.2rem;
 }
-div.overview td.date, div.overview td.disk, div.overview td.memory {
+div.overview td.date {
     white-space: nowrap;
 }
 div.overview select {
