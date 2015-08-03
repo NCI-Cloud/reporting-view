@@ -114,6 +114,154 @@
         });
     }
 
+    function relativeDateDisplay(date) {
+        var t = Date.parse(date);
+        if(isNaN(t)) return '';
+        return '<span title="'+date+'">'+humanize.relativeTime(t*1e-3)+'</span>';
+    }
+    function flavourDisplay(flavour_id) {
+        var f = flavours[flavour_id];
+        return '<abbr title="'+f.vcpus+' cpu / '
+                              +si_bytes(f.memory*1024*1024)+' / '
+                              +si_bytes((+f.root+(+f.ephemeral))*1024*1024*1024)
+               +'">'+f.name+'</abbr>';
+    }
+    function timeDisplay(secss) {
+        var secs = +secss, days = Math.floor(secs/86400); // nobody likes leap seconds
+        if(secs < 60) return secs + ' seconds';
+        return '<span title="'
+               +(days >= 2 ? days+' days' : Math.floor(secs/3600)+' hours')+'">'
+               +humanize.relativeTime( humanize.time() + secs).replace('in ', '')
+               +'</span>';
+    }
+
+    function change_pie(sel, pie, path, arc) {
+        // change data of pie chart based on <select> value
+        pie.value(function(d) { return d[sel.value]; });
+        path = path.data(pie);
+        path.transition().duration(750).attrTween('d', function(a) {
+            // arc tween
+            var i = d3.interpolate(this._current, a);
+            this._current = i(0);
+            return function(t) {
+                return arc(i(t));
+            };
+        });
+    }
+
+    function report_overview() {
+        // generate pie chart; thanks to http://bl.ocks.org/mbostock/1346410
+        var width = 300, height = 300, radius = Math.min(width, height)*0.5; // TODO responsive svg
+
+        var color = d3.scale.category20();
+
+        var pie = d3.layout.pie()
+            .value(function(d) { return d[agg_fields[0]]; });
+
+        var arc = d3.svg.arc()
+            .innerRadius(0)
+            .outerRadius(radius - 10);
+
+        var svg = d3.select('div.overview').append('svg')
+            .attr('width', width)
+            .attr('height', height)
+          .append('g')
+            .attr('transform', 'translate(' + width*0.5 + ',' + height*0.5 + ')');
+
+        var path = svg.datum(agg_live_instances).selectAll('path')
+            .data(pie)
+          .enter().append('path')
+            .attr('class', 'arc')
+            .attr('fill', function(d, i) { return color(i); })
+            .attr('d', arc)
+            .on('mouseover', function(d, i) {}) // TODO eventually handle these
+            .on('mouseout',  function(d, i) {})
+            .on('click', function(d, i) {
+                var col = overview_tbl.column('.project_id');
+                d3.selectAll('path').classed('selected', false);
+                if(col.search() == d.data.puuid) {
+                    // deselecting
+                    col.search('').draw();
+                } else {
+                    // selecting
+                    col.search(d.data.puuid).draw();
+                    d3.select(this).classed('selected', true);
+                }
+             })
+            .each(function(d) { this._current = d; }); // store initial angles
+
+        // generate <select> for controlling pie
+        d3.select('.overview')
+          .insert('select', 'svg')
+            .on('change',function() { change_pie(this, pie, path, arc); })
+          .selectAll('option')
+            .data(agg_fields)
+          .enter().append('option')
+            .text(function(d) { return d; })
+
+        // TODO improve tooltips
+        path
+          .append('svg:title') // idk if you're even allowed to put a title inside a path
+            .text(function(d) { return projects[d.data.puuid].display_name+': '+d.data[d3.select('div.overview select').property('value')]; });
+
+        // show table
+        overview_tbl = $('.overview table').DataTable({
+            paging: false,
+            info: false,
+            data : live_instances,
+            columns : [
+                {
+                    title : 'Created',
+                    data : 'created',
+                    className : 'date',
+                    render : {
+                        display : relativeDateDisplay,
+                    },
+                },
+                {
+                    title : 'Project',
+                    data : function(live_instance) {
+                        return projects[live_instance.project_id].display_name;
+                    },
+                },
+                {
+                    title : 'Wall time',
+                    data : 'wall_time',
+                    render : { display : timeDisplay },
+                },
+                {
+                    title : 'CPU time',
+                    data : 'cpu_time',
+                    render : { display : timeDisplay },
+                },
+                {
+                    title : 'Name',
+                    data : 'name',
+                },
+                {
+                    title : 'Flavour',
+                    data : 'flavour',
+                    render : {
+                        display : flavourDisplay,
+                        filter : function(flavour_id) { return flavours[flavour_id].name; },
+                    },
+                },
+                {
+                    data : 'project_id',
+                    className : 'project_id', // to identify column for filtering
+                    visible : false,
+                },
+                {
+                    data : 'uuid',
+                    visible : false,
+                },
+            ],
+            order : [[0, 'desc']], // order by first col: most recently created first
+            processing : true,
+        });
+        $('.overview table').removeClass('loading');
+    }
+
     function report() {
         sqldump('live_instances', function(data) {
             // precomute reductions for overview plots
@@ -129,154 +277,11 @@
             });
             if(data.length == 0) {
                 // TODO handle
+                console.log('no live_instances data received');
                 return;
             }
 
-            // generate <select> for controlling pie
-            d3.select('.overview')
-              .append('select')
-                .on('change',change)
-              .selectAll('option')
-                .data(agg_fields)
-              .enter().append('option')
-                .text(function(d) { return d; })
-
-            // generate pie chart; thanks to http://bl.ocks.org/mbostock/1346410
-            var width = 300, height = 300, radius = Math.min(width, height)*0.5; // TODO responsive svg
-
-            var color = d3.scale.category20();
-
-            var pie = d3.layout.pie()
-                .value(function(d) { return d[agg_fields[0]]; });
-
-            var arc = d3.svg.arc()
-                .innerRadius(0)
-                .outerRadius(radius - 10);
-
-            var svg = d3.select('div.overview').append('svg')
-                .attr('width', width)
-                .attr('height', height)
-              .append('g')
-                .attr('transform', 'translate(' + width*0.5 + ',' + height*0.5 + ')');
-
-            var path = svg.datum(agg_live_instances).selectAll('path')
-                .data(pie)
-              .enter().append('path')
-                .attr('class', 'arc')
-                .attr('fill', function(d, i) { return color(i); })
-                .attr('d', arc)
-                .on('mouseover', function(d, i) {}) // TODO eventually handle these
-                .on('mouseout',  function(d, i) {})
-                .on('click', function(d, i) {
-                    var col = overview_tbl.column('.project_id');
-                    d3.selectAll('path').classed('selected', false);
-                    if(col.search() == d.data.puuid) {
-                        // deselecting
-                        col.search('').draw();
-                    } else {
-                        // selecting
-                        col.search(d.data.puuid).draw();
-                        d3.select(this).classed('selected', true);
-                    }
-                 })
-                .each(function(d) { this._current = d; }); // store initial angles
-
-            // TODO improve tooltips
-            path
-              .append('svg:title') // idk if you're even allowed to put a title inside a path
-                .text(function(d) { return projects[d.data.puuid].display_name+': '+d.data[d3.select('div.overview select').property('value')]; });
-
-            function change() {
-                var value = this.value;
-                pie.value(function(d) { return d[value]; });
-                path = path.data(pie);
-                path.transition().duration(750).attrTween('d', arcTween);
-            }
-
-            function arcTween(a) {
-                var i = d3.interpolate(this._current, a);
-                this._current = i(0);
-                return function(t) {
-                    return arc(i(t));
-                };
-            }
-
-            var relativeDateDisplay = function(date) {
-                var t = Date.parse(date);
-                if(isNaN(t)) return '';
-                return '<span title="'+date+'">'+humanize.relativeTime(t*1e-3)+'</span>';
-            };
-            var flavourDisplay = function(flavour_id) {
-                var f = flavours[flavour_id];
-                return '<abbr title="'+f.vcpus+' cpu / '
-                                      +si_bytes(f.memory*1024*1024)+' / '
-                                      +si_bytes((+f.root+(+f.ephemeral))*1024*1024*1024)
-                       +'">'+f.name+'</abbr>';
-            };
-            var timeDisplay = function(secss) {
-                var secs = +secss, days = Math.floor(secs/86400); // nobody likes leap seconds
-                if(secs < 60) return secs + ' seconds';
-                return '<span title="'
-                       +(days >= 2 ? days+' days' : Math.floor(secs/3600)+' hours')+'">'
-                       +humanize.relativeTime( humanize.time() + secs).replace('in ', '')
-                       +'</span>';
-            };
-
-            // show table
-            overview_tbl = $('.overview table').DataTable({
-                paging: false,
-                info: false,
-                data : live_instances,
-                columns : [
-                    {
-                        title : 'Created',
-                        data : 'created',
-                        className : 'date',
-                        render : {
-                            display : relativeDateDisplay,
-                        },
-                    },
-                    {
-                        title : 'Project',
-                        data : function(live_instance) {
-                            return projects[live_instance.project_id].display_name;
-                        },
-                    },
-                    {
-                        title : 'Wall time',
-                        data : 'wall_time',
-                        render : { display : timeDisplay },
-                    },
-                    {
-                        title : 'CPU time',
-                        data : 'cpu_time',
-                        render : { display : timeDisplay },
-                    },
-                    {
-                        title : 'Name',
-                        data : 'name',
-                    },
-                    {
-                        title : 'Flavour',
-                        data : 'flavour',
-                        render : {
-                            display : flavourDisplay,
-                            filter : function(flavour_id) { return flavours[flavour_id].name; },
-                        },
-                    },
-                    {
-                        data : 'project_id',
-                        className : 'project_id', // to identify column for filtering
-                        visible : false,
-                    },
-                    {
-                        data : 'uuid',
-                        visible : false,
-                    },
-                ],
-                order : [[0, 'desc']], // order by first col: most recently created first
-            });
-            $('.overview table').removeClass('loading');
+            report_overview();
         });
     }
 
