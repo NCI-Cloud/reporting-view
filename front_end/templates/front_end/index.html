@@ -8,6 +8,7 @@
   <script src="//cdn.jsdelivr.net/jquery/2.1.4/jquery.min.js"></script>
   <script src="//cdn.datatables.net/1.10.7/js/jquery.dataTables.min.js"></script>
   <script src="//cdn.jsdelivr.net/humanize/0.0.9/humanize.min.js"></script>
+  <script src="{% static 'front_end/formatters.js' %}"></script>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link href="//fonts.googleapis.com/css?family=Raleway:400,300,600" rel="stylesheet" type="text/css">
   <link rel="stylesheet" href="{% static 'front_end/css/normalize.css' %}">
@@ -99,27 +100,6 @@
                 console.log("Couldn't get sqldump for key '"+query_key+"'");
             },
         });
-    }
-
-    function relativeDateDisplay(date) {
-        var t = Date.parse(date);
-        if(isNaN(t)) return '';
-        return '<span title="'+date+'">'+humanize.relativeTime(t*1e-3)+'</span>';
-    }
-    function flavourDisplay(flavour_id) {
-        var f = g.flavours[flavour_id];
-        return '<abbr title="'+f.vcpus+' cpu / '
-                              +si_bytes(f.memory*1024*1024)+' / '
-                              +si_bytes((+f.root+(+f.ephemeral))*1024*1024*1024)
-               +'">'+f.name+'</abbr>';
-    }
-    function timeDisplay(secss) {
-        var secs = +secss, days = Math.floor(secs/86400); // nobody likes leap seconds
-        if(secs < 60) return secs + ' seconds';
-        return '<span title="'
-               +(days >= 2 ? days+' days' : Math.floor(secs/3600)+' hours')+'">'
-               +humanize.relativeTime( humanize.time() + secs).replace('in ', '')
-               +'</span>';
     }
 
     function change_pie(sel, pie, path, arc) {
@@ -218,7 +198,7 @@
                     data : 'created',
                     className : 'date',
                     render : {
-                        display : relativeDateDisplay,
+                        display : Formatters.relativeDateDisplay,
                     },
                 },
                 {
@@ -230,12 +210,12 @@
                 {
                     title : 'Wall time',
                     data : 'wall_time',
-                    render : { display : timeDisplay },
+                    render : { display : Formatters.timeDisplay },
                 },
                 {
                     title : 'CPU time',
                     data : 'cpu_time',
-                    render : { display : timeDisplay },
+                    render : { display : Formatters.timeDisplay },
                 },
                 {
                     title : 'Name',
@@ -245,7 +225,7 @@
                     title : 'Flavour',
                     data : 'flavour',
                     render : {
-                        display : flavourDisplay,
+                        display : Formatters.flavourDisplay(g.flavours),
                         filter : function(flavour_id) { return g.flavours[flavour_id].name; }, // TODO hello
                     },
                 },
@@ -267,17 +247,6 @@
 
     function report_resources(dep) {
         // TODO implement
-    }
-
-    function si_bytes(bytes) {
-        return humanize.intword(
-            bytes, ['bytes', 'KiB', 'MiB', 'GiB', 'TiB', 'PiB'],
-            1024, // using binary units
-            0,    // show one decimal place
-            '',   // no thousands sep
-            '.',  // decimal point
-            ' '   // suffix sep
-        );
     }
 
     // putting <script> at the end of document makes sure we have all the dom we need
