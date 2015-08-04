@@ -8,15 +8,6 @@ section {
 section > h3 {
     display: none;
 }
-path.arc {
-    stroke: #fff;
-}
-path.selected {
-    fill: #900;
-}
-path:hover {
-    fill: crimson;
-}
 .loading,.error {
     background-repeat: no-repeat;
     background-position: center;
@@ -27,6 +18,13 @@ path:hover {
 .loading {
     background-image: url(../img/loading.gif); /* From https://commons.wikimedia.org/wiki/File:Loading.gif (CC-BY-SA-2.5) */
 }
+path { stroke: #fff; }
+path.arc:hover { fill: pink; }
+path.selected { fill: #900; }
+path.res-used { fill: #d62728; } /* hard-coded to match category20 */
+path.res-free { fill: #2ca02c; }
+div.overview select  { float: right; }
+div.resources select { float: left; }
 .error {
     background-image: url(../img/error.png);
     background-color: rgba(255,0,0,0.1);
@@ -38,7 +36,4 @@ div.live table {
 }
 div.live td.date {
     white-space: nowrap;
-}
-div.overview select {
-    float:right;
 }

@@ -32,7 +32,6 @@
 <div class="row">
   <div class="one-half column resources">
     <h4>Overall resource usage</h4>
-    <p>{% lorem %}</p>
   </div>
   <div class="one-half column overview loading">
     <h4>Per-project distribution</h4>
@@ -82,11 +81,8 @@
     ];
     var g = {};
 
-    // which fields might we want to sum over?
-    var agg_fields = ['vcpus','memory','wall_time','allocation_time'];
-
     // overview elements
-    var overview_pie, live_tbl;
+    var live_tbl;
 
     // get json data from sqldump app
     function sqldump(query_key, success, error) {
@@ -117,6 +113,9 @@
     }
 
     function report_overview(dep) {
+        // which fields might we want to sum over?
+        var agg_fields = ['vcpus','memory','wall_time','allocation_time'];
+
         // aggregate data
         var agg_live_instances = Object.keys(g.projects).map(function(puuid) {
             var ret = {puuid : puuid};
@@ -140,7 +139,7 @@
             .innerRadius(0)
             .outerRadius(radius - 10);
 
-        var svg = d3.select('div.overview').append('svg')
+        var svg = d3.select(dep.sel).append('svg')
             .attr('width', width)
             .attr('height', height)
           .append('g')
@@ -172,7 +171,7 @@
         d3.select(dep.sel).classed('loading', false);
 
         // generate <select> for controlling pie
-        d3.select('.overview')
+        d3.select(dep.sel)
           .insert('select', 'svg')
             .on('change',function() { change_pie(this, pie, path, arc); })
           .selectAll('option')
@@ -246,7 +245,69 @@
     }
 
     function report_resources(dep) {
-        // TODO implement
+        var agg_fields = ['cpus', 'memory', 'local_storage'];
+        var sum_fn = {
+            cpus          : function(val, inst) { return val + (+inst.vcpus); },
+            memory        : function(val, inst) { return val + (+inst.memory); },
+            local_storage : function(val, inst) { return val + (+inst.root) + (+inst.ephemeral); }, // TODO is this right
+        };
+        var res_tot = {}, res_used = {key:'used'}, res_free = {key:'free'};
+        agg_fields.forEach(function(f) {
+            res_tot[f] = g.hypervisors.reduce(function(val, h) {
+                return val + (+h[f]);
+            }, 0);
+            res_used[f] = g.live_instances.reduce(sum_fn[f], 0);
+            res_free[f] = res_tot[f] - res_used[f];
+        });
+        var data = [res_used, res_free];
+
+        // generate pie chart
+        var width = 300, height = 300, radius = Math.min(width, height)*0.5; // TODO responsive svg
+
+        var color = d3.scale.category20();
+
+        var pie = d3.layout.pie()
+            .value(function(d) { return d[agg_fields[0]]; });
+
+        var arc = d3.svg.arc()
+            .innerRadius(0)
+            .outerRadius(radius - 10);
+
+        var svg = d3.select(dep.sel).append('svg')
+            .attr('width', width)
+            .attr('height', height)
+          .append('g')
+            .attr('transform', 'translate(' + width*0.5 + ',' + height*0.5 + ')');
+
+        var path = svg.datum(data).selectAll('path')
+            .data(pie)
+          .enter().append('path')
+            .attr('class', function(d, i) { return 'res-'+d.data.key; })
+            .attr('fill', function(d, i) { return color(i); })
+            .attr('d', arc)
+            .on('mouseover', function(d, i) {}) // TODO eventually handle these
+            .on('mouseout',  function(d, i) {})
+            .on('click', function(d, i) {
+                // TODO this !important
+             })
+            .each(function(d) { this._current = d; }); // store initial angles
+
+        // done loading pie chart now
+        d3.select(dep.sel).classed('loading', false);
+
+        // generate <select> for controlling pie
+        d3.select(dep.sel)
+          .insert('select', 'svg')
+            .on('change',function() { change_pie(this, pie, path, arc); })
+          .selectAll('option')
+            .data(agg_fields)
+          .enter().append('option')
+            .text(function(d) { return d; })
+
+        // TODO improve tooltips
+        path
+          .append('svg:title') // idk if you're even allowed to put a title inside a path
+            .text(function(d) { return d.data.key; });
     }
 
     // putting <script> at the end of document makes sure we have all the dom we need
