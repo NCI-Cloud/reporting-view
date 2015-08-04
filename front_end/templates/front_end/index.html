@@ -86,7 +86,7 @@
     var agg_fields = ['vcpus','memory','wall_time','allocation_time'];
 
     // overview elements
-    var overview_pie, overview_tbl;
+    var overview_pie, live_tbl;
 
     // get json data from sqldump app
     function sqldump(query_key, success, error) {
@@ -155,7 +155,7 @@
             .on('mouseover', function(d, i) {}) // TODO eventually handle these
             .on('mouseout',  function(d, i) {})
             .on('click', function(d, i) {
-                var col = overview_tbl.column('.project_id');
+                var col = live_tbl.column('.project_id');
                 d3.selectAll('path').classed('selected', false);
                 if(col.search() == d.data.puuid) {
                     // deselecting
@@ -188,7 +188,7 @@
 
     function report_live(dep) {
         // show table
-        overview_tbl = $('.live table').DataTable({
+        live_tbl = $('.live table').DataTable({
             paging: false,
             info: false,
             data : g.live_instances,
