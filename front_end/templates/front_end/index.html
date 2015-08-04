@@ -58,15 +58,31 @@
 </div>{# /container #}
 <script>
 (function($) {
-    // query keys whose data should be loaded before any other data
-    var preload = {'projects':undefined, 'flavours':undefined};
-    var projects, flavours;
+    // array of
+    //    sel : selector for applying loading/error classes
+    //    dep : sqldump keys for required data (will be stored in g[key]
+    //    fun : function to call after all dep data loaded (will be called with deps element as argument)
+    var deps = [
+        {
+            sel : '.resources',
+            dep : ['hypervisors', 'live_instances'],
+            fun : report_resources,
+        },
+        {
+            sel : '.overview',
+            dep : ['projects', 'live_instances'],
+            fun : report_overview,
+        },
+        {
+            sel : '.live',
+            dep : ['projects', 'flavours', 'live_instances'],
+            fun : report_live,
+        },
+    ];
+    var g = {};
 
     // which fields might we want to sum over?
     var agg_fields = ['vcpus','memory','wall_time','allocation_time'];
-
-    // cached query results
-    var live_instances;
 
     // overview elements
     var overview_pie, overview_tbl;
@@ -85,54 +101,13 @@
         });
     }
 
-    // get all preload data, then call success
-    function fetch_preload(key, success) {
-        sqldump(key,
-            function(data) {
-                if(key == 'projects') {
-                    // restructure data to index by uuid
-                    projects = {};
-                    data.forEach(function(row) {
-                        projects[row.uuid] = row;
-                    });
-                } else if(key == 'flavours') {
-                    // restructure to index by id (since uuid is not unique, TY OPENSTACK)
-                    flavours = {};
-                    data.forEach(function(row) {
-                        flavours[row.id] = row;
-                    });
-                } else {
-                    console.log("unknown preload data '%s'", key);
-                }
-                preload[key] = true; // mark this dataset as obtained
-
-                // check if any preload values are still undefined
-                if(Object.keys(preload).some(function(key) { return preload[key] == undefined; })) {
-                    // TODO not sure if a race condition is possible here in js (single-threaded execution should be ok)
-                    return;
-                }
-
-                // preloading is now all done, hooray
-                success();
-            },
-            function(data) {
-                // error
-                if(key == 'projects') {
-                    $('.overview,.live').addClass('error');
-                } else if(key == 'flavours') {
-                    $('.live').addClass('error');
-                }
-            }
-        );
-    }
-
     function relativeDateDisplay(date) {
         var t = Date.parse(date);
         if(isNaN(t)) return '';
         return '<span title="'+date+'">'+humanize.relativeTime(t*1e-3)+'</span>';
     }
     function flavourDisplay(flavour_id) {
-        var f = flavours[flavour_id];
+        var f = g.flavours[flavour_id];
         return '<abbr title="'+f.vcpus+' cpu / '
                               +si_bytes(f.memory*1024*1024)+' / '
                               +si_bytes((+f.root+(+f.ephemeral))*1024*1024*1024)
@@ -161,7 +136,18 @@
         });
     }
 
-    function report_overview() {
+    function report_overview(dep) {
+        // aggregate data
+        var agg_live_instances = Object.keys(g.projects).map(function(puuid) {
+            var ret = {puuid : puuid};
+            agg_fields.forEach(function(field) {
+                ret[field] = g.live_instances.reduce(function(val, row) {
+                    return val + row[field] * (row.project_id == puuid);
+                }, 0);
+            });
+            return ret;
+        });
+
         // generate pie chart; thanks to http://bl.ocks.org/mbostock/1346410
         var width = 300, height = 300, radius = Math.min(width, height)*0.5; // TODO responsive svg
 
@@ -203,7 +189,7 @@
             .each(function(d) { this._current = d; }); // store initial angles
 
         // done loading pie chart now
-        d3.select('div.overview').classed('loading', false);
+        d3.select(dep.sel).classed('loading', false);
 
         // generate <select> for controlling pie
         d3.select('.overview')
@@ -217,13 +203,15 @@
         // TODO improve tooltips
         path
           .append('svg:title') // idk if you're even allowed to put a title inside a path
-            .text(function(d) { return projects[d.data.puuid].display_name+': '+d.data[d3.select('div.overview select').property('value')]; });
+            .text(function(d) { return g.projects[d.data.puuid].display_name+': '+d.data[d3.select('div.overview select').property('value')]; });
+    }
 
+    function report_live(dep) {
         // show table
         overview_tbl = $('.live table').DataTable({
             paging: false,
             info: false,
-            data : live_instances,
+            data : g.live_instances,
             columns : [
                 {
                     title : 'Created',
@@ -236,7 +224,7 @@
                 {
                     title : 'Project',
                     data : function(live_instance) {
-                        return projects[live_instance.project_id].display_name;
+                        return g.projects[live_instance.project_id].display_name;
                     },
                 },
                 {
@@ -258,7 +246,7 @@
                     data : 'flavour',
                     render : {
                         display : flavourDisplay,
-                        filter : function(flavour_id) { return flavours[flavour_id].name; },
+                        filter : function(flavour_id) { return g.flavours[flavour_id].name; }, // TODO hello
                     },
                 },
                 {
@@ -274,30 +262,11 @@
             order : [[0, 'desc']], // order by first col: most recently created first
             processing : true,
         });
-        $('.live').removeClass('loading');
+        $(dep.sel).removeClass('loading');
     }
 
-    function report() {
-        sqldump('live_instances', function(data) {
-            // precomute reductions for overview plots
-            live_instances = data;
-            agg_live_instances = Object.keys(projects).map(function(puuid) {
-                var ret = {puuid : puuid};
-                agg_fields.forEach(function(field) {
-                    ret[field] = data.reduce(function(val, row) {
-                        return val + row[field] * (row.project_id == puuid);
-                    }, 0);
-                });
-                return ret;
-            });
-            if(data.length == 0) {
-                // TODO handle
-                console.log('no live_instances data received');
-                return;
-            }
-
-            report_overview();
-        });
+    function report_resources(dep) {
+        // TODO implement
     }
 
     function si_bytes(bytes) {
@@ -312,9 +281,48 @@
     }
 
     // putting <script> at the end of document makes sure we have all the dom we need
-    Object.keys(preload).forEach(function(key) {
-        fetch_preload(key, report);
-    });
+    // concat all depdendency query keys, then filter out duplicates (topsort would be too cool)
+    var dep_keys = deps.reduce(function(val, dep) { return val.concat(dep.dep); }, []);
+    dep_keys = dep_keys.filter(function(dep, i) { return dep_keys.indexOf(dep)==i; });
+    dep_keys.forEach(function(key) { sqldump(key,
+        // get all preload data, then call success
+        function(data) {
+            // maybe restructure data, then store
+            if(key == 'projects') {
+                ps = {}
+                data.forEach(function(p) {
+                    ps[p.uuid] = p;
+                });
+                data = ps;
+            } else if(key == 'flavours') {
+                fs = {}
+                data.forEach(function(f) {
+                    fs[f.id] = f;
+                });
+                data = fs;
+            }
+            g[key] = data;
+            
+            // check if any new report functions can now be called
+            // TODO not sure if a race condition is possible here in js (single-threaded execution should be ok)
+            deps.forEach(function(dep) {
+                if(!dep.done && dep.dep.every(function(k) { return k in g; })) {
+                    dep.done = true;
+                    dep.fun(dep);
+                }
+            });
+        },
+        function(err) {
+            // error
+            deps.forEach(function(dep) {
+                if(dep.dep.indexOf(key) != -1) {
+                    $(dep.sel).removeClass('loading');
+                    $(dep.sel).addClass('error');
+                    console.log('error (%i %s) for query "%s"', err.status, err.statusText, key);
+                }
+            });
+        }
+    )});
 })(jQuery);
 </script>
 </body>
