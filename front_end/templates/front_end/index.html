@@ -8,6 +8,7 @@
   <script src="//cdn.jsdelivr.net/jquery/2.1.4/jquery.min.js"></script>
   <script src="//cdn.datatables.net/1.10.7/js/jquery.dataTables.min.js"></script>
   <script src="//cdn.jsdelivr.net/humanize/0.0.9/humanize.min.js"></script>
+  <script src="//cdn.jsdelivr.net/js-signals/1.0.0/signals.min.js"></script>
   <script src="{% static 'front_end/formatters.js' %}"></script>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link href="//fonts.googleapis.com/css?family=Raleway:400,300,600" rel="stylesheet" type="text/css">
@@ -23,7 +24,6 @@
 <div class="title row">
 <div class="twelve column">
 <h2>Tenjin</h2>
-<p>{% lorem %}</p>
 </div>
 </div>
 </section>
@@ -32,6 +32,7 @@
 <div class="row">
   <div class="one-half column resources">
     <h4>Overall resource usage</h4>
+    <label><input type="checkbox" checked id="pielock">lock charts</label>
   </div>
   <div class="one-half column overview">
     <h4>Per-project distribution</h4>
@@ -90,6 +91,10 @@
     ];
     var g = {};
 
+    var on = {
+        optionChanged : new signals.Signal(),
+    };
+
     // overview elements
     var live_tbl;
 
@@ -107,9 +112,9 @@
         });
     }
 
-    function change_pie(sel, pie, path, arc) {
-        // change data of pie chart based on <select> value
-        pie.value(function(d) { return d[sel.value]; });
+    function change_pie(data_key, pie, path, arc) {
+        // change data of pie chart to use new key for data
+        pie.value(function(d) { return d[data_key]; });
         path = path.data(pie);
         path.transition().duration(750).attrTween('d', function(a) {
             // arc tween
@@ -122,25 +127,30 @@
     }
 
     function report_overview(dep) {
-        // (titles must be unique)
+        // "lock charts" is implemented by matching keys with report_resources
         var aggs = [
             {
+                key    : 'vcpus',
                 title  : 'vCPU',
                 use_fn : function(val, ins) { return val + (+ins.vcpus); },
             },
             {
+                key    : 'memory',
                 title  : 'Memory',
                 use_fn : function(val, ins) { return val + (+ins.memory); },
             },
             {
+                key    : 'local',
                 title  : 'Local storage',
                 use_fn : function(val, ins) { return val + (+ins.root) + (+ins.ephemeral); },
             },
             {
+                key    : 'allocation_time',
                 title  : 'Allocation time',
                 use_fn : function(val, ins) { return val + (+ins.allocation_time); },
             },
             {
+                key    : 'wall_time',
                 title  : 'Wall time', // TODO values for this currently are all 0, which breaks the pie chart
                 use_fn : function(val, ins) { return val + (+ins.wall_time); },
             },
@@ -150,7 +160,7 @@
         var agg_live_instances = Object.keys(g.projects).map(function(puuid) {
             var ret = {puuid : puuid};
             aggs.forEach(function(f) {
-                ret[f.title] = g.live_instances.filter(function(ins) { return ins.project_id == puuid; }).reduce(f.use_fn, 0);
+                ret[f.key] = g.live_instances.filter(function(ins) { return ins.project_id == puuid; }).reduce(f.use_fn, 0);
             });
             return ret;
         });
@@ -161,7 +171,7 @@
         var color = d3.scale.category20();
 
         var pie = d3.layout.pie()
-            .value(function(d) { return d[aggs[0].title]; });
+            .value(function(d) { return d[aggs[0].key]; });
 
         var arc = d3.svg.arc()
             .innerRadius(0)
@@ -198,20 +208,28 @@
 
         // done loading pie chart now
         d3.select(dep.sel).classed('loading', false);
-
+        
         // generate <select> for controlling pie
         d3.select(dep.sel)
           .insert('select', 'svg')
-            .on('change',function() { change_pie(this, pie, path, arc); })
+            .on('change', function() { on.optionChanged.dispatch(dep.sel); })
           .selectAll('option')
             .data(aggs)
           .enter().append('option')
+            .attr('value', function(d) { return d.key; })
             .text(function(d) { return d.title; })
 
         // TODO improve tooltips
         path
           .append('svg:title') // idk if you're even allowed to put a title inside a path
             .text(function(d) { return g.projects[d.data.puuid].display_name+': '+d.data[d3.select('div.overview select').property('value')]; });
+
+        // listen for option change events
+        on.optionChanged.add(function(sel) {
+            if(lock_options(dep.sel, sel)) {
+                change_pie(d3.select(dep.sel).select('select').property('value'), pie, path, arc);
+            }
+        });
     }
 
     function report_live(dep) {
@@ -273,20 +291,22 @@
     }
 
     function report_resources(dep) {
-        // (titles must be unique)
         var aggs = [
             {
+                key    : 'vcpus',
                 title  : 'vCPU',
                 tot_fn : function(val, hyp) { return val + (+hyp.cpus); },
                 use_fn : function(val, ins) { return val + (+ins.vcpus); },
             },
             {
+                key    : 'memory',
                 title  : 'Memory',
                 tot_fn : function(val, hyp) { return val + (+hyp.memory); },
                 use_fn : function(val, ins) { return val + (+ins.memory); },
             },
             {
-                title   : 'Local storage',
+                key    : 'local',
+                title  : 'Local storage',
                 tot_fn : function(val, hyp) { return val + (+hyp.local_storage); },
                 use_fn : function(val, ins) { return val + (+ins.root) + (+ins.ephemeral); }, // root and ephemeral are both stored locally
             },
@@ -295,9 +315,9 @@
         // store aggregated values, using title as key
         var res_tot = {}, res_used = {key:'used'}, res_free = {key:'free'};
         aggs.forEach(function(f) {
-            res_tot[f.title]  = g.hypervisors.reduce(f.tot_fn, 0);
-            res_used[f.title] = g.live_instances.reduce(f.use_fn, 0);
-            res_free[f.title] = res_tot[f.title] - res_used[f.title];
+            res_tot[f.key]  = g.hypervisors.reduce(f.tot_fn, 0);
+            res_used[f.key] = g.live_instances.reduce(f.use_fn, 0);
+            res_free[f.key] = res_tot[f.key] - res_used[f.key];
         });
         var data = [res_used, res_free];
 
@@ -307,7 +327,7 @@
         var color = d3.scale.category20();
 
         var pie = d3.layout.pie()
-            .value(function(d) { return d[aggs[0].title]; });
+            .value(function(d) { return d[aggs[0].key]; });
 
         var arc = d3.svg.arc()
             .innerRadius(0)
@@ -337,17 +357,43 @@
 
         // generate <select> for controlling pie
         d3.select(dep.sel)
-          .insert('select', 'svg')
-            .on('change',function() { change_pie(this, pie, path, arc); })
+          .insert('select', 'label')
+            //.on('change',function() { change_pie(this.value, pie, path, arc); })
+            .on('change', function() { on.optionChanged.dispatch(dep.sel); })
           .selectAll('option')
             .data(aggs)
           .enter().append('option')
+            .attr('value', function(d) { return d.key; })
             .text(function(d) { return d.title; })
 
         // TODO improve tooltips
         path
           .append('svg:title') // idk if you're even allowed to put a title inside a path
             .text(function(d) { return d.data.key; });
+
+        // listen for option change events
+        on.optionChanged.add(function(sel) {
+            if(lock_options(dep.sel, sel)) {
+                change_pie(d3.select(dep.sel).select('select').property('value'), pie, path, arc);
+            }
+        });
+    }
+
+    function lock_options(sel1, sel2) {
+        // try to make the value of "sel1 select" match that of "sel2 select" (if "#pielock" is checked)
+        // return true if sel1's select value has changed
+        var changed = sel1 === sel2, // calling this function with matching selectors means it's changed
+            sel1 = d3.select(sel1).select('select');
+        if(sel1 !== sel2 && d3.select('#pielock').node().checked) {
+            var key1 = sel1.property('value'),
+                key2 = d3.select(sel2).select('select').property('value');
+            if(key1 !== key2 && sel1.select('option[value='+key2+']').node()) {
+                // data key has changed, and there exists a matching key for this element, so update
+                sel1.property('value', key2);
+                changed = true;
+            }
+        }
+        return changed;
     }
 
     // putting <script> at the end of document makes sure we have all the dom we need
