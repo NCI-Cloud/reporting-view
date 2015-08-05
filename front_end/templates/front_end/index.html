@@ -122,16 +122,35 @@
     }
 
     function report_overview(dep) {
-        // which fields might we want to sum over?
-        var agg_fields = ['vcpus','memory','wall_time','allocation_time'];
+        // (titles must be unique)
+        var aggs = [
+            {
+                title  : 'vCPU',
+                use_fn : function(val, ins) { return val + (+ins.vcpus); },
+            },
+            {
+                title  : 'Memory',
+                use_fn : function(val, ins) { return val + (+ins.memory); },
+            },
+            {
+                title  : 'Local storage',
+                use_fn : function(val, ins) { return val + (+ins.root) + (+ins.ephemeral); },
+            },
+            {
+                title  : 'Allocation time',
+                use_fn : function(val, ins) { return val + (+ins.allocation_time); },
+            },
+            {
+                title  : 'Wall time', // TODO values for this currently are all 0, which breaks the pie chart
+                use_fn : function(val, ins) { return val + (+ins.wall_time); },
+            },
+        ];
 
         // aggregate data
         var agg_live_instances = Object.keys(g.projects).map(function(puuid) {
             var ret = {puuid : puuid};
-            agg_fields.forEach(function(field) {
-                ret[field] = g.live_instances.reduce(function(val, row) {
-                    return val + row[field] * (row.project_id == puuid);
-                }, 0);
+            aggs.forEach(function(f) {
+                ret[f.title] = g.live_instances.filter(function(ins) { return ins.project_id == puuid; }).reduce(f.use_fn, 0);
             });
             return ret;
         });
@@ -142,7 +161,7 @@
         var color = d3.scale.category20();
 
         var pie = d3.layout.pie()
-            .value(function(d) { return d[agg_fields[0]]; });
+            .value(function(d) { return d[aggs[0].title]; });
 
         var arc = d3.svg.arc()
             .innerRadius(0)
@@ -185,9 +204,9 @@
           .insert('select', 'svg')
             .on('change',function() { change_pie(this, pie, path, arc); })
           .selectAll('option')
-            .data(agg_fields)
+            .data(aggs)
           .enter().append('option')
-            .text(function(d) { return d; })
+            .text(function(d) { return d.title; })
 
         // TODO improve tooltips
         path
@@ -254,19 +273,31 @@
     }
 
     function report_resources(dep) {
-        var agg_fields = ['cpus', 'memory', 'local_storage'];
-        var sum_fn = {
-            cpus          : function(val, inst) { return val + (+inst.vcpus); },
-            memory        : function(val, inst) { return val + (+inst.memory); },
-            local_storage : function(val, inst) { return val + (+inst.root) + (+inst.ephemeral); }, // TODO is this right
-        };
+        // (titles must be unique)
+        var aggs = [
+            {
+                title  : 'vCPU',
+                tot_fn : function(val, hyp) { return val + (+hyp.cpus); },
+                use_fn : function(val, ins) { return val + (+ins.vcpus); },
+            },
+            {
+                title  : 'Memory',
+                tot_fn : function(val, hyp) { return val + (+hyp.memory); },
+                use_fn : function(val, ins) { return val + (+ins.memory); },
+            },
+            {
+                title   : 'Local storage',
+                tot_fn : function(val, hyp) { return val + (+hyp.local_storage); },
+                use_fn : function(val, ins) { return val + (+ins.root) + (+ins.ephemeral); }, // root and ephemeral are both stored locally
+            },
+        ];
+
+        // store aggregated values, using title as key
         var res_tot = {}, res_used = {key:'used'}, res_free = {key:'free'};
-        agg_fields.forEach(function(f) {
-            res_tot[f] = g.hypervisors.reduce(function(val, h) {
-                return val + (+h[f]);
-            }, 0);
-            res_used[f] = g.live_instances.reduce(sum_fn[f], 0);
-            res_free[f] = res_tot[f] - res_used[f];
+        aggs.forEach(function(f) {
+            res_tot[f.title]  = g.hypervisors.reduce(f.tot_fn, 0);
+            res_used[f.title] = g.live_instances.reduce(f.use_fn, 0);
+            res_free[f.title] = res_tot[f.title] - res_used[f.title];
         });
         var data = [res_used, res_free];
 
@@ -276,7 +307,7 @@
         var color = d3.scale.category20();
 
         var pie = d3.layout.pie()
-            .value(function(d) { return d[agg_fields[0]]; });
+            .value(function(d) { return d[aggs[0].title]; });
 
         var arc = d3.svg.arc()
             .innerRadius(0)
@@ -309,9 +340,9 @@
           .insert('select', 'svg')
             .on('change',function() { change_pie(this, pie, path, arc); })
           .selectAll('option')
-            .data(agg_fields)
+            .data(aggs)
           .enter().append('option')
-            .text(function(d) { return d; })
+            .text(function(d) { return d.title; })
 
         // TODO improve tooltips
         path
