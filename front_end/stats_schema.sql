@@ -48,6 +48,11 @@ create definer = 'reporting-update'@'localhost' procedure hypervisors_update()
 deterministic
 begin
 declare ts datetime;
+declare r int(1);
+select count(*) into r from metadata where table_name = 'hypervisors';
+if r = 0 then
+insert into metadata (table_name, ts) values ('hypervisors', null);
+end if;
 select ifnull(ts,from_unixtime(0)) into ts from metadata where table_name = 'hypervisors';
 if date_sub(now(), interval 600 second) > ts then
 replace into hypervisors
@@ -61,7 +66,7 @@ select
 from
         nova.compute_nodes;
 insert into metadata (table_name, ts) values ('hypervisors', null)
-on duplicate key update metadata set ts = null where table_name = 'hypervisors';
+on duplicate key update ts = null;
 end if;
 end;
 //
@@ -69,6 +74,8 @@ delimiter ;
 
 grant execute on procedure reporting.hypervisors_update to 'reporting-update'@'localhost';
 grant execute on procedure reporting.hypervisors_update to 'reporting-query'@'%';
+
+call hypervisors_update();
 
 -- projects comes first
 create table projects (
@@ -90,6 +97,11 @@ create definer = 'reporting-update'@'localhost' procedure projects_update()
 deterministic
 begin
 declare ts datetime;
+declare r int(1);
+select count(*) into r from metadata where table_name = 'projects';
+if r = 0 then
+insert into metadata (table_name, ts) values ('projects', null);
+end if;
 select ifnull(ts,from_unixtime(0)) into ts from metadata where table_name = 'projects';
 if date_sub(now(), interval 600 second) > ts then
 replace into projects
@@ -145,7 +157,7 @@ from
         group by project_id
         ) as s on p.id = s.project_id;
 insert into metadata (table_name, ts) values ('projects', null)
-on duplicate key update metadata set ts = null where table_name = 'projects';
+on duplicate key update ts = null;
 end if;
 end;
 //
@@ -153,6 +165,8 @@ delimiter ;
 
 grant execute on procedure reporting.projects_update to 'reporting-update'@'localhost';
 grant execute on procedure reporting.projects_update to 'reporting-query'@'%';
+
+call projects_update();
 
 -- this one is a real pain, because the flavorid is very similar to the uuid
 -- elsewhere, but it's /not/ unique. I didn't want to expose that kind of shit,
@@ -175,6 +189,11 @@ create definer = 'reporting-update'@'localhost' procedure flavours_update()
 deterministic
 begin
 declare ts datetime;
+declare r int(1);
+select count(*) into r from metadata where table_name = 'flavours';
+if r = 0 then
+insert into metadata (table_name, ts) values ('flavours', null);
+end if;
 select ifnull(ts,from_unixtime(0)) into ts from metadata where table_name = 'flavours';
 if date_sub(now(), interval 600 second) > ts then
 replace into flavours
@@ -190,7 +209,7 @@ select
 from
         nova.instance_types;
 insert into metadata (table_name, ts) values ('flavours', null)
-on duplicate key update metadata set ts = null where table_name = 'flavours';
+on duplicate key update ts = null;
 end if;
 end;
 //
@@ -198,6 +217,8 @@ delimiter ;
 
 grant execute on procedure reporting.flavours_update to 'reporting-update'@'localhost';
 grant execute on procedure reporting.flavours_update to 'reporting-query'@'%';
+
+call flavours_update();
 
 -- instances depends on projects and flavours
 create table instances (
@@ -216,8 +237,6 @@ create table instances (
         cpu_time int comment "Number of seconds instnace has been using CPU",
         active boolean comment "Is the instance active",
         primary key (uuid),
-        foreign key (project_id) references projects(uuid),
-        foreign key (flavour) references flavours(id),
         key instances_project_id_key (project_id)
 ) comment "Instance details";
 
@@ -227,6 +246,11 @@ create definer = 'reporting-update'@'localhost' procedure instances_update()
 deterministic
 begin
 declare ts datetime;
+declare r int(1);
+select count(*) into r from metadata where table_name = 'instances';
+if r = 0 then
+insert into metadata (table_name, ts) values ('instances', null);
+end if;
 select ifnull(ts,from_unixtime(0)) into ts from metadata where table_name = 'instances';
 if date_sub(now(), interval 600 second) > ts then
 replace into instances
@@ -248,7 +272,7 @@ select
 from
         nova.instances;
 insert into metadata (table_name, ts) values ('instances', null)
-on duplicate key update metadata set ts = null where table_name = 'instances';
+on duplicate key update ts = null;
 end if;
 end;
 //
@@ -256,6 +280,8 @@ delimiter ;
 
 grant execute on procedure reporting.instances_update to 'reporting-update'@'localhost';
 grant execute on procedure reporting.instances_update to 'reporting-query'@'%';
+
+call instances_update();
 
 -- likewise, volumes (and all the others, in fact) depend on the projects table
 create table volumes (
@@ -268,7 +294,6 @@ create table volumes (
         attached boolean comment "Volume attached or not",
         instance_uuid varchar(36) comment "Instance the volume is attached to",
         primary key (uuid),
-        foreign key (project_id) references projects(uuid)
 ) comment "Volume details";
 
 delimiter //
@@ -277,6 +302,11 @@ create definer = 'reporting-update'@'localhost' procedure volumes_update()
 deterministic
 begin
 declare ts datetime;
+declare r int(1);
+select count(*) into r from metadata where table_name = 'volumes';
+if r = 0 then
+insert into metadata (table_name, ts) values ('volumes', null);
+end if;
 select ifnull(ts,from_unixtime(0)) into ts from metadata where table_name = 'volumes';
 if date_sub(now(), interval 600 second) > ts then
 replace into volumes
@@ -292,7 +322,7 @@ select
 from
         cinder.volumes;
 insert into metadata (table_name, ts) values ('volumes', null)
-on duplicate key update metadata set ts = null where table_name = 'volumes';
+on duplicate key update ts = null;
 end if;
 end;
 //
@@ -300,6 +330,8 @@ delimiter ;
 
 grant execute on procedure reporting.volumes_update to 'reporting-update'@'localhost';
 grant execute on procedure reporting.volumes_update to 'reporting-query'@'%';
+
+call volumes_update();
 
 create table images (
         uuid varchar(36) comment "Image UUID",
@@ -311,7 +343,6 @@ create table images (
         created datetime comment "Image created at",
         deleted datetime comment "Image deleted at",
         primary key (uuid),
-        foreign key (project_id) references projects(uuid)
 ) comment "Image details";
 
 delimiter //
@@ -320,6 +351,11 @@ create definer = 'reporting-update'@'localhost' procedure images_update()
 deterministic
 begin
 declare ts datetime;
+declare r int(1);
+select count(*) into r from metadata where table_name = 'images';
+if r = 0 then
+insert into metadata (table_name, ts) values ('images', null);
+end if;
 select ifnull(ts,from_unixtime(0)) into ts from metadata where table_name = 'images';
 if date_sub(now(), interval 600 second) > ts then
 replace into images
@@ -335,7 +371,7 @@ select
 from
         glance.images;
 insert into metadata (table_name, ts) values ('images', null)
-on duplicate key update metadata set ts = null where table_name = 'images';
+on duplicate key update ts = null;
 end if;
 end;
 //
@@ -344,3 +380,4 @@ delimiter ;
 grant execute on procedure reporting.images_update to 'reporting-update'@'localhost';
 grant execute on procedure reporting.images_update to 'reporting-query'@'%';
 
+call images_update();
