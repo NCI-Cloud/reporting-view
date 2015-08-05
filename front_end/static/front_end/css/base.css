@@ -1,12 +1,21 @@
 div.title {
     text-align: center;
 }
-section {
+section, footer {
     border-top: 1px solid #ccc;
     padding: 7rem 0;
 }
 section > h3 {
     display: none;
+}
+footer {
+    text-align: center;
+    font-size: 1rem;
+    color: gray;
+    font-style: italic;
+}
+footer a {
+    cursor: pointer;
 }
 .loading,.error {
     background-repeat: no-repeat;

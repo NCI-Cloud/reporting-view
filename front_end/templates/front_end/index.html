@@ -33,7 +33,7 @@
   <div class="one-half column resources">
     <h4>Overall resource usage</h4>
   </div>
-  <div class="one-half column overview loading">
+  <div class="one-half column overview">
     <h4>Per-project distribution</h4>
     <div class="instructions">
     <p>Click on a piece of pie to filter data.</p>
@@ -42,7 +42,7 @@
   </div>
 </div>
 <div class="row">
-  <div class="twelve column live loading">
+  <div class="twelve column live">
     <table class="display">
     </table>
   </div>
@@ -57,6 +57,12 @@
   </div>
 </div>
 </section>
+<footer>
+<div class="row">
+  <div class="twelve column footer">
+  </div>
+</div>
+</footer>
 
 </div>{# /container #}
 <script>
@@ -317,6 +323,7 @@
     // concat all depdendency query keys, then filter out duplicates (topsort would be too cool)
     var dep_keys = deps.reduce(function(val, dep) { return val.concat(dep.dep); }, []);
     dep_keys = dep_keys.filter(function(dep, i) { return dep_keys.indexOf(dep)==i; });
+    deps.forEach(function(dep) { $(dep.sel).addClass('loading'); });
     dep_keys.forEach(function(key) { sqldump(key,
         // get all preload data, then call success
         function(data) {
@@ -356,6 +363,12 @@
             });
         }
     )});
+
+    var p = $('<p></p>').html('Last update: ?'); // TODO get this from db
+    $('div.footer').append(p);
+    p = $('<p></p>');
+    p.append($('<a></a>').html('Update now').click(function(){sqldump('update', function(){location.reload();})}));
+    $('div.footer').append(p);
 })(jQuery);
 </script>
 </body>
