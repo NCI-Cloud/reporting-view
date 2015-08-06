@@ -34,6 +34,14 @@ path.res-used { fill: #d62728; } /* hard-coded to match category20 */
 path.res-free { fill: #2ca02c; }
 div.overview select  { float: right; }
 div.resources select { float: left; }
+div.resources label {
+    float: left;
+    clear: left;
+    font-weight: normal;
+}
+div.resources label > *:first-child {
+    margin-right: 0.5em;
+}
 .error {
     background-image: url(../img/error.png);
     background-color: rgba(255,0,0,0.1);
