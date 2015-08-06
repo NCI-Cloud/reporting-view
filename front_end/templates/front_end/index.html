@@ -61,6 +61,7 @@
 <footer>
 <div class="row">
   <div class="twelve column footer">
+    <p>Last updated: <span class="date">?</span></p>
   </div>
 </div>
 </footer>
@@ -87,6 +88,11 @@
             sel : '.live',
             dep : ['projects', 'flavours', 'live_instances'],
             fun : report_live,
+        },
+        {
+            sel : '.footer',
+            dep : ['last_updated'],
+            fun : report_footer,
         },
     ];
     var g = {};
@@ -379,6 +385,16 @@
         });
     }
 
+    function report_footer(dep) {
+        if(g.last_updated.length == 0) {
+            // panic
+            d3.select(dep.sel).classed('error', true);
+            return;
+        }
+        $('.date', dep.sel).html(humanize.relativeTime(g.last_updated[0].timestamp));
+        $(dep.sel).removeClass('loading');
+    }
+
     function lock_options(sel1, sel2) {
         // try to make the value of "sel1 select" match that of "sel2 select" (if "#pielock" is checked)
         // return true if sel1's select value has changed
@@ -441,9 +457,7 @@
         }
     )});
 
-    var p = $('<p></p>').html('Last update: ?'); // TODO get this from db
-    $('div.footer').append(p);
-    p = $('<p></p>');
+    var p = $('<p></p>');
     p.append($('<a></a>').html('Update now').click(function(){sqldump('update', function(){location.reload();})}));
     $('div.footer').append(p);
 })(jQuery);
