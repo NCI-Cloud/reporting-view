@@ -33,29 +33,28 @@
 <h3>Live usage</h3>
 <div class="row">
   <div class="one-half column resources">
-    <h4>Overall resource usage</h4>
+    <h4>Current resource usage</h4>
   </div>
   <div class="one-half column overview">
     <h4>Per-project distribution</h4>
     <div class="instructions">
     <p>Click on a piece of pie to filter data.</p>
-    <p style="display:none">Click again to reset.</p>
+    <p class="selected" style="display:none">Click again to reset.</p>
     </div>
   </div>
 </div>
 <div class="row">
   <div class="twelve column live">
-    <table class="display">
-    </table>
+    <table class="display"></table>
   </div>
 </div>
 </section>
 <section>
 <h3>Historical usage</h3>
 <div class="row">
-  <div class="twelve column">
+  <div class="twelve column historical">
     <h4>Historical usage</h4>
-    <p>{% lorem %}</p>
+    <table class="display"></table>
   </div>
 </div>
 </section>
@@ -91,6 +90,11 @@
             fun : report_live,
         },
         {
+            sel : '.historical',
+            dep : ['projects', 'flavours'],
+            fun : report_historical,
+        },
+        {
             sel : '.footer',
             dep : ['last_updated'],
             fun : report_footer,
@@ -99,7 +103,8 @@
     var g = {};
 
     var on = {
-        optionChanged : new signals.Signal(),
+        optionChanged : new signals.Signal(),  // when changing "vcpus", "memory", etc.
+        projectChanged : new signals.Signal(),
     };
 
     // overview elements
@@ -134,6 +139,7 @@
     }
 
     function report_overview(dep) {
+        var s = d3.select(dep.sel);
         // "lock charts" is implemented by matching keys with report_resources
         var aggs = [
             {
@@ -184,7 +190,7 @@
             .innerRadius(0)
             .outerRadius(radius - 10);
 
-        var svg = d3.select(dep.sel).insert('svg', ':nth-child(2)') // insert after heading
+        var svg = s.insert('svg', ':nth-child(2)') // insert after heading
             .attr('width', width)
             .attr('height', height)
           .append('g')
@@ -193,32 +199,19 @@
         var path = svg.datum(agg_live_instances).selectAll('path')
             .data(pie)
           .enter().append('path')
-            .attr('class', 'arc')
+            .attr('class', function(d) { return 'project-' + d.data.puuid })
             .attr('fill', function(d, i) { return color(i); })
             .attr('d', arc)
             .on('mouseover', function(d, i) {}) // TODO eventually handle these
             .on('mouseout',  function(d, i) {})
-            .on('click', function(d, i) {
-                var col = live_tbl.column('.project_id');
-                d3.selectAll('path').classed('selected', false);
-                if(col.search() == d.data.puuid) {
-                    // deselecting
-                    col.search('').draw();
-                } else {
-                    // selecting
-                    col.search(d.data.puuid).draw();
-                    d3.select(this).classed('selected', true);
-                }
-                $(dep.sel).find('p').toggle();
-             })
+            .on('click', function(d) { on.projectChanged.dispatch(dep.sel, d3.select(this).classed('selected') ? null : d.data.puuid); })
             .each(function(d) { this._current = d; }); // store initial angles
 
         // done loading pie chart now
-        d3.select(dep.sel).classed('loading', false);
+        s.classed('loading', false);
         
         // generate <select> for controlling pie
-        var sel = d3.select(dep.sel)
-          .insert('select', 'svg')
+        var sel = s.insert('select', 'svg')
             .on('change', function() { on.optionChanged.dispatch(dep.sel, this.value); });
         sel.selectAll('option')
             .data(aggs)
@@ -238,21 +231,31 @@
                 change_pie(data_key, pie, path, arc);
             }
         });
-        on.projectChanged.add(function(sel, puuid) {
-            console.log('update overview with %o', puuid);
-            sqldump('instances/'+puuid, function(data) {
-                console.log('got instances (%o)', data.length);
-            }, function(error) {
-                d3.select(dep.sel).classed('error', true);
-            });
+        on.projectChanged.add(function(sender_sel, puuid) {
+            // apply "selected" class to pie piece corresponding to puuid, if it has nonzero value (i.e. don't confuse user by selecting invisible data)
+            if(dep.sel!==sender_sel && !should_lock_charts()) return;
+            s.selectAll('path').classed('selected', false); // deselect everything
+            var field = s.select('select').property('value'); // what field are we looking at
+            var d = agg_live_instances.find(function(i){return i.puuid===puuid}); // find datum with given puuid
+            if(d && d[field]) { // datum exists (expected), and has nonzero value of field, so can be selected on pie chart
+                s.selectAll('path.project-'+puuid).classed('selected', true);
+                s.select('p.selected').style('display', 'block');
+                s.select('p:not(.selected)').style('display', 'none');
+            } else {
+                s.select('p.selected').style('display', 'none');
+                s.select('p:not(.selected)').style('display', 'block');
+            }
         });
     }
 
     function report_live(dep) {
+        var s = $(dep.sel);
         // show table
-        live_tbl = $('.live table').DataTable({
-            dom : 't', // show table only
+        live_tbl = $('table', s).DataTable({
+            dom : 'rt', // show only processing indicator and table
             data : g.live_instances,
+            processing : true,
+            paging : false, // assuming there won't be too many live instances (might be a bad assumption for production)
             columns : [
                 {
                     title : 'Created',
@@ -301,9 +304,16 @@
                 },
             ],
             order : [[0, 'desc']], // order by first col: most recently created first
-            processing : true,
+            language : {
+                zeroRecords : 'No matching live instances found.',
+            },
         });
-        $(dep.sel).removeClass('loading');
+        s.removeClass('loading');
+
+        on.projectChanged.add(function(sender_sel, puuid) {
+            if(!should_lock_charts()) return;
+            live_tbl.column('.project_id').search(puuid ? puuid : '').draw();
+        });
     }
 
     function report_resources(dep) {
@@ -340,8 +350,6 @@
         // generate pie chart
         var width = 300, height = 300, radius = Math.min(width, height)*0.5; // TODO responsive svg
 
-        var color = d3.scale.category20();
-
         var pie = d3.layout.pie()
             .value(function(d) { return d[aggs[0].key]; });
 
@@ -359,7 +367,6 @@
             .data(pie)
           .enter().append('path')
             .attr('class', function(d, i) { return 'res-'+d.data.key; })
-            .attr('fill', function(d, i) { return color(i); })
             .attr('d', arc)
             .each(function(d) { this._current = d; }); // store initial angles
 
@@ -391,6 +398,101 @@
         });
     }
 
+    function report_historical(dep) {
+        var s = d3.select(dep.sel);
+        s.insert('select', 'table')
+            .attr('class', 'project')
+            .on('change', function() { on.projectChanged.dispatch(dep.sel, this.value); })
+          .selectAll('option')
+            .data(g.projects)
+          .enter().append('option')
+            .attr('value', function(d) { return d.uuid; })
+            .text(function(d) { return d.display_name; });
+        s.select('select').insert('option', 'option') // placeholder
+            .attr('value', '')
+            .attr('disabled', '')
+            .attr('selected', '')
+            .style('display', 'none')
+            .text('Select project...');
+
+        var tbl = $('table', $(dep.sel)).DataTable({
+            columns : [
+                {
+                    title : 'Created',
+                    data : 'created',
+                    className : 'date',
+                    render : {
+                        display : Formatters.relativeDateDisplay,
+                    },
+                },
+                {
+                    title : 'Deleted',
+                    data : 'deleted',
+                    className : 'date',
+                    render : {
+                        display : Formatters.relativeDateDisplay,
+                    },
+                },
+                {
+                    title : 'Wall time',
+                    data : 'wall_time',
+                    render : { display : Formatters.timeDisplay },
+                },
+                {
+                    title : 'CPU time',
+                    data : 'cpu_time',
+                    render : { display : Formatters.timeDisplay },
+                },
+                {
+                    title : 'Name',
+                    data : 'name',
+                },
+                {
+                    title : 'Flavour',
+                    data : 'flavour',
+                    render : {
+                        display : Formatters.flavourDisplay(g.flavours),
+                        filter : function(flavour_id) { return g.flavours.find(function(f){return f.id==flavour_id;}).name; },
+                    },
+                },
+                {
+                    data : 'project_id',
+                    className : 'project_id', // to identify column for filtering
+                    visible : false,
+                },
+                {
+                    data : 'uuid',
+                    visible : false,
+                },
+            ],
+            order : [[0, 'desc']], // order by first col: most recently created first
+            processing : true,
+            language : {
+                zeroRecords : 'Select a project to view its instances.',
+            },
+        });
+        s.classed('loading', false);
+
+        on.projectChanged.add(function(sel, puuid) {
+            if(sel!==dep.sel && !should_lock_charts()) return;
+            if(!puuid) {
+                s.select('select').property('value', '');
+                tbl.clear().draw();
+                return;
+            }
+            s.classed('loading', true);
+            s.select('select').property('value', puuid);
+            sqldump('instances/'+puuid, function(data) {
+                tbl.clear().rows.add(data).draw();
+                s.classed('loading', false);
+            }, function(error) {
+                tbl.clear().draw();
+                s.classed('loading', false);
+                s.classed('error', true);
+            });
+        });
+    }
+
     function report_footer(dep) {
         if(g.last_updated.length == 0) {
             // panic
@@ -401,21 +503,8 @@
         $(dep.sel).removeClass('loading');
     }
 
-    function lock_options(sel1, sel2) {
-        // try to make the value of "sel1 select" match that of "sel2 select" (if "#pielock" is checked)
-        // return true if sel1's select value has changed
-        var changed = sel1 === sel2, // calling this function with matching selectors means it's changed
-            sel1 = d3.select(sel1).select('select');
-        if(sel1 !== sel2 && d3.select('#pielock').node().checked) {
-            var key1 = sel1.property('value'),
-                key2 = d3.select(sel2).select('select').property('value');
-            if(key1 !== key2 && sel1.select('option[value='+key2+']').node()) {
-                // data key has changed, and there exists a matching key for this element, so update
-                sel1.property('value', key2);
-                changed = true;
-            }
-        }
-        return changed;
+    function should_lock_charts() {
+        return d3.select('#pielock').node().checked;
     }
 
     // putting <script> at the end of document makes sure we have all the dom we need

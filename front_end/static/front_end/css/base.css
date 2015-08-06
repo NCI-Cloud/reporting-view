@@ -34,7 +34,7 @@ path.res-used { fill: #d62728; } /* hard-coded to match category20 */
 path.res-free { fill: #2ca02c; }
 div.overview select  { float: right; }
 div.resources select { float: left; }
-label > *:first-child {
+.title label > *:first-child {
     margin-right: 0.5em;
 }
 .error {
@@ -43,7 +43,7 @@ label > *:first-child {
     border: 2px dashed crimson;
     border-radius: 1rem;
 }
-div.live table {
+table {
     font-size: 1.2rem;
 }
 div.live td.date {
