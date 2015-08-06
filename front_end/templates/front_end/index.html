@@ -164,10 +164,10 @@
         ];
 
         // aggregate data
-        var agg_live_instances = Object.keys(g.projects).map(function(puuid) {
-            var ret = {puuid : puuid};
+        var agg_live_instances = g.projects.map(function(p) {
+            var ret = {puuid : p.uuid};
             aggs.forEach(function(f) {
-                ret[f.key] = g.live_instances.filter(function(ins) { return ins.project_id == puuid; }).reduce(f.use_fn, 0);
+                ret[f.key] = g.live_instances.filter(function(ins) { return ins.project_id == p.uuid; }).reduce(f.use_fn, 0);
             });
             return ret;
         });
@@ -229,7 +229,7 @@
         // TODO improve tooltips
         path
           .append('svg:title') // idk if you're even allowed to put a title inside a path
-            .text(function(d) { return g.projects[d.data.puuid].display_name+': '+d.data[d3.select('div.overview select').property('value')]; });
+            .text(function(d) { return g.projects.find(function(p){return p.uuid==d.data.puuid;}).display_name+': '+d.data[d3.select('div.overview select').property('value')]; });
 
         // listen for option change events
         on.optionChanged.add(function(sel) {
@@ -256,7 +256,7 @@
                 {
                     title : 'Project',
                     data : function(live_instance) {
-                        return g.projects[live_instance.project_id].display_name;
+                        return g.projects.find(function(p){return p.uuid==live_instance.project_id;}).display_name;
                     },
                 },
                 {
@@ -278,7 +278,7 @@
                     data : 'flavour',
                     render : {
                         display : Formatters.flavourDisplay(g.flavours),
-                        filter : function(flavour_id) { return g.flavours[flavour_id].name; }, // TODO hello
+                        filter : function(flavour_id) { return g.flavours.find(function(f){return f.id==flavour_id;}).name; },
                     },
                 },
                 {
@@ -421,20 +421,6 @@
     dep_keys.forEach(function(key) { sqldump(key,
         // get all preload data, then call success
         function(data) {
-            // maybe restructure data, then store
-            if(key == 'projects') {
-                ps = {}
-                data.forEach(function(p) {
-                    ps[p.uuid] = p;
-                });
-                data = ps;
-            } else if(key == 'flavours') {
-                fs = {}
-                data.forEach(function(f) {
-                    fs[f.id] = f;
-                });
-                data = fs;
-            }
             g[key] = data;
             
             // check if any new report functions can now be called
@@ -458,9 +444,12 @@
         }
     )});
 
-    var p = $('<p></p>');
-    p.append($('<a></a>').html('Update now').click(function(){sqldump('update', function(){location.reload();})}));
-    $('div.footer').append(p);
+    // footer
+    $('div.footer').append($('<p></p>').append($('<a></a>').html('Update now').click(function() {
+        sqldump('update', function() {
+            location.reload();
+        });
+    })));
 })(jQuery);
 </script>
 </body>

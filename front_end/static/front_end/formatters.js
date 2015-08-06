@@ -9,7 +9,7 @@ var Formatters = {};
 
     Formatters.flavourDisplay = function(flavours) {
         return function(flavour_id) {
-            var f = flavours[flavour_id];
+            var f = flavours.find(function(f){return f.id==flavour_id;});
             return '<abbr title="'+f.vcpus+' cpu / '
                                   +si_bytes(f.memory*1024*1024)+' / '
                                   +si_bytes((+f.root+(+f.ephemeral))*1024*1024*1024)
