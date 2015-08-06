@@ -21,10 +21,11 @@
 <body>
 <div class="container">
 
-<section>
-<div class="title row">
+<section class="title">
+<div class="row">
 <div class="twelve column">
 <h2>Tenjin</h2>
+    <p><label><input type="checkbox" checked id="pielock">Lock charts</label></p>
 </div>
 </div>
 </section>
@@ -33,7 +34,6 @@
 <div class="row">
   <div class="one-half column resources">
     <h4>Overall resource usage</h4>
-    <label><input type="checkbox" checked id="pielock">lock charts</label>
   </div>
   <div class="one-half column overview">
     <h4>Per-project distribution</h4>
@@ -217,10 +217,10 @@
         d3.select(dep.sel).classed('loading', false);
         
         // generate <select> for controlling pie
-        d3.select(dep.sel)
+        var sel = d3.select(dep.sel)
           .insert('select', 'svg')
-            .on('change', function() { on.optionChanged.dispatch(dep.sel); })
-          .selectAll('option')
+            .on('change', function() { on.optionChanged.dispatch(dep.sel, this.value); });
+        sel.selectAll('option')
             .data(aggs)
           .enter().append('option')
             .attr('value', function(d) { return d.key; })
@@ -231,11 +231,20 @@
           .append('svg:title') // idk if you're even allowed to put a title inside a path
             .text(function(d) { return g.projects.find(function(p){return p.uuid==d.data.puuid;}).display_name+': '+d.data[d3.select('div.overview select').property('value')]; });
 
-        // listen for option change events
-        on.optionChanged.add(function(sel) {
-            if(lock_options(dep.sel, sel)) {
-                change_pie(d3.select(dep.sel).select('select').property('value'), pie, path, arc);
+        on.optionChanged.add(function(sender_sel, data_key) {
+            if(dep.sel!==sender_sel && !should_lock_charts()) return;
+            if(aggs.find(function(a){return a.key===data_key})) { // check if data_key makes sense in this context
+                sel.property('value', data_key);
+                change_pie(data_key, pie, path, arc);
             }
+        });
+        on.projectChanged.add(function(sel, puuid) {
+            console.log('update overview with %o', puuid);
+            sqldump('instances/'+puuid, function(data) {
+                console.log('got instances (%o)', data.length);
+            }, function(error) {
+                d3.select(dep.sel).classed('error', true);
+            });
         });
     }
 
@@ -352,22 +361,16 @@
             .attr('class', function(d, i) { return 'res-'+d.data.key; })
             .attr('fill', function(d, i) { return color(i); })
             .attr('d', arc)
-            .on('mouseover', function(d, i) {}) // TODO eventually handle these
-            .on('mouseout',  function(d, i) {})
-            .on('click', function(d, i) {
-                // TODO this !important
-             })
             .each(function(d) { this._current = d; }); // store initial angles
 
         // done loading pie chart now
         d3.select(dep.sel).classed('loading', false);
 
         // generate <select> for controlling pie
-        d3.select(dep.sel)
-          .insert('select', 'label')
-            //.on('change',function() { change_pie(this.value, pie, path, arc); })
-            .on('change', function() { on.optionChanged.dispatch(dep.sel); })
-          .selectAll('option')
+        var sel = d3.select(dep.sel)
+          .insert('select', 'svg')
+            .on('change', function() { on.optionChanged.dispatch(dep.sel, this.value); });
+        sel.selectAll('option')
             .data(aggs)
           .enter().append('option')
             .attr('value', function(d) { return d.key; })
@@ -379,9 +382,11 @@
             .text(function(d) { return d.data.key; });
 
         // listen for option change events
-        on.optionChanged.add(function(sel) {
-            if(lock_options(dep.sel, sel)) {
-                change_pie(d3.select(dep.sel).select('select').property('value'), pie, path, arc);
+        on.optionChanged.add(function(sender_sel, data_key) {
+            if(dep.sel!==sender_sel && !should_lock_charts()) return;
+            if(aggs.find(function(a){return a.key===data_key})) { // check if data_key makes sense in this context
+                sel.property('value', data_key);
+                change_pie(data_key, pie, path, arc);
             }
         });
     }

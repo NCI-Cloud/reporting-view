@@ -1,5 +1,6 @@
-div.title {
+section.title {
     text-align: center;
+    padding: 4.5rem 0;
 }
 section, footer {
     border-top: 1px solid #ccc;
@@ -28,18 +29,12 @@ footer a {
     background-image: url(../img/loading.gif); /* From https://commons.wikimedia.org/wiki/File:Loading.gif (CC-BY-SA-2.5) */
 }
 path { stroke: #fff; }
-path.arc:hover { fill: pink; }
-path.selected { fill: #900; }
+path.selected { fill: pink; }
 path.res-used { fill: #d62728; } /* hard-coded to match category20 */
 path.res-free { fill: #2ca02c; }
 div.overview select  { float: right; }
 div.resources select { float: left; }
-div.resources label {
-    float: left;
-    clear: left;
-    font-weight: normal;
-}
-div.resources label > *:first-child {
+label > *:first-child {
     margin-right: 0.5em;
 }
 .error {
