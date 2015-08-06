@@ -236,6 +236,7 @@ create table instances (
         wall_time int comment "Number of seconds instance has been running",
         cpu_time int comment "Number of seconds instnace has been using CPU",
         active boolean comment "Is the instance active",
+	availability_zone varchar(255) comment "Availabilty zone the instance is running in",
         primary key (uuid),
         key instances_project_id_key (project_id)
 ) comment "Instance details";
@@ -268,7 +269,8 @@ select
         unix_timestamp(ifnull(deleted_at,now()))-unix_timestamp(created_at) as allocation_time,
         0 as wall_time,
         0 as cpu_time,
-        if(deleted<>0,false,true) as active
+        if(deleted<>0,false,true) as active,
+	availability_zone
 from
         nova.instances;
 insert into metadata (table_name, ts) values ('instances', null)
@@ -293,6 +295,7 @@ create table volumes (
         deleted datetime comment "Volume deleted at",
         attached boolean comment "Volume attached or not",
         instance_uuid varchar(36) comment "Instance the volume is attached to",
+	availability_zone varchar(255) comment "Availability zone the volume exists in",
         primary key (uuid),
 ) comment "Volume details";
 
@@ -318,7 +321,8 @@ select
         created_at as created,
         deleted_at as deleted,
         if(attach_status='attached',true,false) as attached,
-        instance_uuid
+        instance_uuid,
+	availability_zone
 from
         cinder.volumes;
 insert into metadata (table_name, ts) values ('volumes', null)
