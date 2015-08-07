@@ -54,6 +54,7 @@
 <div class="row">
   <div class="twelve column historical">
     <h4>Historical usage</h4>
+    <div class="chart">{# this is a better way than ".insert('svg', ':nth-child(fragile)')" #}</div>
     <table class="display"></table>
   </div>
 </div>
@@ -400,7 +401,7 @@
 
     function report_historical(dep) {
         var s = d3.select(dep.sel);
-        s.insert('select', 'table')
+        s.insert('select', '.chart')
             .attr('class', 'project')
             .on('change', function() { on.projectChanged.dispatch(dep.sel, this.value); })
           .selectAll('option')
@@ -478,12 +479,98 @@
             if(!puuid) {
                 s.select('select').property('value', '');
                 tbl.clear().draw();
+                s.selectAll('svg').remove();
                 return;
             }
             s.classed('loading', true);
             s.select('select').property('value', puuid);
             sqldump('instances/'+puuid, function(data) {
+                // pollute data by preparsing dates, then sort by c_time TODO sort may be unnecessary
+                data.forEach(function(d,i) {
+                    data[i].c_time = Date.parse(d.created);
+                    data[i].d_time = Date.parse(d.deleted);
+                });
+                data.sort(function(i1, i2) { return i2.c_time - i1.c_time });
+
+                // fill data table
                 tbl.clear().rows.add(data).draw();
+
+                // TODO would be nicer just to update instead of removing and recreating
+                s.selectAll('svg').remove();
+
+                // generate time series data
+                var ts_events = [];
+                data.forEach(function(instance) {
+                    if(! isNaN(instance.c_time)) ts_events.push({time:instance.c_time, count:+1});
+                    if(! isNaN(instance.d_time)) ts_events.push({time:instance.d_time, count:-1});
+                });
+                ts_events.sort(function(e1, e2) { return e1.time - e2.time });
+                var context = {total_instances : 0};
+                var ts_data = ts_events.map(
+                    function(e) {
+                        this.total_instances += e.count;
+                        return {time:e.time, count:this.total_instances};
+                    },
+                    context
+                );
+
+                // build chart TODO responsive svg
+                var margin = {t:30, r:30, b:30, l:30}; // this is a comment
+                var width = 900, height = 60;
+
+                var svg = s.select('.chart').append('svg')
+                    .attr('width', width+margin.l+margin.r)
+                    .attr('height', height+margin.t+margin.b)
+                    .append('g')
+                    .attr('transform', 'translate('+margin.l+','+margin.t+')');
+
+                var x = d3.time.scale()
+                    .domain(d3.extent(ts_data, function(d) { return d.time }))
+                    .range([0, width]);
+                var y = d3.scale.linear()
+                    .domain(d3.extent(ts_data, function(d) { return d.count }))
+                    .range([height,0]);
+
+                var xAxis = d3.svg.axis()
+                    .scale(x)
+                    .orient('bottom');
+                var yAxis = d3.svg.axis()
+                    .tickFormat(d3.format('d'))
+                    .tickSubdivide(0)
+                    .ticks(3)
+                    .scale(y)
+                    .orient('left');
+
+                var line = d3.svg.line()
+                    .interpolate('step-after')
+                    .x(function(d) { return x(d.time) })
+                    .y(function(d) { return y(d.count) });
+
+                var area = d3.svg.area()
+                    .interpolate('step-after')
+                    .x(function(d) { return x(d.time) })
+                    .y0(height)
+                    .y1(function(d) { return y(d.count) });
+
+                // plot data
+                svg.append('path')
+                    .datum(ts_data)
+                    .attr('class', 'area')
+                    .attr('d', area);
+                svg.append('path')
+                    .datum(ts_data)
+                    .attr('class', 'line')
+                    .attr('d', line);
+
+                // plot axes
+                svg.append('g')
+                    .attr('transform', 'translate(0,'+height+')')
+                    .attr('class', 'axis')
+                    .call(xAxis);
+                svg.append('g')
+                    .attr('class', 'axis')
+                    .call(yAxis);
+
                 s.classed('loading', false);
             }, function(error) {
                 tbl.clear().draw();

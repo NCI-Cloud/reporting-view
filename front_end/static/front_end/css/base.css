@@ -49,3 +49,21 @@ table {
 div.live td.date {
     white-space: nowrap;
 }
+
+.historical .axis text {
+    font-size: 1.2rem; /* match table */
+}
+.historical .axis path, .historical .axis line {
+    fill: none;
+    stroke: black;
+    shape-rendering: crispEdges;
+}
+.historical .line {
+    fill: none;
+    stroke: steelblue;
+    stroke-width: 2px;
+}
+.historical .area {
+    fill: lightsteelblue;
+    stroke: none;
+}
