@@ -104,12 +104,10 @@
     var g = {};
 
     var on = {
-        optionChanged : new signals.Signal(),  // when changing "vcpus", "memory", etc.
+        optionChanged  : new signals.Signal(),  // when changing "vcpus", "memory", etc.
         projectChanged : new signals.Signal(),
+        datesChanged   : new signals.Signal(),
     };
-
-    // overview elements
-    var live_tbl;
 
     // get json data from sqldump app
     function sqldump(query_key, success, error) {
@@ -252,7 +250,7 @@
     function report_live(dep) {
         var s = $(dep.sel);
         // show table
-        live_tbl = $('table', s).DataTable({
+        var live_tbl = $('table', s).DataTable({
             dom : 'rt', // show only processing indicator and table
             data : g.live_instances,
             processing : true,
@@ -417,6 +415,7 @@
             .text('Select project...');
 
         var tbl = $('table', $(dep.sel)).DataTable({
+            sel : dep.sel,
             columns : [
                 {
                     title : 'Created',
@@ -433,6 +432,11 @@
                     render : {
                         display : Formatters.relativeDateDisplay,
                     },
+                },
+                {
+                    title : 'Allocation time',
+                    data : 'allocation_time',
+                    render : { display : Formatters.timeDisplay },
                 },
                 {
                     title : 'Wall time',
@@ -457,11 +461,6 @@
                     },
                 },
                 {
-                    data : 'project_id',
-                    className : 'project_id', // to identify column for filtering
-                    visible : false,
-                },
-                {
                     data : 'uuid',
                     visible : false,
                 },
@@ -473,6 +472,17 @@
             },
         });
         s.classed('loading', false);
+
+        on.datesChanged.add(function(sel, extent) {
+            $.fn.dataTable.ext.search.pop(); // fragile
+            if(extent==null || extent[1]-extent[0] == 0) return tbl.draw();
+            $.fn.dataTable.ext.search.push(function(settings, _, _, instance) {
+                if(settings.oInit.sel !== dep.sel) return true; // only want to filter our own table
+                // don't show instance if it was deleted before the time interval, or created after
+                return !(instance.d_time < extent[0] || instance.c_time > extent[1]);
+            });
+            tbl.draw();
+        });
 
         on.projectChanged.add(function(sel, puuid) {
             if(sel!==dep.sel && !should_lock_charts()) return;
@@ -552,6 +562,10 @@
                     .y0(height)
                     .y1(function(d) { return y(d.count) });
 
+                var view = d3.svg.brush()
+                    .x(x)
+                    .on('brush', function() { on.datesChanged.dispatch(dep.sel, view.extent()) })
+
                 // plot data
                 svg.append('path')
                     .datum(ts_data)
@@ -570,6 +584,12 @@
                 svg.append('g')
                     .attr('class', 'axis')
                     .call(yAxis);
+
+                // plot date range selector
+                var ds = svg.append('g')
+                    .call(view)
+                    .selectAll('rect')
+                    .attr('height', height);
 
                 s.classed('loading', false);
             }, function(error) {

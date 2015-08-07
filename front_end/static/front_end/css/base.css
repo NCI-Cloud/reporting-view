@@ -67,3 +67,6 @@ div.live td.date {
     fill: lightsteelblue;
     stroke: none;
 }
+.historical .extent {
+    fill: rgba(0,0,0,0.2);
+}
