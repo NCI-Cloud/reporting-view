@@ -496,10 +496,15 @@
     function report_footer(dep) {
         if(g.last_updated.length == 0) {
             // panic
-            d3.select(dep.sel).classed('error', true);
+            $(dep.sel).addClass('error');
             return;
         }
         $('.date', dep.sel).html(humanize.relativeTime(g.last_updated[0].timestamp));
+        $(dep.sel).append($('<p></p>').append($('<a></a>').html('Update now').click(function() {
+            sqldump('update', function() {
+                location.reload();
+            });
+        })));
         $(dep.sel).removeClass('loading');
     }
 
@@ -537,13 +542,6 @@
             });
         }
     )});
-
-    // footer
-    $('div.footer').append($('<p></p>').append($('<a></a>').html('Update now').click(function() {
-        sqldump('update', function() {
-            location.reload();
-        });
-    })));
 })(jQuery);
 </script>
 </body>
