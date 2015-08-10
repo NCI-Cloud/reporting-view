@@ -208,7 +208,7 @@
 
         // done loading pie chart now
         s.classed('loading', false);
-        
+
         // generate <select> for controlling pie
         var sel = s.insert('select', 'svg')
             .on('change', function() { on.optionChanged.dispatch(dep.sel, this.value); });
@@ -229,6 +229,8 @@
                 sel.property('value', data_key);
                 change_pie(data_key, pie, path, arc);
             }
+            path.selectAll('title')
+                .text(function(d) { return g.projects.find(function(p){return p.uuid==d.data.puuid;}).display_name+': '+d.data[d3.select('div.overview select').property('value')]; });
         });
         on.projectChanged.add(function(sender_sel, puuid) {
             // apply "selected" class to pie piece corresponding to puuid, if it has nonzero value (i.e. don't confuse user by selecting invisible data)
