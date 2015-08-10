@@ -52,6 +52,7 @@ div.live td.date {
 
 .historical .axis text {
     font-size: 1.2rem; /* match table */
+    cursor: pointer;
 }
 .historical .axis path, .historical .axis line {
     fill: none;

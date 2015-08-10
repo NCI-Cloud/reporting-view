@@ -529,7 +529,7 @@ function report_historical(dep) {
 
             var view = d3.svg.brush()
                 .x(x)
-                .on('brush', function() { on.datesChanged.dispatch(dep.sel, view.extent()) })
+                .on('brush', function() { on.datesChanged.dispatch(dep.sel, view.extent()) });
 
             // plot data
             svg.append('path')
@@ -543,17 +543,24 @@ function report_historical(dep) {
 
             // plot axes
             svg.append('g')
-                .attr('transform', 'translate(0,'+height+')')
-                .attr('class', 'axis')
-                .call(xAxis);
-            svg.append('g')
                 .attr('class', 'axis')
                 .call(yAxis);
+            svg.append('g')
+                .attr('transform', 'translate(0,'+height+')')
+                .attr('class', 'axis')
+                .call(xAxis)
+              .selectAll('.tick > text')
+                .on('click', function(d) {
+                    var e = d3.time.month.offset(d, 1); // one month later
+                    if(e > x.domain()[1]) e = x.domain()[1]; // need to clamp manually
+                    ds.transition().call(view.extent([d,e]));
+                    on.datesChanged.dispatch(dep.sel, view.extent());
+                 });
 
             // plot date range selector
             var ds = svg.append('g')
-                .call(view)
-                .selectAll('rect')
+                .call(view);
+            ds.selectAll('rect')
                 .attr('height', height);
 
             s.classed('loading', false);
