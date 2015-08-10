@@ -440,7 +440,7 @@ function report_historical(dep) {
 
     on.datesChanged.add(function(sel, extent) {
         $.fn.dataTable.ext.search.pop(); // fragile
-        if(extent==null || extent[1]-extent[0] == 0) return tbl.draw();
+        if(extent==null) return tbl.draw();
         $.fn.dataTable.ext.search.push(function(settings, _, _, instance) {
             if(settings.oInit.sel !== dep.sel) return true; // only want to filter our own table
             // don't show instance if it was deleted before the time interval, or created after
@@ -529,7 +529,7 @@ function report_historical(dep) {
 
             var view = d3.svg.brush()
                 .x(x)
-                .on('brush', function() { on.datesChanged.dispatch(dep.sel, view.extent()) });
+                .on('brushend', function() { on.datesChanged.dispatch(dep.sel, view.empty() ? null : view.extent()) });
 
             // plot data
             svg.append('path')
