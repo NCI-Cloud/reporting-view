@@ -491,79 +491,140 @@ function report_historical(dep) {
 
             // build chart TODO responsive svg
             var margin = {t:30, r:30, b:30, l:30}; // this is a comment
-            var width = 900, height = 60;
+            var width = 900, date_height = 60, zoom_height = 300, height_sep = 30;
 
             var svg = s.select('.chart').append('svg')
                 .attr('width', width+margin.l+margin.r)
-                .attr('height', height+margin.t+margin.b)
+                .attr('height', date_height+zoom_height+height_sep+margin.t+margin.b)
                 .append('g')
                 .attr('transform', 'translate('+margin.l+','+margin.t+')');
+            var date_g = svg.append('g').attr('class', 'date');
+            var zoom_g = svg.append('g').attr('class', 'zoom')
+                .attr('transform', 'translate(0,'+(+date_height+height_sep)+')');
+            zoom_g.append('defs').append('clipPath')
+                .attr('id', 'zoomclip')
+              .append('rect')
+                .attr('width', width)
+                .attr('height', zoom_height);
 
-            var x = d3.time.scale()
+            /**** date selection elements ****/
+            var date_x = d3.time.scale()
                 .domain(d3.extent(ts_data, function(d) { return d.time }))
                 .range([0, width]);
-            var y = d3.scale.linear()
+            var date_y = d3.scale.linear()
                 .domain(d3.extent(ts_data, function(d) { return d.count }))
-                .range([height,0]);
+                .range([date_height, 0]);
 
-            var xAxis = d3.svg.axis()
-                .scale(x)
+            var date_x_axis = d3.svg.axis()
+                .scale(date_x)
                 .orient('bottom');
-            var yAxis = d3.svg.axis()
+            var date_y_axis = d3.svg.axis()
                 .tickFormat(d3.format('d'))
                 .tickSubdivide(0)
                 .ticks(3)
-                .scale(y)
+                .scale(date_y)
                 .orient('left');
 
-            var line = d3.svg.line()
+            var date_line = d3.svg.line()
                 .interpolate('step-after')
-                .x(function(d) { return x(d.time) })
-                .y(function(d) { return y(d.count) });
-
-            var area = d3.svg.area()
+                .x(function(d) { return date_x(d.time) })
+                .y(function(d) { return date_y(d.count) });
+            var date_area = d3.svg.area()
                 .interpolate('step-after')
-                .x(function(d) { return x(d.time) })
-                .y0(height)
-                .y1(function(d) { return y(d.count) });
+                .x(function(d) { return date_x(d.time) })
+                .y0(date_height)
+                .y1(function(d) { return date_y(d.count) });
 
             var view = d3.svg.brush()
-                .x(x)
+                .x(date_x)
                 .on('brushend', function() { on.datesChanged.dispatch(dep.sel, view.empty() ? null : view.extent()) });
 
-            // plot data
-            svg.append('path')
+            /**** zoom elements ****/
+            var x_zoom = d3.time.scale()
+                .domain(date_x.domain()) // initialise with full domain
+                .range([0, width]);
+            var y_zoom = d3.scale.linear()
+                .domain(date_y.domain())
+                .range([zoom_height, 0]);
+
+            var zoom_x_axis = d3.svg.axis()
+                .scale(x_zoom)
+                .orient('bottom');
+            var zoom_y_axis = d3.svg.axis()
+                .scale(y_zoom)
+                .orient('left');
+
+            var zoom_line = d3.svg.line()
+                .interpolate('step-after')
+                .x(function(d) { return x_zoom(d.time) })
+                .y(function(d) { return y_zoom(d.count) });
+
+            /**** plot ****/
+
+            // date data
+            date_g.append('path')
                 .datum(ts_data)
                 .attr('class', 'area')
-                .attr('d', area);
-            svg.append('path')
+                .attr('d', date_area);
+            date_g.append('path')
                 .datum(ts_data)
                 .attr('class', 'line')
-                .attr('d', line);
+                .attr('d', date_line);
 
-            // plot axes
-            svg.append('g')
-                .attr('class', 'axis')
-                .call(yAxis);
-            svg.append('g')
-                .attr('transform', 'translate(0,'+height+')')
-                .attr('class', 'axis')
-                .call(xAxis)
+            // date axes
+            date_g.append('g')
+                .attr('class', 'y axis')
+                .call(date_y_axis);
+            date_g.append('g')
+                .attr('transform', 'translate(0,'+date_height+')')
+                .attr('class', 'x axis')
+                .call(date_x_axis)
               .selectAll('.tick > text')
                 .on('click', function(d) {
                     var e = d3.time.month.offset(d, 1); // one month later
-                    if(e > x.domain()[1]) e = x.domain()[1]; // need to clamp manually
+                    if(e > date_x.domain()[1]) e = date_x.domain()[1]; // need to clamp manually
                     ds.transition().call(view.extent([d,e]));
                     on.datesChanged.dispatch(dep.sel, view.extent());
                  });
 
-            // plot date range selector
-            var ds = svg.append('g')
+            // date range selector
+            var ds = date_g.append('g')
                 .call(view);
             ds.selectAll('rect')
-                .attr('height', height);
+                .attr('height', date_height);
+
+            // zoom data
+            zoom_g.append('path')
+                .datum(ts_data)
+                .attr('class', 'line')
+                .attr('d', zoom_line)
+                .attr('clip-path', 'url(#zoomclip)'); // if we'll have enough data that rendering becomes slow, it might help to filter data rather than draw it all and clip
+            zoom_g.append('g')
+                .attr('class', 'y axis')
+                .call(zoom_y_axis);
+            zoom_g.append('g')
+                .attr('transform', 'translate(0,'+zoom_height+')')
+                .attr('class', 'x axis')
+                .call(zoom_x_axis);
 
             s.classed('loading', false);
+
+            on.datesChanged.add(function(sel, extent) {
+                x_zoom.domain(extent ? extent : date_x.domain());
+                zoom_g.select('path').transition().attr('d', zoom_line);
+                zoom_g.select('.x.axis').transition().call(zoom_x_axis);
+            });
+
+    on.datesChanged.add(function(sel, extent) {
+        $.fn.dataTable.ext.search.pop(); // fragile
+        if(extent==null) return tbl.draw();
+        $.fn.dataTable.ext.search.push(function(settings, _, _, instance) {
+            if(settings.oInit.sel !== dep.sel) return true; // only want to filter our own table
+            // don't show instance if it was deleted before the time interval, or created after
+            return !(instance.d_time < extent[0] || instance.c_time > extent[1]);
+        });
+        tbl.draw();
+    });
         }, function(error) {
             tbl.clear().draw();
             s.classed('loading', false);
