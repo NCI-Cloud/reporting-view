@@ -535,29 +535,37 @@ function report_historical(dep) {
                 .y0(date_height)
                 .y1(function(d) { return date_y(d.count) });
 
-            var view = d3.svg.brush()
+            var date_view = d3.svg.brush()
                 .x(date_x)
-                .on('brushend', function() { on.datesChanged.dispatch(dep.sel, view.empty() ? null : view.extent()) });
+                .on('brushend', function() { on.datesChanged.dispatch(dep.sel, date_view.empty() ? null : date_view.extent()) });
 
             /**** zoom elements ****/
-            var x_zoom = d3.time.scale()
+            var zoom_x = d3.time.scale()
                 .domain(date_x.domain()) // initialise with full domain
                 .range([0, width]);
-            var y_zoom = d3.scale.linear()
+            var zoom_y = d3.scale.linear()
                 .domain(date_y.domain())
                 .range([zoom_height, 0]);
 
             var zoom_x_axis = d3.svg.axis()
-                .scale(x_zoom)
+                .scale(zoom_x)
                 .orient('bottom');
             var zoom_y_axis = d3.svg.axis()
-                .scale(y_zoom)
+                .scale(zoom_y)
                 .orient('left');
 
             var zoom_line = d3.svg.line()
                 .interpolate('step-after')
-                .x(function(d) { return x_zoom(d.time) })
-                .y(function(d) { return y_zoom(d.count) });
+                .x(function(d) { return zoom_x(d.time) })
+                .y(function(d) { return zoom_y(d.count) });
+
+            var zoom_view = d3.svg.brush()
+                .x(zoom_x)
+                .on('brushend', function() {
+                    on.datesChanged.dispatch(dep.sel, zoom_view.empty() ? null : zoom_view.extent());
+                    zoom_view.clear();
+                    zs.call(zoom_view);
+                 });
 
             /**** plot ****/
 
@@ -583,13 +591,13 @@ function report_historical(dep) {
                 .on('click', function(d) {
                     var e = d3.time.month.offset(d, 1); // one month later
                     if(e > date_x.domain()[1]) e = date_x.domain()[1]; // need to clamp manually
-                    ds.transition().call(view.extent([d,e]));
-                    on.datesChanged.dispatch(dep.sel, view.extent());
+                    ds.transition().call(date_view.extent([d,e]));
+                    on.datesChanged.dispatch(dep.sel, date_view.extent());
                  });
 
             // date range selector
             var ds = date_g.append('g')
-                .call(view);
+                .call(date_view);
             ds.selectAll('rect')
                 .attr('height', date_height);
 
@@ -606,11 +614,24 @@ function report_historical(dep) {
                 .attr('transform', 'translate(0,'+zoom_height+')')
                 .attr('class', 'x axis')
                 .call(zoom_x_axis);
+            var zs = zoom_g.append('g')
+                .call(zoom_view);
+            zs.selectAll('rect')
+                .attr('height', zoom_height);
 
             s.classed('loading', false);
 
             on.datesChanged.add(function(sel, extent) {
-                x_zoom.domain(extent ? extent : date_x.domain());
+                // there is a bug causing the path to disappear when the extent becomes very small (think it's a browser svg rendering bug because firefox fails differently)
+                if(extent) {
+                    zoom_x.domain(extent);
+                    date_view.extent(extent);
+                    ds.transition().call(date_view);
+                } else {
+                    zoom_x.domain(date_x.domain());
+                    date_view.clear();
+                    ds.call(date_view);
+                }
                 zoom_g.select('path').transition().attr('d', zoom_line);
                 zoom_g.select('.x.axis').transition().call(zoom_x_axis);
             });
