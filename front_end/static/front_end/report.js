@@ -366,24 +366,28 @@ function report_historical(dep) {
     var s = d3.select(dep.sel);
     var aggs = [ // pls don't use key "time"
         {
-            key      : 'vcpus',
-            title    : 'vCPU',
-            accessor : function(d) { return +d.vcpus },
+            key        : 'vcpus',
+            title      : 'vCPU',
+            tickFormat : d3.format('d'),
+            accessor   : function(d) { return +d.vcpus },
         },
         {
-            key      : 'memory',
-            title    : 'Memory',
-            accessor : function(d) { return +d.memory },
+            key        : 'memory',
+            title      : 'Memory',
+            tickFormat : function(d) { return d ? Formatters.si_bytes(d*1024*1024) : '0' },
+            accessor   : function(d) { return +d.memory },
         },
         {
-            key    : 'local',
-            title  : 'Local storage',
-            accessor : function(d) { return (+d.root) + (+d.ephemeral); },
+            key        : 'local',
+            title      : 'Local storage',
+            tickFormat : function(d) { return d ? Formatters.si_bytes(d*1024*1024*1024) : '0' },
+            accessor   : function(d) { return (+d.root) + (+d.ephemeral); },
         },
         {
-            key      : 'count',
-            title    : 'Instance count',
-            accessor : function(d) { return 1 },
+            key        : 'count',
+            title      : 'Instance count',
+            tickFormat : d3.format('d'),
+            accessor   : function(d) { return 1 },
         },
     ];
     var data_key = aggs[0].key;
@@ -473,7 +477,7 @@ function report_historical(dep) {
     var data = [], ts_data = [];
 
     // build chart TODO responsive svg
-    var margin = {t:30, r:30, b:30, l:30}; // this is a comment
+    var margin = {t:30, r:30, b:30, l:60}; // this is a comment
     var width = 900, date_height = 60, zoom_height = 300, height_sep = 30;
     var svg = s.select('.chart').append('svg')
         .attr('width', width+margin.l+margin.r)
@@ -540,6 +544,7 @@ function report_historical(dep) {
         (date_brush.empty() ? date_brush_g : date_brush_g.transition()).call(date_brush); // don't animate emptying brush (it moves to x=0 and looks silly)
 
         // update zoom chart; there is a bug causing the path to disappear when the extent becomes very small (think it's a browser svg rendering bug because firefox fails differently)
+        zoom_y_axis.tickFormat(aggs.find(function(a){return a.key==data_key}).tickFormat);
         zoom_g.select('.x.axis').transition().call(zoom_x_axis);
         zoom_g.select('.y.axis').transition().call(zoom_y_axis);
         zoom_g.select('path.line').datum(ts_data).transition().attr('d', zoom_line);
