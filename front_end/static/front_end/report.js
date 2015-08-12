@@ -536,18 +536,22 @@ function report_historical(dep) {
 
     s.classed('loading', false);
 
-    function redraw() {
+    function redraw(do_not_animate) {
+        var sel_trans = function(sel) {
+            return do_not_animate ? sel : sel.transition();
+        }
+
         // update table
         tbl.draw();
 
-        // update date chart
-        (date_brush.empty() ? date_brush_g : date_brush_g.transition()).call(date_brush); // don't animate emptying brush (it moves to x=0 and looks silly)
+        // update date chart (don't animate emptying brush; it moves to x=0 and looks silly)
+        (date_brush.empty() ? date_brush_g : sel_trans(date_brush_g)).call(date_brush);
 
         // update zoom chart; there is a bug causing the path to disappear when the extent becomes very small (think it's a browser svg rendering bug because firefox fails differently)
         zoom_y_axis.tickFormat(aggs.find(function(a){return a.key==data_key}).tickFormat);
-        zoom_g.select('.x.axis').transition().call(zoom_x_axis);
-        zoom_g.select('.y.axis').transition().call(zoom_y_axis);
-        zoom_g.select('path.line').datum(ts_data).transition().attr('d', zoom_line);
+        sel_trans(zoom_g.select('.x.axis')).call(zoom_x_axis);
+        sel_trans(zoom_g.select('.y.axis')).call(zoom_y_axis);
+        sel_trans(zoom_g.select('path.line').datum(ts_data)).attr('d', zoom_line);
         zoom_brush.clear(); // zoom chart by construction shows entire brush extent, so don't bother overlaying
         zoom_brush_g.call(zoom_brush);
     }
@@ -651,7 +655,7 @@ function report_historical(dep) {
 
             // done
             s.classed('loading', false);
-            redraw();
+            redraw(true /* do not animate, since there is no continuity between projects */);
         }, function(error) {
             tbl.clear().draw();
             s.classed('loading', false);
