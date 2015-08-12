@@ -364,7 +364,39 @@ function report_resources(dep) {
 
 function report_historical(dep) {
     var s = d3.select(dep.sel);
-    s.insert('select', '.chart')
+    var aggs = [ // pls don't use key "time"
+        {
+            key      : 'vcpus',
+            title    : 'vCPU',
+            accessor : function(d) { return +d.vcpus },
+        },
+        {
+            key      : 'memory',
+            title    : 'Memory',
+            accessor : function(d) { return +d.memory },
+        },
+        {
+            key    : 'local',
+            title  : 'Local storage',
+            accessor : function(d) { return (+d.root) + (+d.ephemeral); },
+        },
+        {
+            key      : 'count',
+            title    : 'Instance count',
+            accessor : function(d) { return 1 },
+        },
+    ];
+    var data_key = aggs[0].key;
+
+    var sel = s.insert('select', '.chart')
+        .on('change', function() { on.optionChanged.dispatch(dep.sel, this.value); });
+    sel.selectAll('option')
+        .data(aggs)
+      .enter().append('option')
+        .attr('value', function(d) { return d.key })
+        .text(function(d) { return d.title });
+
+    s.insert('select', 'select')
         .attr('class', 'project')
         .on('change', function() { on.projectChanged.dispatch(dep.sel, this.value); })
       .selectAll('option')
@@ -372,7 +404,7 @@ function report_historical(dep) {
       .enter().append('option')
         .attr('value', function(d) { return d.uuid; })
         .text(function(d) { return d.display_name; });
-    s.select('select').insert('option', 'option') // placeholder
+    s.select('select.project').insert('option', 'option') // placeholder
         .attr('value', '')
         .attr('disabled', '')
         .attr('selected', '')
@@ -436,17 +468,118 @@ function report_historical(dep) {
             zeroRecords : 'Select a project to view its instances.',
         },
     });
+
+    // project-level data
+    var data = [], ts_data = [];
+
+    // build chart TODO responsive svg
+    var margin = {t:30, r:30, b:30, l:30}; // this is a comment
+    var width = 900, date_height = 60, zoom_height = 300, height_sep = 30;
+    var svg = s.select('.chart').append('svg')
+        .attr('width', width+margin.l+margin.r)
+        .attr('height', date_height+zoom_height+height_sep+margin.t+margin.b)
+        .append('g')
+        .attr('transform', 'translate('+margin.l+','+margin.t+')');
+
+    // date chart elements
+    var date_x = d3.time.scale().range([0, width]);
+    var date_y = d3.scale.linear().range([date_height, 0]);
+    var date_x_axis = d3.svg.axis().scale(date_x).orient('bottom');
+    var date_y_axis = d3.svg.axis().scale(date_y).orient('left').ticks(0);
+    var date_brush = d3.svg.brush().x(date_x).on('brushend', function() { on.datesChanged.dispatch(dep.sel, date_brush.empty() ? null : date_brush.extent()) });
+
+    // zoom chart elements
+    var zoom_x = d3.time.scale().range([0, width]);
+    var zoom_y = d3.scale.linear().range([zoom_height, 0]);
+    var zoom_x_axis = d3.svg.axis().scale(zoom_x).orient('bottom');
+    var zoom_y_axis = d3.svg.axis().scale(zoom_y).orient('left'); // TODO axis format (depends on accessor, should be in aggs)
+    var zoom_brush = d3.svg.brush().x(zoom_x).on('brushend', function() { on.datesChanged.dispatch(dep.sel, zoom_brush.empty() ? null : zoom_brush.extent()) });
+
+    // line functions
+    var date_line = d3.svg.line()
+        .interpolate('step-after')
+        .x(function(d) { return date_x(d.time) })
+        .y(function(d) { return date_y(d.count) });
+    var date_area = d3.svg.area()
+        .interpolate('step-after')
+        .x(function(d) { return date_x(d.time) })
+        .y0(date_height)
+        .y1(function(d) { return date_y(d.count) });
+    var zoom_line = d3.svg.line()
+        .interpolate('step-after')
+        .x(function(d) { return zoom_x(d.time) })
+        .y(function(d) { return zoom_y(d[data_key]) });
+
+    // date chart svg
+    var date_g = svg.append('g').attr('class', 'date');
+    date_g.append('path').attr('class', 'area');
+    date_g.append('path').attr('class', 'line');
+    date_g.append('g').attr('class', 'y axis');
+    date_g.append('g').attr('class', 'x axis').attr('transform', 'translate(0,'+date_height+')');
+
+    // date brush
+    var date_brush_g = date_g.append('g').call(date_brush);
+    date_brush_g.selectAll('rect').attr('height', date_height);
+
+    // zoom chart svg (if we'll have enough data that rendering becomes slow, it might help to filter data rather than draw it all and clip)
+    var zoom_g = svg.append('g').attr('class', 'zoom').attr('transform', 'translate(0,'+(+date_height+height_sep)+')');
+    zoom_g.append('defs').append('clipPath').attr('id', 'zoomclip').append('rect').attr('width', width).attr('height', zoom_height);
+    zoom_g.append('path').attr('class', 'line').attr('clip-path', 'url(#zoomclip)');
+    zoom_g.append('g').attr('class', 'y axis');
+    zoom_g.append('g').attr('class', 'x axis').attr('transform', 'translate(0,'+zoom_height+')');
+    var zoom_brush_g = zoom_g.append('g').call(zoom_brush);
+    zoom_brush_g.selectAll('rect').attr('height', zoom_height);
+
     s.classed('loading', false);
 
-    on.datesChanged.add(function(sel, extent) {
-        $.fn.dataTable.ext.search.pop(); // fragile
-        if(extent==null) return tbl.draw();
-        $.fn.dataTable.ext.search.push(function(settings, _, _, instance) {
-            if(settings.oInit.sel !== dep.sel) return true; // only want to filter our own table
-            // don't show instance if it was deleted before the time interval, or created after
-            return !(instance.d_time < extent[0] || instance.c_time > extent[1]);
-        });
+    function redraw() {
+        // update table
         tbl.draw();
+
+        // update date chart
+        (date_brush.empty() ? date_brush_g : date_brush_g.transition()).call(date_brush); // don't animate emptying brush (it moves to x=0 and looks silly)
+
+        // update zoom chart; there is a bug causing the path to disappear when the extent becomes very small (think it's a browser svg rendering bug because firefox fails differently)
+        zoom_g.select('.x.axis').transition().call(zoom_x_axis);
+        zoom_g.select('.y.axis').transition().call(zoom_y_axis);
+        zoom_g.select('path.line').datum(ts_data).transition().attr('d', zoom_line);
+        zoom_brush.clear(); // zoom chart by construction shows entire brush extent, so don't bother overlaying
+        zoom_brush_g.call(zoom_brush);
+    }
+
+    on.datesChanged.add(function(sel, extent, do_not_redraw) {
+        // update table
+        if(extent) {
+            $.fn.dataTable.ext.search.pop(); // fragile
+            $.fn.dataTable.ext.search.push(function(settings, _, _, instance) {
+                if(settings.oInit.sel !== dep.sel) return true; // only want to filter our own table
+                // don't show instance if it was deleted before the time interval, or created after
+                return !(instance.d_time < extent[0] || instance.c_time > extent[1]);
+            });
+        }
+
+        // update charts
+        if(extent) {
+            zoom_x.domain(extent);
+            date_brush.extent(extent);
+        } else {
+            zoom_x.domain(date_x.domain());
+            date_brush.clear();
+        }
+
+        if(! do_not_redraw) redraw();
+    });
+
+    on.optionChanged.add(function(sender_sel, dk) {
+        if(dep.sel!==sender_sel && !should_lock_charts()) return;
+        var agg = aggs.find(function(a){return a.key===dk});
+        if(agg) {
+            data_key = dk;
+            sel.property('value', data_key);
+            accessor = function(d) { return d[data_kay] };
+            zoom_y.domain(d3.extent(ts_data, function(d) { return d[data_key] }));
+        }
+        redraw();
     });
 
     on.projectChanged.add(function(sel, puuid) {
@@ -460,192 +593,60 @@ function report_historical(dep) {
         s.classed('loading', true);
         s.select('select').property('value', puuid);
         sqldump('instances/'+puuid, function(data) {
-            // pollute data by preparsing dates, then sort by c_time TODO sort may be unnecessary
+            // pollute data by preparsing dates
             data.forEach(function(d,i) {
                 data[i].c_time = Date.parse(d.created);
                 data[i].d_time = Date.parse(d.deleted);
             });
-            data.sort(function(i1, i2) { return i2.c_time - i1.c_time });
 
             // fill data table
-            tbl.clear().rows.add(data).draw();
+            tbl.clear().rows.add(data);
 
-            // TODO would be nicer just to update instead of removing and recreating
-            s.selectAll('svg').remove();
-
-            // generate time series data
+            // generate time series data for this project
             var ts_events = [];
             data.forEach(function(instance) {
-                if(! isNaN(instance.c_time)) ts_events.push({time:instance.c_time, count:+1});
-                if(! isNaN(instance.d_time)) ts_events.push({time:instance.d_time, count:-1});
+                var f = g.flavours.find(function(f){ return f.id===instance.flavour });
+                if(! isNaN(instance.c_time)) ts_events.push({time:instance.c_time, mult:+1, instance:instance, flavour:f});
+                if(! isNaN(instance.d_time)) ts_events.push({time:instance.d_time, mult:-1, instance:instance, flavour:f});
             });
             ts_events.sort(function(e1, e2) { return e1.time - e2.time });
-            var context = {total_instances : 0};
-            var ts_data = ts_events.map(
+            var context = {};
+            aggs.forEach(function(agg) {
+                context[agg.key] = 0;
+            });
+            ts_data = ts_events.map( // compute cumulative sum of ts_events
                 function(e) {
-                    this.total_instances += e.count;
-                    return {time:e.time, count:this.total_instances};
+                    var t = this, ret = {time:e.time};
+                    aggs.forEach(function(agg) {
+                        t[agg.key] += e.mult * agg.accessor(e.instance);
+                        ret[agg.key] = t[agg.key];
+                    });
+                    return ret;
                 },
                 context
             );
 
-            // build chart TODO responsive svg
-            var margin = {t:30, r:30, b:30, l:30}; // this is a comment
-            var width = 900, date_height = 60, zoom_height = 300, height_sep = 30;
+            // reset domains and date range
+            date_x.domain(d3.extent(ts_data, function(d) { return d.time }));
+            date_y.domain(d3.extent(ts_data, function(d) { return d.count }));
+            zoom_y.domain(d3.extent(ts_data, function(d) { return d[data_key] }));
+            on.datesChanged.dispatch(dep.sel, null, true/*do_not_redraw*/);
 
-            var svg = s.select('.chart').append('svg')
-                .attr('width', width+margin.l+margin.r)
-                .attr('height', date_height+zoom_height+height_sep+margin.t+margin.b)
-                .append('g')
-                .attr('transform', 'translate('+margin.l+','+margin.t+')');
-            var date_g = svg.append('g').attr('class', 'date');
-            var zoom_g = svg.append('g').attr('class', 'zoom')
-                .attr('transform', 'translate(0,'+(+date_height+height_sep)+')');
-            zoom_g.append('defs').append('clipPath')
-                .attr('id', 'zoomclip')
-              .append('rect')
-                .attr('width', width)
-                .attr('height', zoom_height);
-
-            /**** date selection elements ****/
-            var date_x = d3.time.scale()
-                .domain(d3.extent(ts_data, function(d) { return d.time }))
-                .range([0, width]);
-            var date_y = d3.scale.linear()
-                .domain(d3.extent(ts_data, function(d) { return d.count }))
-                .range([date_height, 0]);
-
-            var date_x_axis = d3.svg.axis()
-                .scale(date_x)
-                .orient('bottom');
-            var date_y_axis = d3.svg.axis()
-                .tickFormat(d3.format('d'))
-                .tickSubdivide(0)
-                .ticks(3)
-                .scale(date_y)
-                .orient('left');
-
-            var date_line = d3.svg.line()
-                .interpolate('step-after')
-                .x(function(d) { return date_x(d.time) })
-                .y(function(d) { return date_y(d.count) });
-            var date_area = d3.svg.area()
-                .interpolate('step-after')
-                .x(function(d) { return date_x(d.time) })
-                .y0(date_height)
-                .y1(function(d) { return date_y(d.count) });
-
-            var date_view = d3.svg.brush()
-                .x(date_x)
-                .on('brushend', function() { on.datesChanged.dispatch(dep.sel, date_view.empty() ? null : date_view.extent()) });
-
-            /**** zoom elements ****/
-            var zoom_x = d3.time.scale()
-                .domain(date_x.domain()) // initialise with full domain
-                .range([0, width]);
-            var zoom_y = d3.scale.linear()
-                .domain(date_y.domain())
-                .range([zoom_height, 0]);
-
-            var zoom_x_axis = d3.svg.axis()
-                .scale(zoom_x)
-                .orient('bottom');
-            var zoom_y_axis = d3.svg.axis()
-                .scale(zoom_y)
-                .orient('left');
-
-            var zoom_line = d3.svg.line()
-                .interpolate('step-after')
-                .x(function(d) { return zoom_x(d.time) })
-                .y(function(d) { return zoom_y(d.count) });
-
-            var zoom_view = d3.svg.brush()
-                .x(zoom_x)
-                .on('brushend', function() {
-                    on.datesChanged.dispatch(dep.sel, zoom_view.empty() ? null : zoom_view.extent());
-                    zoom_view.clear();
-                    zs.call(zoom_view);
-                 });
-
-            /**** plot ****/
-
-            // date data
-            date_g.append('path')
-                .datum(ts_data)
-                .attr('class', 'area')
-                .attr('d', date_area);
-            date_g.append('path')
-                .datum(ts_data)
-                .attr('class', 'line')
-                .attr('d', date_line);
-
-            // date axes
-            date_g.append('g')
-                .attr('class', 'y axis')
-                .call(date_y_axis);
-            date_g.append('g')
-                .attr('transform', 'translate(0,'+date_height+')')
-                .attr('class', 'x axis')
-                .call(date_x_axis)
-              .selectAll('.tick > text')
-                .on('click', function(d) {
-                    var e = d3.time.month.offset(d, 1); // one month later
-                    if(e > date_x.domain()[1]) e = date_x.domain()[1]; // need to clamp manually
-                    ds.transition().call(date_view.extent([d,e]));
-                    on.datesChanged.dispatch(dep.sel, date_view.extent());
-                 });
-
-            // date range selector
-            var ds = date_g.append('g')
-                .call(date_view);
-            ds.selectAll('rect')
-                .attr('height', date_height);
-
-            // zoom data
-            zoom_g.append('path')
-                .datum(ts_data)
-                .attr('class', 'line')
-                .attr('d', zoom_line)
-                .attr('clip-path', 'url(#zoomclip)'); // if we'll have enough data that rendering becomes slow, it might help to filter data rather than draw it all and clip
-            zoom_g.append('g')
-                .attr('class', 'y axis')
-                .call(zoom_y_axis);
-            zoom_g.append('g')
-                .attr('transform', 'translate(0,'+zoom_height+')')
-                .attr('class', 'x axis')
-                .call(zoom_x_axis);
-            var zs = zoom_g.append('g')
-                .call(zoom_view);
-            zs.selectAll('rect')
-                .attr('height', zoom_height);
-
-            s.classed('loading', false);
-
-            on.datesChanged.add(function(sel, extent) {
-                // there is a bug causing the path to disappear when the extent becomes very small (think it's a browser svg rendering bug because firefox fails differently)
-                if(extent) {
-                    zoom_x.domain(extent);
-                    date_view.extent(extent);
-                    ds.transition().call(date_view);
-                } else {
-                    zoom_x.domain(date_x.domain());
-                    date_view.clear();
-                    ds.call(date_view);
-                }
-                zoom_g.select('path').transition().attr('d', zoom_line);
-                zoom_g.select('.x.axis').transition().call(zoom_x_axis);
+            // date chart domain remains the same for any given project (else most of the below code would belong in redraw())
+            date_g.select('.x.axis').call(date_x_axis);
+            date_g.select('.y.axis').call(date_y_axis);
+            date_g.select('path.line').datum(ts_data).attr('d', date_line);
+            date_g.select('path.area').datum(ts_data).attr('d', date_area);
+            date_g.selectAll('.x.axis .tick > text').on('click', function(d) { // don't know if there's a more elegant way to do this
+                var e = d3.time.month.offset(d, 1); // one month later
+                if(e > date_x.domain()[1]) e = date_x.domain()[1]; // need to clamp manually
+                date_brush_g.transition().call(date_brush.extent([d,e]));
+                on.datesChanged.dispatch(dep.sel, date_brush.extent());
             });
 
-    on.datesChanged.add(function(sel, extent) {
-        $.fn.dataTable.ext.search.pop(); // fragile
-        if(extent==null) return tbl.draw();
-        $.fn.dataTable.ext.search.push(function(settings, _, _, instance) {
-            if(settings.oInit.sel !== dep.sel) return true; // only want to filter our own table
-            // don't show instance if it was deleted before the time interval, or created after
-            return !(instance.d_time < extent[0] || instance.c_time > extent[1]);
-        });
-        tbl.draw();
-    });
+            // done
+            s.classed('loading', false);
+            redraw();
         }, function(error) {
             tbl.clear().draw();
             s.classed('loading', false);
