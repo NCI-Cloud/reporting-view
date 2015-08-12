@@ -554,8 +554,8 @@ function report_historical(dep) {
 
     on.datesChanged.add(function(sel, extent, do_not_redraw) {
         // update table
+        $.fn.dataTable.ext.search.pop(); // fragile
         if(extent) {
-            $.fn.dataTable.ext.search.pop(); // fragile
             $.fn.dataTable.ext.search.push(function(settings, _, _, instance) {
                 if(settings.oInit.sel !== dep.sel) return true; // only want to filter our own table
                 // don't show instance if it was deleted before the time interval, or created after
