@@ -70,4 +70,7 @@ div.live td.date {
 }
 .historical .extent {
     fill: rgba(0,0,0,0.2);
+    stroke: gray;
+    stroke-width: 2px;
+    stroke-dasharray: 1 1;
 }
