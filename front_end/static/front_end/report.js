@@ -474,7 +474,11 @@ function report_historical(dep) {
     });
 
     // project-level data
-    var data = [], ts_data = [];
+    var data = [], ts_data = [], ts_events = [];
+
+    // how to sort data
+    var ts_comparator = function(e1, e2) { return e1.time - e2.time };
+    var ts_bisector = d3.bisector(function(e,d) { return e.time - d; }).left;
 
     // build chart TODO responsive svg
     var margin = {t:30, r:30, b:30, l:60}; // this is a comment
@@ -527,19 +531,42 @@ function report_historical(dep) {
 
     // zoom chart svg (if we'll have enough data that rendering becomes slow, it might help to filter data rather than draw it all and clip)
     var zoom_g = svg.append('g').attr('class', 'zoom').attr('transform', 'translate(0,'+(+date_height+height_sep)+')');
-    zoom_g.append('defs').append('clipPath').attr('id', 'zoomclip').append('rect').attr('width', width).attr('height', zoom_height);
+    zoom_g.append('defs').append('clipPath').attr('id', 'zoomclip').append('rect').attr('width', width+1/*because stroke width is 2px, so could overflow*/).attr('height', zoom_height);
     zoom_g.append('path').attr('class', 'line').attr('clip-path', 'url(#zoomclip)');
     zoom_g.append('g').attr('class', 'y axis');
     zoom_g.append('g').attr('class', 'x axis').attr('transform', 'translate(0,'+zoom_height+')');
+    var zoom_x_bar = zoom_g.append('line').attr('class', 'bar').attr('y1',0).attr('y2',zoom_height);
+    var zoom_tip = d3.tip().attr('class','d3-tip').html(function(d){return (d.mult==1?'created ':'deleted ')+d.instance.name});
+    zoom_g.call(zoom_tip);
     var zoom_brush_g = zoom_g.append('g').call(zoom_brush);
-    zoom_brush_g.selectAll('rect').attr('height', zoom_height);
+    zoom_brush_g.selectAll('rect').attr('height', zoom_height).on('mousemove', function() {
+        // find ts_events element with time closest to d
+        var d = zoom_x.invert(d3.mouse(this)[0]);
+        var i = ts_bisector(ts_events, d); // locates insertion index for d in (date-sorted) ts_events
+        if(i == ts_events.length) {
+            // insertion index off end => mouse at last element
+            i -= 1;
+        } else if(ts_events[i-1]) {
+            // make sure i is the index of the closest ts_event, not necessarily the next ts_event
+            var di = ts_events[i].time - d,
+                dh = d - ts_events[i-1].time;
+            if(dh < di) i -= 1;
+        }
+        // show some information about the event
+        var x = zoom_x(ts_events[i].time);
+        zoom_x_bar.attr('x1', x).attr('x2', x).style('display', 'inline');
+        zoom_tip.show(ts_events[i], zoom_g.select('.bar').node());
+    }).on('mouseout', function() {
+        zoom_x_bar.style('display', 'none');
+        zoom_tip.hide();
+    });
 
     s.classed('loading', false);
 
     function redraw(do_not_animate) {
         var sel_trans = function(sel) {
             return do_not_animate ? sel : sel.transition();
-        }
+        };
 
         // update table
         tbl.draw();
@@ -554,6 +581,19 @@ function report_historical(dep) {
         sel_trans(zoom_g.select('path.line').datum(ts_data)).attr('d', zoom_line);
         zoom_brush.clear(); // zoom chart by construction shows entire brush extent, so don't bother overlaying
         zoom_brush_g.call(zoom_brush);
+
+        // update circles
+        var circ = zoom_g.selectAll('circle').data(ts_data);
+        circ.enter().append('circle')
+            .attr('r', 5)
+            .on('click', function(d, i) {
+                // show tooltip, as fallback for devices without :hover (this is pretty dodgy though)
+                zoom_tip.show(ts_events[i], this);
+             });
+        sel_trans(circ)
+            .attr('cx', function(d) { return zoom_x(d.time) })
+            .attr('cy', function(d) { return zoom_y(d[data_key]) });
+        sel_trans(circ.exit()).remove();
     }
 
     on.datesChanged.add(function(sel, extent, do_not_redraw) {
@@ -595,8 +635,20 @@ function report_historical(dep) {
         if(sel!==dep.sel && !should_lock_charts()) return;
         if(!puuid) {
             s.select('select').property('value', '');
-            tbl.clear().draw();
-            s.selectAll('svg').remove();
+            tbl.clear(); // clear table
+
+            // remove everything from the two charts
+            data = []; ts_data = []; ts_events = []; // clear zoomed plot
+            date_x.domain([]);
+            date_y.domain([]);
+            zoom_y.domain([]);
+            on.datesChanged.dispatch(dep.sel, null, true /*do_not_redraw*/);
+            date_g.select('.x.axis').call(date_x_axis);
+            date_g.select('.y.axis').call(date_y_axis);
+            date_g.select('path.line').datum(ts_data).attr('d', date_line);
+            date_g.select('path.area').datum(ts_data).attr('d', date_area);
+
+            redraw(true /* do_not_animate */);
             return;
         }
         s.classed('loading', true);
@@ -612,13 +664,13 @@ function report_historical(dep) {
             tbl.clear().rows.add(data);
 
             // generate time series data for this project
-            var ts_events = [];
+            ts_events = [];
             data.forEach(function(instance) {
                 var f = g.flavours.find(function(f){ return f.id===instance.flavour });
                 if(! isNaN(instance.c_time)) ts_events.push({time:instance.c_time, mult:+1, instance:instance, flavour:f});
                 if(! isNaN(instance.d_time)) ts_events.push({time:instance.d_time, mult:-1, instance:instance, flavour:f});
             });
-            ts_events.sort(function(e1, e2) { return e1.time - e2.time });
+            ts_events.sort(ts_comparator);
             var context = {};
             aggs.forEach(function(agg) {
                 context[agg.key] = 0;

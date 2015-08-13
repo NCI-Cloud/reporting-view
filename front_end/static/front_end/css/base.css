@@ -76,3 +76,12 @@ div.live td.date {
     stroke-width: 2px;
     stroke-dasharray: 1 1;
 }
+.historical line.bar {
+    stroke: lightsteelblue;
+    stroke-width: 1px;
+    stroke-dasharray: 5 5;
+    display: none;
+}
+.historical circle {
+    fill: steelblue;
+}
