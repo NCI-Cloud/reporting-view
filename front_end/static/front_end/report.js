@@ -478,7 +478,6 @@ function report_historical(dep) {
 
     // how to sort data
     var ts_comparator = function(e1, e2) { return e1.time - e2.time };
-    var ts_bisector = d3.bisector(function(e,d) { return e.time - d; }).left;
 
     // build chart TODO responsive svg
     var margin = {t:30, r:30, b:30, l:60}; // this is a comment
@@ -533,33 +532,13 @@ function report_historical(dep) {
     var zoom_g = svg.append('g').attr('class', 'zoom').attr('transform', 'translate(0,'+(+date_height+height_sep)+')');
     zoom_g.append('defs').append('clipPath').attr('id', 'zoomclip').append('rect').attr('width', width+1/*because stroke width is 2px, so could overflow*/).attr('height', zoom_height);
     zoom_g.append('path').attr('class', 'line').attr('clip-path', 'url(#zoomclip)');
+    var zoom_brush_g = zoom_g.append('g').call(zoom_brush);
+    var zoom_circles = zoom_g.append('g').attr('class', 'handles');
     zoom_g.append('g').attr('class', 'y axis');
     zoom_g.append('g').attr('class', 'x axis').attr('transform', 'translate(0,'+zoom_height+')');
-    var zoom_x_bar = zoom_g.append('line').attr('class', 'bar').attr('y1',0).attr('y2',zoom_height);
-    var zoom_tip = d3.tip().attr('class','d3-tip').html(function(d){return (d.mult==1?'created ':'deleted ')+d.instance.name});
+    var zoom_tip = d3.tip().attr('class','d3-tip').offset([-10,0]).html(function(d){return (d.mult==1?'created ':'deleted ')+d.instance.name});
     zoom_g.call(zoom_tip);
-    var zoom_brush_g = zoom_g.append('g').call(zoom_brush);
-    zoom_brush_g.selectAll('rect').attr('height', zoom_height).on('mousemove', function() {
-        // find ts_events element with time closest to d
-        var d = zoom_x.invert(d3.mouse(this)[0]);
-        var i = ts_bisector(ts_events, d); // locates insertion index for d in (date-sorted) ts_events
-        if(i == ts_events.length) {
-            // insertion index off end => mouse at last element
-            i -= 1;
-        } else if(ts_events[i-1]) {
-            // make sure i is the index of the closest ts_event, not necessarily the next ts_event
-            var di = ts_events[i].time - d,
-                dh = d - ts_events[i-1].time;
-            if(dh < di) i -= 1;
-        }
-        // show some information about the event
-        var x = zoom_x(ts_events[i].time);
-        zoom_x_bar.attr('x1', x).attr('x2', x).style('display', 'inline');
-        zoom_tip.show(ts_events[i], zoom_g.select('.bar').node());
-    }).on('mouseout', function() {
-        zoom_x_bar.style('display', 'none');
-        zoom_tip.hide();
-    });
+    zoom_brush_g.selectAll('rect').attr('height', zoom_height);
 
     s.classed('loading', false);
 
@@ -583,13 +562,11 @@ function report_historical(dep) {
         zoom_brush_g.call(zoom_brush);
 
         // update circles
-        var circ = zoom_g.selectAll('circle').data(ts_data);
+        var circ = zoom_circles.selectAll('circle').data(ts_data);
         circ.enter().append('circle')
-            .attr('r', 5)
-            .on('click', function(d, i) {
-                // show tooltip, as fallback for devices without :hover (this is pretty dodgy though)
-                zoom_tip.show(ts_events[i], this);
-             });
+            .attr('r', 2) // little data point helps to find tooltips (step function is not very intuitive)
+            .on('mouseover', function(d, i) { zoom_tip.show(ts_events[i], this); })
+            .on('mouseout', zoom_tip.hide);
         sel_trans(circ)
             .attr('cx', function(d) { return zoom_x(d.time) })
             .attr('cy', function(d) { return zoom_y(d[data_key]) });
