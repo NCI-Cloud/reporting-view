@@ -50,6 +50,10 @@ div.live td.date {
     white-space: nowrap;
 }
 
+.overview .handles circle, .resources .handles circle {
+    fill-opacity: 0; /* invisible targets for tooltips */
+}
+
 .historical .axis text {
     font-size: 1.2rem; /* match table */
 }

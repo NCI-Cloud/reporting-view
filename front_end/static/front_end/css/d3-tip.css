@@ -1,4 +1,4 @@
-/* source: https://github.com/Caged/d3-tip */
+/* based on https://github.com/Caged/d3-tip */
 
 
 .d3-tip {
@@ -9,6 +9,10 @@
   color: #fff;
   border-radius: 2px;
   pointer-events: none;
+}
+
+.d3-tip span {
+  font-weight: normal;
 }
 
 /* Creates a small triangle extender for the tooltip */
@@ -26,7 +30,7 @@
 /* Northward tooltips */
 .d3-tip.n:after {
   content: "\25BC";
-  margin: -1px 0 0 0;
+  margin: -3px 0 0 0;
   top: 100%;
   left: 0;
   text-align: center;
@@ -37,7 +41,7 @@
   content: "\25C0";
   margin: -4px 0 0 0;
   top: 50%;
-  left: -8px;
+  left: -7px;
 }
 
 /* Southward tooltips */

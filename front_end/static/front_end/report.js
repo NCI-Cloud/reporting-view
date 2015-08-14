@@ -86,18 +86,36 @@ function sqldump(query_key, success, error) {
     });
 }
 
-function change_pie(data_key, pie, path, arc) {
-    // change data of pie chart to use new key for data
-    pie.value(function(d) { return d[data_key]; });
-    path = path.data(pie);
-    path.transition().duration(750).attrTween('d', function(a) {
-        // arc tween
-        var i = d3.interpolate(this._current, a);
-        this._current = i(0);
+function arcTween(arc) {
+    return function(pie_d) { // return a tween from current datum (._current) to final datum pie_d
+        var i = d3.interpolate(this._current, pie_d); // object interpolator, interpolating {start,end}Angle
+        this._current = pie_d; // save final state (for next transition)
         return function(t) {
             return arc(i(t));
         };
-    });
+    }
+}
+
+/* make tooltips perpendicular to circle, i.e. if an arc's (mean) angle is
+ * in [pi/4, 3pi/4] (using d3's left-handed, "12 o'clock is zero" convention)
+ * then render the tooltip to the east
+ */
+function pie_tip_direction(pie_d) {
+    var angle = (0.5*(pie_d.startAngle+pie_d.endAngle) + 0.25*Math.PI) % (2*Math.PI); // rotate pi/4 clockwise
+    if(angle <   Math.PI*0.5) return 'n';
+    if(angle < 2*Math.PI*0.5) return 'e';
+    if(angle <3 *Math.PI*0.5) return 's';
+    return 'w';
+}
+
+/* get cartesian coordinates for target of tooltip of pie datum d
+ * where (0,0) is the centre of the pie chart and r is its radius
+ */
+function pie_tip_x(r, d) {
+    return -r * Math.cos(-0.5*Math.PI - 0.5*(d.startAngle+d.endAngle));
+}
+function pie_tip_y(r, d) {
+    return  r * Math.sin(-0.5*Math.PI - 0.5*(d.startAngle+d.endAngle));
 }
 
 function report_overview(dep) {
@@ -108,26 +126,31 @@ function report_overview(dep) {
             key    : 'vcpus',
             title  : 'vCPU',
             use_fn : function(val, ins) { return val + (+ins.vcpus); },
+            format : function(n) { return n + ' vcpus'; },
         },
         {
             key    : 'memory',
             title  : 'Memory',
             use_fn : function(val, ins) { return val + (+ins.memory); },
+            format : function(mem_mb) { return Formatters.si_bytes(mem_mb*1024*1024); },
         },
         {
             key    : 'local',
             title  : 'Local storage',
             use_fn : function(val, ins) { return val + (+ins.root) + (+ins.ephemeral); },
+            format : function(disk_gb) { return Formatters.si_bytes(disk_gb*1024*1024*1024); },
         },
         {
             key    : 'allocation_time',
             title  : 'Allocation time',
             use_fn : function(val, ins) { return val + (+ins.allocation_time); },
+            format : Formatters.timeDisplay,
         },
         {
             key    : 'wall_time',
             title  : 'Wall time', // TODO values for this currently are all 0, which breaks the pie chart
             use_fn : function(val, ins) { return val + (+ins.wall_time); },
+            format : Formatters.timeDisplay,
         },
     ];
 
@@ -154,8 +177,7 @@ function report_overview(dep) {
 
     var color = d3.scale.category20();
 
-    var pie = d3.layout.pie()
-        .value(function(d) { return d[aggs[0].key]; });
+    var pie = d3.layout.pie();
 
     var arc = d3.svg.arc()
         .innerRadius(0)
@@ -163,34 +185,56 @@ function report_overview(dep) {
 
     var svg = s.select('.chart').append('svg') // insert after heading
         .attr('width', width)
-        .attr('height', height)
-      .append('g')
+        .attr('height', height);
+    var chart = svg.append('g')
         .attr('transform', 'translate(' + width*0.5 + ',' + height*0.5 + ')');
+    var path = chart.datum(agg_live_instances).selectAll('path');
 
-    var path = svg.datum(agg_live_instances).selectAll('path')
-        .data(pie)
-      .enter().append('path')
-        .attr('class', function(d) { return 'project-' + d.data.puuid })
-        .attr('fill', function(d, i) { return color(i); })
-        .attr('d', arc)
-        .on('mouseover', function(d, i) {}) // TODO eventually handle these
-        .on('mouseout',  function(d, i) {})
-        .on('click', function(d) { on.projectChanged.dispatch(dep.sel, d3.select(this).classed('selected') ? null : d.data.puuid); })
-        .each(function(d) { this._current = d; }); // store initial angles
+    var handles_g = svg.append('g')
+        .attr('class', 'handles')
+        .attr('transform', 'translate(' + width*0.5 + ',' + height*0.5 + ')')
+        .datum(agg_live_instances);
+    var handles = handles_g.selectAll('circle');
+    var tip = d3.tip()
+        .attr('class', 'd3-tip')
+        .direction(pie_tip_direction)
+        .html(function(d) {
+            var data_key = s.select('select').property('value');
+            return g.projects.find(function(p) { return p.uuid == d.data.puuid }).display_name
+                  + ': <span>'+aggs.find(function(a){return a.key==data_key}).format(d.data[data_key])+'</span>';
+         });
+    handles_g.call(tip);
 
-    // done loading pie chart now
+    var updateChart = function() {
+        pie.value(function(d) { return d[sel.property('value')] });
+
+        handles = handles.data(pie);
+        handles.enter().append('circle')
+            .attr('r', 1); // r=0 gets drawn at (0,0) in firefox, so can't be used as anchor
+        handles
+            .attr('cx', function(d) { return pie_tip_x(arc.outerRadius()(d), d) })
+            .attr('cy', function(d) { return pie_tip_y(arc.outerRadius()(d), d) });
+
+        path = path.data(pie);
+        path.enter().append('path')
+            .attr('class', function(d) { return 'project-' + d.data.puuid })
+            .attr('fill', function(d, i) { return color(i); })
+            .on('mouseover', function(d, i) { tip.show(d, handles[0][i]) })
+            .on('mouseout', tip.hide)
+            .on('click', function(d) { on.projectChanged.dispatch(dep.sel, d3.select(this).classed('selected') ? null : d.data.puuid); })
+            .each(function(d) { this._current = d; }); // store initial angles
+        path.transition()
+            .attrTween('d', arcTween(arc)); // arcTween(arc) is a tweening function to transition 'd' element
+    };
+
+    updateChart();
     s.classed('loading', false);
-
-    // TODO improve tooltips
-    path
-      .append('svg:title') // idk if you're even allowed to put a title inside a path
-        .text(function(d) { return g.projects.find(function(p){return p.uuid==d.data.puuid;}).display_name+': '+d.data[d3.select('div.overview select').property('value')]; });
 
     on.optionChanged.add(function(sender_sel, data_key) {
         if(dep.sel!==sender_sel && !should_lock_charts()) return;
         if(aggs.find(function(a){return a.key===data_key})) { // check if data_key makes sense in this context
             sel.property('value', data_key);
-            change_pie(data_key, pie, path, arc);
+            updateChart();
         }
         path.selectAll('title')
             .text(function(d) { return g.projects.find(function(p){return p.uuid==d.data.puuid;}).display_name+': '+d.data[d3.select('div.overview select').property('value')]; });
@@ -312,32 +356,6 @@ function report_resources(dep) {
     });
     var data = [res_used, res_free];
 
-    // generate pie chart
-    var width = 300, height = 300, radius = Math.min(width, height)*0.5; // TODO responsive svg
-
-    var pie = d3.layout.pie()
-        .value(function(d) { return d[aggs[0].key]; });
-
-    var arc = d3.svg.arc()
-        .innerRadius(0)
-        .outerRadius(radius - 10);
-
-    var svg = s.select('.chart').append('svg')
-        .attr('width', width)
-        .attr('height', height)
-      .append('g')
-        .attr('transform', 'translate(' + width*0.5 + ',' + height*0.5 + ')');
-
-    var path = svg.datum(data).selectAll('path')
-        .data(pie)
-      .enter().append('path')
-        .attr('class', function(d, i) { return 'res-'+d.data.key; })
-        .attr('d', arc)
-        .each(function(d) { this._current = d; }); // store initial angles
-
-    // done loading pie chart now
-    s.classed('loading', false);
-
     // generate <select> for controlling pie
     var sel = s.select('select')
         .on('change', function() { on.optionChanged.dispatch(dep.sel, this.value); });
@@ -347,17 +365,65 @@ function report_resources(dep) {
         .attr('value', function(d) { return d.key; })
         .text(function(d) { return d.title; })
 
-    // TODO improve tooltips
-    path
-      .append('svg:title') // idk if you're even allowed to put a title inside a path
-        .text(function(d) { return d.data.key; });
+    // generate pie chart
+    var width = 300, height = 300, radius = Math.min(width, height)*0.5; // TODO responsive svg
+
+    var pie = d3.layout.pie();
+
+    var arc = d3.svg.arc()
+        .innerRadius(0)
+        .outerRadius(radius - 10);
+
+    var svg = s.select('.chart').append('svg')
+        .attr('width', width)
+        .attr('height', height);
+    var chart = svg.append('g')
+        .attr('transform', 'translate(' + width*0.5 + ',' + height*0.5 + ')');
+    var path = chart.datum(data).selectAll('path');
+
+    var handles_g = svg.append('g')
+        .attr('class', 'handles')
+        .attr('transform', 'translate('+width*0.5+','+height*0.5+')')
+        .datum(data);
+    var handles = handles_g.selectAll('circle');
+    var tip = d3.tip()
+        .attr('class', 'd3-tip')
+        .direction(pie_tip_direction)
+        .html(function(d) {
+            return d.data.key + ': <span>' + Number((d.endAngle - d.startAngle)/(2*Math.PI)*100).toFixed(0) + '%</span>';
+         });
+    handles_g.call(tip);
+
+    var updateChart = function() {
+        pie.value(function(d) { return d[sel.property('value')] });
+
+        handles = handles.data(pie);
+        handles.enter().append('circle')
+            .attr('r', 1);
+        handles
+            .attr('cx', function(d) { return pie_tip_x(arc.outerRadius()(d), d) })
+            .attr('cy', function(d) { return pie_tip_y(arc.outerRadius()(d), d) });
+
+        path = path.data(pie);
+        path.enter().append('path')
+            .attr('class', function(d, i) { return 'res-'+d.data.key; })
+            .on('mouseover', function(d, i) { tip.show(d, handles[0][i]) })
+            .on('mouseout', tip.hide)
+            .each(function(d) { this._current = d; }); // store initial angles
+        path.transition()
+            .attrTween('d', arcTween(arc));
+    };
+
+    // done loading pie chart now
+    updateChart();
+    s.classed('loading', false);
 
     // listen for option change events
     on.optionChanged.add(function(sender_sel, data_key) {
         if(dep.sel!==sender_sel && !should_lock_charts()) return;
         if(aggs.find(function(a){return a.key===data_key})) { // check if data_key makes sense in this context
             sel.property('value', data_key);
-            change_pie(data_key, pie, path, arc);
+            updateChart();
         }
     });
 }
@@ -499,7 +565,7 @@ function report_historical(dep) {
     var zoom_x = d3.time.scale().range([0, width]);
     var zoom_y = d3.scale.linear().range([zoom_height, 0]);
     var zoom_x_axis = d3.svg.axis().scale(zoom_x).orient('bottom');
-    var zoom_y_axis = d3.svg.axis().scale(zoom_y).orient('left'); // TODO axis format (depends on accessor, should be in aggs)
+    var zoom_y_axis = d3.svg.axis().scale(zoom_y).orient('left');
     var zoom_brush = d3.svg.brush().x(zoom_x).on('brushend', function() { on.datesChanged.dispatch(dep.sel, zoom_brush.empty() ? null : zoom_brush.extent()) });
 
     // line functions
