@@ -37,9 +37,13 @@
 <div class="row">
   <div class="one-half column resources">
     <h4>Current resource usage</h4>
+    <select></select>
+    <div class="chart"></div>
   </div>
   <div class="one-half column overview">
     <h4>Per-project distribution</h4>
+    <select></select>
+    <div class="chart"></div>
     <div class="instructions">
     <p>Click on a piece of pie to filter data.</p>
     <p class="selected" style="display:none">Click again to reset.</p>
@@ -57,7 +61,7 @@
 <div class="row">
   <div class="twelve column historical">
     <h4>Historical usage</h4>
-    <p>Select a project to view its historical usage. The blue plot shows number of non-deleted instances. Click on a label on the horizontal axis, or click and drag on the chart itself, to filter by a date range.</p>
+    <p class="instructions">Select a project to view its historical resource usage. The blue plot shows number of non-deleted instances. Click on a label on the horizontal axis, or click and drag on the chart itself, to filter by a date range.</p>
     <div class="chart">{# this is a better way than ".insert('svg', ':nth-child(fragile)')" #}</div>
     <table class="display"></table>
   </div>

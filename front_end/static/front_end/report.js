@@ -131,6 +131,15 @@ function report_overview(dep) {
         },
     ];
 
+    // generate <select> for controlling pie
+    var sel = s.select('select')
+        .on('change', function() { on.optionChanged.dispatch(dep.sel, this.value); });
+    sel.selectAll('option')
+        .data(aggs)
+      .enter().append('option')
+        .attr('value', function(d) { return d.key; })
+        .text(function(d) { return d.title; })
+
     // aggregate data
     var agg_live_instances = g.projects.map(function(p) {
         var ret = {puuid : p.uuid};
@@ -152,7 +161,7 @@ function report_overview(dep) {
         .innerRadius(0)
         .outerRadius(radius - 10);
 
-    var svg = s.insert('svg', ':nth-child(2)') // insert after heading
+    var svg = s.select('.chart').append('svg') // insert after heading
         .attr('width', width)
         .attr('height', height)
       .append('g')
@@ -171,15 +180,6 @@ function report_overview(dep) {
 
     // done loading pie chart now
     s.classed('loading', false);
-
-    // generate <select> for controlling pie
-    var sel = s.insert('select', 'svg')
-        .on('change', function() { on.optionChanged.dispatch(dep.sel, this.value); });
-    sel.selectAll('option')
-        .data(aggs)
-      .enter().append('option')
-        .attr('value', function(d) { return d.key; })
-        .text(function(d) { return d.title; })
 
     // TODO improve tooltips
     path
@@ -281,6 +281,7 @@ function report_live(dep) {
 }
 
 function report_resources(dep) {
+    var s = d3.select(dep.sel);
     var aggs = [
         {
             key    : 'vcpus',
@@ -321,7 +322,7 @@ function report_resources(dep) {
         .innerRadius(0)
         .outerRadius(radius - 10);
 
-    var svg = d3.select(dep.sel).append('svg')
+    var svg = s.select('.chart').append('svg')
         .attr('width', width)
         .attr('height', height)
       .append('g')
@@ -335,11 +336,10 @@ function report_resources(dep) {
         .each(function(d) { this._current = d; }); // store initial angles
 
     // done loading pie chart now
-    d3.select(dep.sel).classed('loading', false);
+    s.classed('loading', false);
 
     // generate <select> for controlling pie
-    var sel = d3.select(dep.sel)
-      .insert('select', 'svg')
+    var sel = s.select('select')
         .on('change', function() { on.optionChanged.dispatch(dep.sel, this.value); });
     sel.selectAll('option')
         .data(aggs)
