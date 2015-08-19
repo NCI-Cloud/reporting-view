@@ -599,7 +599,7 @@ function report_historical(dep) {
     zoom_g.append('defs').append('clipPath').attr('id', 'zoomclip').append('rect').attr('width', width+1/*because stroke width is 2px, so could overflow*/).attr('height', zoom_height);
     zoom_g.append('path').attr('class', 'line').attr('clip-path', 'url(#zoomclip)');
     var zoom_brush_g = zoom_g.append('g').call(zoom_brush);
-    var zoom_circles = zoom_g.append('g').attr('class', 'handles');
+    var zoom_circles = zoom_g.append('g').attr('class', 'handles').attr('clip-path', 'url(#zoomclip)');
     zoom_g.append('g').attr('class', 'y axis');
     zoom_g.append('g').attr('class', 'x axis').attr('transform', 'translate(0,'+zoom_height+')');
     var zoom_tip = d3.tip().attr('class','d3-tip').offset([-10,0]).html(function(d){return (d.mult==1?'created ':'deleted ')+d.instance.name});
