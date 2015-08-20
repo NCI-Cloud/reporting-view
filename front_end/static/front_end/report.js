@@ -435,30 +435,34 @@ function report_historical(dep) {
             key        : 'vcpus',
             title      : 'vCPU',
             tickFormat : d3.format('d'),
+            intFormat  : d3.format('.2s'),
             accessor   : function(d) { return +d.vcpus },
         },
         {
             key        : 'memory',
             title      : 'Memory',
             tickFormat : function(d) { return d ? Formatters.si_bytes(d*1024*1024) : '0' },
+            intFormat  : function(d) { return Formatters.si_bytes(d*1024*1024) },
             accessor   : function(d) { return +d.memory },
         },
         {
             key        : 'local',
             title      : 'Local storage',
             tickFormat : function(d) { return d ? Formatters.si_bytes(d*1024*1024*1024) : '0' },
+            intFormat  : function(d) { return Formatters.si_bytes(d*1024*1024*1024) },
             accessor   : function(d) { return (+d.root) + (+d.ephemeral); },
         },
         {
             key        : 'count',
             title      : 'Instance count',
             tickFormat : d3.format('d'),
+            intFormat  : d3.format('.2s'),
             accessor   : function(d) { return 1 },
         },
     ];
     var data_key = aggs[0].key;
 
-    var sel = s.insert('select', '.chart')
+    var sel = s.select('select.option')
         .on('change', function() { on.optionChanged.dispatch(dep.sel, this.value); });
     sel.selectAll('option')
         .data(aggs)
@@ -466,7 +470,7 @@ function report_historical(dep) {
         .attr('value', function(d) { return d.key })
         .text(function(d) { return d.title });
 
-    s.insert('select', 'select')
+    s.select('select.project')
         .attr('class', 'project')
         .on('change', function() { on.projectChanged.dispatch(dep.sel, this.value); })
       .selectAll('option')
@@ -543,7 +547,7 @@ function report_historical(dep) {
     var data = [], ts_data = [], ts_events = [];
 
     // how to sort data
-    var ts_comparator = function(e1, e2) { return e1.time - e2.time };
+    var ts_accessor = function(e) { return e.time };
 
     // build chart TODO responsive svg
     var margin = {t:30, r:30, b:30, l:60}; // this is a comment
@@ -637,6 +641,35 @@ function report_historical(dep) {
             .attr('cx', function(d) { return zoom_x(d.time) })
             .attr('cy', function(d) { return zoom_y(d[data_key]) });
         sel_trans(circ.exit()).remove();
+
+        // calculate integral (sum rectangles' areas) over extent
+        //extent = extent || date_x.domain(); // extent==null means whole date range selected
+        extent = zoom_x.domain();
+        var integral = 0; // units are data_key units * milliseconds (since js dates use ms)
+        var bisect = d3.bisector(ts_accessor);
+        var lb = bisect.left(ts_data, extent[0]);
+        var ub = bisect.right(ts_data, extent[1]);
+        var working_set = ts_data.slice(lb, ub);
+        if(working_set.length) {
+            if(lb > 0) {
+                // include rect before first datapoint (if first datapoint is after ts_data[0])
+                // (first datapoint === working_set[0] === ts_data[lb])
+                integral += (ts_accessor(ts_data[lb]) - extent[0]) * ts_data[lb-1][data_key];
+            }
+            // include rect after final datapoint (reduces to zero when final datapoint is at extent[1])
+            // (final datapoint === working_set[working_set.length - 1] === ts_data[ub - 1])
+            integral += (extent[1] - ts_accessor(ts_data[ub-1])) * ts_data[ub-1][data_key]
+
+            // integrate over working_set time range (which is a subset of extent)
+            for(var i=0; i<working_set.length-1; i++) {
+                integral += (ts_accessor(working_set[i+1]) - ts_accessor(working_set[i])) * working_set[i][data_key];
+            }
+        } else {
+            // even when no data points are in the selected domain, the integral may be nonzero.
+            // empty working_set implies lb > 0 (because if lb==0, working_set must include first data point)
+            integral += (extent[1]-extent[0]) * ts_data[lb-1][data_key];
+        }
+        s.select('span.integral').html(aggs.find(function(a){return a.key==data_key}).intFormat(integral/3600000.0)+' hours');
     }
 
     on.datesChanged.add(function(sel, extent, do_not_redraw) {
@@ -668,7 +701,6 @@ function report_historical(dep) {
         if(agg) {
             data_key = dk;
             sel.property('value', data_key);
-            accessor = function(d) { return d[data_kay] };
             zoom_y.domain(d3.extent(ts_data, function(d) { return d[data_key] }));
         }
         redraw();
@@ -713,7 +745,7 @@ function report_historical(dep) {
                 if(! isNaN(instance.c_time)) ts_events.push({time:instance.c_time, mult:+1, instance:instance, flavour:f});
                 if(! isNaN(instance.d_time)) ts_events.push({time:instance.d_time, mult:-1, instance:instance, flavour:f});
             });
-            ts_events.sort(ts_comparator);
+            ts_events.sort(function(e1, e2) { return ts_accessor(e1) - ts_accessor(e2) });
             var context = {};
             aggs.forEach(function(agg) {
                 context[agg.key] = 0;
@@ -731,7 +763,7 @@ function report_historical(dep) {
             );
 
             // reset domains and date range
-            date_x.domain(d3.extent(ts_data, function(d) { return d.time }));
+            date_x.domain([d3.min(ts_data, ts_accessor), Date.now()]);
             date_y.domain(d3.extent(ts_data, function(d) { return d.count }));
             zoom_y.domain(d3.extent(ts_data, function(d) { return d[data_key] }));
             on.datesChanged.dispatch(dep.sel, null, true/*do_not_redraw*/);
