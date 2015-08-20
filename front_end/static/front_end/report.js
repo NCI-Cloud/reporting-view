@@ -536,7 +536,7 @@ function report_historical(dep) {
                 visible : false,
             },
         ],
-        order : [[0, 'desc']], // order by first col: most recently created first
+        order : [[0, 'asc']], // order by first col: most recently created last
         processing : true,
         language : {
             zeroRecords : 'Select a project to view its instances.',
