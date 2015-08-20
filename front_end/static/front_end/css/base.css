@@ -88,7 +88,10 @@ div.live td.date {
 }
 .historical circle {
     fill: steelblue;
-    stroke: black; /* jk it will be invisible */
+    stroke: crimson; /* jk it will be invisible */
     stroke-opacity: 0; /* told you */
     stroke-width: 15px; /* this hack is meant to give a large invisible area for mouse events */
+}
+.historical circle.highlight {
+    stroke-opacity: 0.5;
 }

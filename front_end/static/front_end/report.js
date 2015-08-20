@@ -430,7 +430,7 @@ function report_resources(dep) {
 
 function report_historical(dep) {
     var s = d3.select(dep.sel);
-    var aggs = [ // pls don't use key "time"
+    var aggs = [ // pls don't use key "time" or "uuid"
         {
             key        : 'vcpus',
             title      : 'vCPU',
@@ -543,6 +543,17 @@ function report_historical(dep) {
         },
     });
 
+    // highlight points in chart when mousing over table
+    $('tbody', dep.sel).on('mouseover', 'tr', function () {
+        // trying to separate jquery and d3, but jquery addClass doesn't work on svg elements
+        var uuid = tbl.row(this).data().uuid;
+        d3.selectAll('circle.instance-'+uuid).classed('highlight', true);
+    });
+    $('tbody', dep.sel).on('mouseout', 'tr', function () {
+        var uuid = tbl.row(this).data().uuid;
+        d3.selectAll('circle.instance-'+uuid).classed('highlight', false);
+    });
+
     // project-level data
     var data = [], ts_data = [], ts_events = [];
 
@@ -635,6 +646,7 @@ function report_historical(dep) {
         var circ = zoom_circles.selectAll('circle').data(ts_data);
         circ.enter().append('circle')
             .attr('r', 2) // little data point helps to find tooltips (step function is not very intuitive)
+            .attr('class', function(d) { return 'instance-'+d.uuid })
             .on('mouseover', function(d, i) { zoom_tip.show(ts_events[i], this); })
             .on('mouseout', zoom_tip.hide);
         sel_trans(circ)
@@ -752,7 +764,7 @@ function report_historical(dep) {
             });
             ts_data = ts_events.map( // compute cumulative sum of ts_events
                 function(e) {
-                    var t = this, ret = {time:e.time};
+                    var t = this, ret = {time:e.time, uuid:e.instance.uuid};
                     aggs.forEach(function(agg) {
                         t[agg.key] += e.mult * agg.accessor(e.instance);
                         ret[agg.key] = t[agg.key];
