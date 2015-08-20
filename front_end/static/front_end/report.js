@@ -676,7 +676,7 @@ function report_historical(dep) {
             for(var i=0; i<working_set.length-1; i++) {
                 integral += (ts_accessor(working_set[i+1]) - ts_accessor(working_set[i])) * working_set[i][data_key];
             }
-        } else {
+        } else if(ts_data.length) {
             // even when no data points are in the selected domain, the integral may be nonzero.
             // empty working_set implies lb > 0 (because if lb==0, working_set must include first data point)
             integral += (extent[1]-extent[0]) * ts_data[lb-1][data_key];
