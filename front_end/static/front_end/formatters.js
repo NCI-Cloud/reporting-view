@@ -4,7 +4,7 @@ var Formatters = {};
     Formatters.relativeDateDisplay = function(date) {
         var t = Date.parse(date);
         if(isNaN(t)) return '';
-        return '<span title="'+date+'">'+humanize.relativeTime(t*1e-3)+'</span>';
+        return '<span title="'+(new Date(date))+'">'+humanize.relativeTime(t*1e-3)+'</span>';
     };
 
     Formatters.flavourDisplay = function(flavours) {
