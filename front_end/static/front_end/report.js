@@ -539,7 +539,7 @@ function report_historical(dep) {
         order : [[0, 'asc']], // order by first col: most recently created last
         processing : true,
         language : {
-            zeroRecords : 'Select a project to view its instances.',
+            zeroRecords : 'Selected project had no instances over specified date range.',
         },
     });
 
