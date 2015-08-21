@@ -8,7 +8,7 @@ var Report = {};
 var deps = [
     {
         sel : '.resources',
-        dep : ['hypervisors', 'live_instances'],
+        dep : ['projects', 'hypervisors', 'live_instances'],
         fun : report_resources,
     },
     {
@@ -247,11 +247,11 @@ function report_overview(dep) {
         var d = agg_live_instances.find(function(i){return i.puuid===puuid}); // find datum with given puuid
         if(d && d[field]) { // datum exists (expected), and has nonzero value of field, so can be selected on pie chart
             s.selectAll('path.project-'+puuid).classed('selected', true);
-            s.select('p.selected').style('display', 'block');
-            s.select('p:not(.selected)').style('display', 'none');
+            s.select('.instructions p.selected').style('display', 'block');
+            s.select('.instructions p:not(.selected)').style('display', 'none');
         } else {
-            s.select('p.selected').style('display', 'none');
-            s.select('p:not(.selected)').style('display', 'block');
+            s.select('.instructions p.selected').style('display', 'none');
+            s.select('.instructions p:not(.selected)').style('display', 'block');
         }
     });
 }
@@ -326,26 +326,35 @@ function report_live(dep) {
 
 function report_resources(dep) {
     var s = d3.select(dep.sel);
-    var aggs = [
+    var aggs = [ // pls don't use key "key"
         {
             key    : 'vcpus',
             title  : 'vCPU',
             tot_fn : function(val, hyp) { return val + (+hyp.cpus); },
             use_fn : function(val, ins) { return val + (+ins.vcpus); },
+            format : function(n) { return n===null ? '(no quota)' :  n + ' vcpus'; },
+            quota  : function(project) { return isNaN(+project.quota_vcpus) ? null : +project.quota_vcpus },
         },
         {
             key    : 'memory',
             title  : 'Memory',
             tot_fn : function(val, hyp) { return val + (+hyp.memory); },
             use_fn : function(val, ins) { return val + (+ins.memory); },
+            format : function(mem_mb) { return mem_mb===null ? '(no quota)' : Formatters.si_bytes(mem_mb*1024*1024); },
+            quota  : function(project) { return isNaN(+project.quota_memory) ? null : +project.quota_memory },
         },
         {
             key    : 'local',
             title  : 'Local storage',
             tot_fn : function(val, hyp) { return val + (+hyp.local_storage); },
             use_fn : function(val, ins) { return val + (+ins.root) + (+ins.ephemeral); }, // root and ephemeral are both stored locally
+            format : function(disk_gb) { return disk_gb===null ? '(no quota)' : Formatters.si_bytes(disk_gb*1024*1024*1024); },
+            quota  : function() { return null }, /* because there are no such quotas in openstack */
         },
     ];
+
+    // for pretty printing
+    var pretty_key = {'used' : 'Allocated', 'free' : 'Available'};
 
     // store aggregated values, using title as key
     var res_tot = {}, res_used = {key:'used'}, res_free = {key:'free'};
@@ -354,16 +363,51 @@ function report_resources(dep) {
         res_used[f.key] = g.live_instances.reduce(f.use_fn, 0);
         res_free[f.key] = res_tot[f.key] - res_used[f.key];
     });
-    var data = [res_used, res_free];
+    var data = {'':[res_used, res_free]}; // indexed by project id, where '' (no project) is node-wide data
 
-    // generate <select> for controlling pie
-    var sel = s.select('select')
+    // include project-level data
+    g.projects.forEach(function(p) { // initialise data[project_id] = [used, free]
+        data[p.uuid] = [{key:'used'}, {key:'free'}];
+        aggs.forEach(function(a) {
+            data[p.uuid][0][a.key] = 0;          // used=0
+            data[p.uuid][1][a.key] = a.quota(p); // free=quota
+        });
+    });
+    g.live_instances.forEach(function(i) { // reduce g.live_instances, populating "used" object
+        aggs.forEach(function(a) {
+            data[i.project_id][0][a.key] = a.use_fn(data[i.project_id][0][a.key], i); // increase used
+        });
+    });
+    g.projects.forEach(function(p) { // calculate "free" based on quota and "used"
+        aggs.forEach(function(a) {
+            var quota = data[p.uuid][1][a.key];
+            if(quota === null) {
+                data[p.uuid][1][a.key] = null;
+            } else {
+                data[p.uuid][1][a.key] = quota - data[p.uuid][0][a.key];
+            }
+        });
+    });
+
+    // generate <select>s for controlling pie
+    var data_key_sel = s.select('select.option')
         .on('change', function() { on.optionChanged.dispatch(dep.sel, this.value); });
-    sel.selectAll('option')
+    data_key_sel.selectAll('option')
         .data(aggs)
       .enter().append('option')
         .attr('value', function(d) { return d.key; })
         .text(function(d) { return d.title; })
+    var project_sel = s.select('select.project')
+        .on('change', function() { on.projectChanged.dispatch(dep.sel, this.value); });
+    project_sel.selectAll('option')
+        .data(g.projects)
+      .enter().append('option')
+        .attr('value', function(d) { return d.uuid; })
+        .text(function(d) { return d.display_name; });
+    project_sel.insert('option', 'option')
+        .attr('value', '')
+        .attr('selected', '')
+        .text('All projects');
 
     // generate pie chart
     var width = 300, height = 300, radius = Math.min(width, height)*0.5; // TODO responsive svg
@@ -379,23 +423,25 @@ function report_resources(dep) {
         .attr('height', height);
     var chart = svg.append('g')
         .attr('transform', 'translate(' + width*0.5 + ',' + height*0.5 + ')');
-    var path = chart.datum(data).selectAll('path');
+    var path = chart.selectAll('path');
 
     var handles_g = svg.append('g')
         .attr('class', 'handles')
-        .attr('transform', 'translate('+width*0.5+','+height*0.5+')')
-        .datum(data);
+        .attr('transform', 'translate('+width*0.5+','+height*0.5+')');
     var handles = handles_g.selectAll('circle');
     var tip = d3.tip()
         .attr('class', 'd3-tip')
         .direction(pie_tip_direction)
         .html(function(d) {
-            return d.data.key + ': <span>' + Number((d.endAngle - d.startAngle)/(2*Math.PI)*100).toFixed(0) + '%</span>';
+            var dk = data_key_sel.property('value');
+            return pretty_key[d.data.key] + ': <span>' + aggs.find(function(a){return a.key==dk}).format(d.data[dk]) + '</span>';
          });
     handles_g.call(tip);
 
     var updateChart = function() {
-        pie.value(function(d) { return d[sel.property('value')] });
+        chart.datum(data[project_sel.property('value')]);
+        handles_g.datum(data[project_sel.property('value')]);
+        pie.value(function(d) { return d[data_key_sel.property('value')] });
 
         handles = handles.data(pie);
         handles.enter().append('circle')
@@ -422,9 +468,15 @@ function report_resources(dep) {
     on.optionChanged.add(function(sender_sel, data_key) {
         if(dep.sel!==sender_sel && !should_lock_charts()) return;
         if(aggs.find(function(a){return a.key===data_key})) { // check if data_key makes sense in this context
-            sel.property('value', data_key);
+            data_key_sel.property('value', data_key);
             updateChart();
         }
+    });
+
+    on.projectChanged.add(function(sel, project) {
+        if(dep.sel!==sel && !should_lock_charts()) return;
+        project_sel.property('value', project?project:''/*workaround because <option value=null> isn't possible*/);
+        updateChart();
     });
 }
 
@@ -471,7 +523,6 @@ function report_historical(dep) {
         .text(function(d) { return d.title });
 
     s.select('select.project')
-        .attr('class', 'project')
         .on('change', function() { on.projectChanged.dispatch(dep.sel, this.value); })
       .selectAll('option')
         .data(g.projects)
