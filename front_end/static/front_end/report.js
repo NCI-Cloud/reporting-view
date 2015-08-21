@@ -177,7 +177,7 @@ function report_overview(dep) {
 
     var color = d3.scale.category20();
 
-    var pie = d3.layout.pie();
+    var pie = d3.layout.pie().sort(null);
 
     var arc = d3.svg.arc()
         .innerRadius(0)
@@ -368,7 +368,7 @@ function report_resources(dep) {
     // generate pie chart
     var width = 300, height = 300, radius = Math.min(width, height)*0.5; // TODO responsive svg
 
-    var pie = d3.layout.pie();
+    var pie = d3.layout.pie().sort(null);
 
     var arc = d3.svg.arc()
         .innerRadius(0)
