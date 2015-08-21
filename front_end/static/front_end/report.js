@@ -324,28 +324,34 @@ function report_resources(dep) {
     var s = d3.select(dep.sel);
     var aggs = [ // pls don't use key "key"
         {
-            key    : 'vcpus',
-            title  : 'vCPU',
-            tot_fn : function(val, hyp) { return val + (+hyp.cpus); },
-            use_fn : function(val, ins) { return val + (+ins.vcpus); },
-            format : function(n) { return n===null ? '(no quota)' :  n + ' vcpus'; },
-            quota  : function(project) { return isNaN(+project.quota_vcpus) ? null : +project.quota_vcpus },
+            key      : 'vcpus',
+            title    : 'vCPU',
+            format   : function(n) { return n===null ? '(no quota)' :  n + ' vcpus'; },
+            quota    : function(project) { return isNaN(+project.quota_vcpus) ? null : +project.quota_vcpus },
+            accessor : {
+                hypervisors : function(h) { return +h.cpus },
+                instances   : function(i) { return +i.vcpus },
+            },
         },
         {
-            key    : 'memory',
-            title  : 'Memory',
-            tot_fn : function(val, hyp) { return val + (+hyp.memory); },
-            use_fn : function(val, ins) { return val + (+ins.memory); },
-            format : function(mem_mb) { return mem_mb===null ? '(no quota)' : Formatters.si_bytes(mem_mb*1024*1024); },
-            quota  : function(project) { return isNaN(+project.quota_memory) ? null : +project.quota_memory },
+            key      : 'memory',
+            title    : 'Memory',
+            format   : function(mem_mb) { return mem_mb===null ? '(no quota)' : Formatters.si_bytes(mem_mb*1024*1024); },
+            quota    : function(project) { return isNaN(+project.quota_memory) ? null : +project.quota_memory },
+            accessor : {
+                hypervisors : function(h) { return +h.memory },
+                instances   : function(i) { return +i.memory },
+            },
         },
         {
-            key    : 'local',
-            title  : 'Local storage',
-            tot_fn : function(val, hyp) { return val + (+hyp.local_storage); },
-            use_fn : function(val, ins) { return val + (+ins.root) + (+ins.ephemeral); }, // root and ephemeral are both stored locally
-            format : function(disk_gb) { return disk_gb===null ? '(no quota)' : Formatters.si_bytes(disk_gb*1024*1024*1024); },
-            quota  : function() { return null }, /* because there are no such quotas in openstack */
+            key      : 'local',
+            title    : 'Local storage',
+            format   : function(disk_gb) { return disk_gb===null ? '(no quota)' : Formatters.si_bytes(disk_gb*1024*1024*1024); },
+            quota    : function() { return null }, /* because there are no such quotas in openstack */
+            accessor : {
+                hypervisors : function(h) { return +h.local_storage },
+                instances   : function(i) { return (+i.root) + (+i.ephemeral) },
+            },
         },
     ];
 
@@ -354,10 +360,10 @@ function report_resources(dep) {
 
     // store aggregated values, using title as key
     var res_tot = {}, res_used = {key:'used'}, res_free = {key:'free'};
-    aggs.forEach(function(f) {
-        res_tot[f.key]  = g.hypervisors.reduce(f.tot_fn, 0);
-        res_used[f.key] = g.live_instances.reduce(f.use_fn, 0);
-        res_free[f.key] = res_tot[f.key] - res_used[f.key];
+    aggs.forEach(function(agg) {
+        res_tot[agg.key]  = g.hypervisors.reduce(function(val, hyp) { return val + agg.accessor.hypervisors(hyp) }, 0);
+        res_used[agg.key] = g.live_instances.reduce(function(val, ins) { return val + agg.accessor.instances(ins) }, 0);
+        res_free[agg.key] = res_tot[agg.key] - res_used[agg.key];
     });
     var data = {'':[res_used, res_free]}; // indexed by project id, where '' (no project) is node-wide data
 
@@ -371,7 +377,7 @@ function report_resources(dep) {
     });
     g.live_instances.forEach(function(i) { // reduce g.live_instances, populating "used" object
         aggs.forEach(function(a) {
-            data[i.project_id][0][a.key] = a.use_fn(data[i.project_id][0][a.key], i); // increase used
+            data[i.project_id][0][a.key] += a.accessor.instances(i); // increase used
         });
     });
     g.projects.forEach(function(p) { // calculate "free" based on quota and "used"
