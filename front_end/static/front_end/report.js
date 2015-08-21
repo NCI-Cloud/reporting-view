@@ -694,7 +694,7 @@ function report_historical(dep) {
         zoom_brush_g.call(zoom_brush);
 
         // update circles
-        var circ = zoom_circles.selectAll('circle').data(ts_data);
+        var circ = zoom_circles.selectAll('circle').data(ts_data.slice(0,-1)); // last element of ts_data is artifical "now" data point, which shouldn't be marked
         circ.enter().append('circle')
             .attr('r', 2) // little data point helps to find tooltips (step function is not very intuitive)
             .attr('class', function(d) { return 'instance-'+d.uuid })
@@ -824,9 +824,18 @@ function report_historical(dep) {
                 },
                 context
             );
+            if(ts_data) { // append "now" data point (hack to make the graphs a bit more readable; doesn't add any extra information)
+                var latest = ts_data[ts_data.length-1], now = {};
+                Object.keys(latest).forEach(function(k) {
+                    now[k] = latest[k];
+                });
+                now.uuid = null;
+                now.time = Date.now();
+                ts_data.push(now);
+            }
 
             // reset domains and date range
-            date_x.domain([d3.min(ts_data, ts_accessor), Date.now()]);
+            date_x.domain(d3.extent(ts_data, ts_accessor));
             date_y.domain(d3.extent(ts_data, function(d) { return d.count }));
             zoom_y.domain(d3.extent(ts_data, function(d) { return d[data_key] }));
             on.datesChanged.dispatch(dep.sel, null, true/*do_not_redraw*/);
