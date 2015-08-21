@@ -66,11 +66,7 @@ Report.init = function() {
     )});
 }
 
-var on = {
-    optionChanged  : new signals.Signal(),  // when changing "vcpus", "memory", etc.
-    projectChanged : new signals.Signal(),
-    datesChanged   : new signals.Signal(),
-};
+var dispatch = d3.dispatch('optionChanged', 'projectChanged', 'datesChanged');
 
 // get json data from sqldump app
 function sqldump(query_key, success, error) {
@@ -156,7 +152,7 @@ function report_overview(dep) {
 
     // generate <select> for controlling pie
     var sel = s.select('select')
-        .on('change', function() { on.optionChanged.dispatch(dep.sel, this.value); });
+        .on('change', function() { dispatch.optionChanged(dep.sel, this.value); });
     sel.selectAll('option')
         .data(aggs)
       .enter().append('option')
@@ -221,7 +217,7 @@ function report_overview(dep) {
             .attr('fill', function(d, i) { return color(i); })
             .on('mouseover', function(d, i) { tip.show(d, handles[0][i]) })
             .on('mouseout', tip.hide)
-            .on('click', function(d) { on.projectChanged.dispatch(dep.sel, d3.select(this).classed('selected') ? null : d.data.puuid); })
+            .on('click', function(d) { dispatch.projectChanged(dep.sel, d3.select(this).classed('selected') ? null : d.data.puuid); })
             .each(function(d) { this._current = d; }); // store initial angles
         path.transition()
             .attrTween('d', arcTween(arc)); // arcTween(arc) is a tweening function to transition 'd' element
@@ -230,7 +226,7 @@ function report_overview(dep) {
     updateChart();
     s.classed('loading', false);
 
-    on.optionChanged.add(function(sender_sel, data_key) {
+    dispatch.on('optionChanged.'+dep.sel, function(sender_sel, data_key) {
         if(dep.sel!==sender_sel && !should_lock_charts()) return;
         if(aggs.find(function(a){return a.key===data_key})) { // check if data_key makes sense in this context
             sel.property('value', data_key);
@@ -239,7 +235,7 @@ function report_overview(dep) {
         path.selectAll('title')
             .text(function(d) { return g.projects.find(function(p){return p.uuid==d.data.puuid;}).display_name+': '+d.data[d3.select('div.overview select').property('value')]; });
     });
-    on.projectChanged.add(function(sender_sel, puuid) {
+    dispatch.on('projectChanged.'+dep.sel, function(sender_sel, puuid) {
         // apply "selected" class to pie piece corresponding to puuid, if it has nonzero value (i.e. don't confuse user by selecting invisible data)
         if(dep.sel!==sender_sel && !should_lock_charts()) return;
         s.selectAll('path').classed('selected', false); // deselect everything
@@ -318,7 +314,7 @@ function report_live(dep) {
     });
     s.removeClass('loading');
 
-    on.projectChanged.add(function(sender_sel, puuid) {
+    dispatch.on('projectChanged.'+dep.sel, function(sender_sel, puuid) {
         if(!should_lock_charts()) return;
         live_tbl.column('.project_id').search(puuid ? puuid : '').draw();
     });
@@ -391,14 +387,14 @@ function report_resources(dep) {
 
     // generate <select>s for controlling pie
     var data_key_sel = s.select('select.option')
-        .on('change', function() { on.optionChanged.dispatch(dep.sel, this.value); });
+        .on('change', function() { dispatch.optionChanged(dep.sel, this.value); });
     data_key_sel.selectAll('option')
         .data(aggs)
       .enter().append('option')
         .attr('value', function(d) { return d.key; })
         .text(function(d) { return d.title; })
     var project_sel = s.select('select.project')
-        .on('change', function() { on.projectChanged.dispatch(dep.sel, this.value); });
+        .on('change', function() { dispatch.projectChanged(dep.sel, this.value); });
     project_sel.selectAll('option')
         .data(g.projects)
       .enter().append('option')
@@ -465,7 +461,7 @@ function report_resources(dep) {
     s.classed('loading', false);
 
     // listen for option change events
-    on.optionChanged.add(function(sender_sel, data_key) {
+    dispatch.on('optionChanged.'+dep.sel, function(sender_sel, data_key) {
         if(dep.sel!==sender_sel && !should_lock_charts()) return;
         if(aggs.find(function(a){return a.key===data_key})) { // check if data_key makes sense in this context
             data_key_sel.property('value', data_key);
@@ -473,7 +469,7 @@ function report_resources(dep) {
         }
     });
 
-    on.projectChanged.add(function(sel, project) {
+    dispatch.on('projectChanged.'+dep.sel, function(sel, project) {
         if(dep.sel!==sel && !should_lock_charts()) return;
         project_sel.property('value', project?project:''/*workaround because <option value=null> isn't possible*/);
         updateChart();
@@ -515,7 +511,7 @@ function report_historical(dep) {
     var data_key = aggs[0].key;
 
     var sel = s.select('select.option')
-        .on('change', function() { on.optionChanged.dispatch(dep.sel, this.value); });
+        .on('change', function() { dispatch.optionChanged(dep.sel, this.value); });
     sel.selectAll('option')
         .data(aggs)
       .enter().append('option')
@@ -523,7 +519,7 @@ function report_historical(dep) {
         .text(function(d) { return d.title });
 
     s.select('select.project')
-        .on('change', function() { on.projectChanged.dispatch(dep.sel, this.value); })
+        .on('change', function() { dispatch.projectChanged(dep.sel, this.value); })
       .selectAll('option')
         .data(g.projects)
       .enter().append('option')
@@ -625,14 +621,14 @@ function report_historical(dep) {
     var date_y = d3.scale.linear().range([date_height, 0]);
     var date_x_axis = d3.svg.axis().scale(date_x).orient('bottom');
     var date_y_axis = d3.svg.axis().scale(date_y).orient('left').ticks(0);
-    var date_brush = d3.svg.brush().x(date_x).on('brushend', function() { on.datesChanged.dispatch(dep.sel, date_brush.empty() ? null : date_brush.extent()) });
+    var date_brush = d3.svg.brush().x(date_x).on('brushend', function() { dispatch.datesChanged(dep.sel, date_brush.empty() ? null : date_brush.extent()) });
 
     // zoom chart elements
     var zoom_x = d3.time.scale().range([0, width]);
     var zoom_y = d3.scale.linear().range([zoom_height, 0]);
     var zoom_x_axis = d3.svg.axis().scale(zoom_x).orient('bottom');
     var zoom_y_axis = d3.svg.axis().scale(zoom_y).orient('left');
-    var zoom_brush = d3.svg.brush().x(zoom_x).on('brushend', function() { on.datesChanged.dispatch(dep.sel, zoom_brush.empty() ? null : zoom_brush.extent()) });
+    var zoom_brush = d3.svg.brush().x(zoom_x).on('brushend', function() { dispatch.datesChanged(dep.sel, zoom_brush.empty() ? null : zoom_brush.extent()) });
 
     // line functions
     var date_line = d3.svg.line()
@@ -735,7 +731,7 @@ function report_historical(dep) {
         s.select('span.integral').html(aggs.find(function(a){return a.key==data_key}).intFormat(integral/3600000.0)+' hours');
     }
 
-    on.datesChanged.add(function(sel, extent, do_not_redraw) {
+    dispatch.on('datesChanged.'+dep.sel, function(sel, extent, do_not_redraw) {
         // update table
         $.fn.dataTable.ext.search.pop(); // fragile
         if(extent) {
@@ -758,7 +754,7 @@ function report_historical(dep) {
         if(! do_not_redraw) redraw();
     });
 
-    on.optionChanged.add(function(sender_sel, dk) {
+    dispatch.on('optionChanged.'+dep.sel, function(sender_sel, dk) {
         if(dep.sel!==sender_sel && !should_lock_charts()) return;
         var agg = aggs.find(function(a){return a.key===dk});
         if(agg) {
@@ -769,7 +765,7 @@ function report_historical(dep) {
         redraw();
     });
 
-    on.projectChanged.add(function(sel, puuid) {
+    dispatch.on('projectChanged.'+dep.sel, function(sel, puuid) {
         if(sel!==dep.sel && !should_lock_charts()) return;
         if(!puuid) {
             s.select('select').property('value', '');
@@ -780,7 +776,7 @@ function report_historical(dep) {
             date_x.domain([]);
             date_y.domain([]);
             zoom_y.domain([]);
-            on.datesChanged.dispatch(dep.sel, null, true /*do_not_redraw*/);
+            dispatch.datesChanged(dep.sel, null, true /*do_not_redraw*/);
             date_g.select('.x.axis').call(date_x_axis);
             date_g.select('.y.axis').call(date_y_axis);
             date_g.select('path.line').datum(ts_data).attr('d', date_line);
@@ -838,7 +834,7 @@ function report_historical(dep) {
             date_x.domain(d3.extent(ts_data, ts_accessor));
             date_y.domain(d3.extent(ts_data, function(d) { return d.count }));
             zoom_y.domain(d3.extent(ts_data, function(d) { return d[data_key] }));
-            on.datesChanged.dispatch(dep.sel, null, true/*do_not_redraw*/);
+            dispatch.datesChanged(dep.sel, null, true/*do_not_redraw*/);
 
             // date chart domain remains the same for any given project (else most of the below code would belong in redraw())
             date_g.select('.x.axis').call(date_x_axis);
@@ -849,7 +845,7 @@ function report_historical(dep) {
                 var e = d3.time.month.offset(d, 1); // one month later
                 if(e > date_x.domain()[1]) e = date_x.domain()[1]; // need to clamp manually
                 date_brush_g.transition().call(date_brush.extent([d,e]));
-                on.datesChanged.dispatch(dep.sel, date_brush.extent());
+                dispatch.datesChanged(dep.sel, date_brush.extent());
             });
 
             // done
