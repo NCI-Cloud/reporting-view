@@ -31,8 +31,8 @@ var Formatters = {};
             bytes, ['bytes', 'KiB', 'MiB', 'GiB', 'TiB', 'PiB'],
             1024, // using binary units
             0,    // show one decimal place
-            '',   // no thousands sep
             '.',  // decimal point
+            '',   // no thousands sep
             ' '   // suffix sep
         );
     }
