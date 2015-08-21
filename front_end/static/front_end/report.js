@@ -8,7 +8,7 @@ var Report = {};
 var deps = [
     {
         sel : '.resources',
-        dep : ['projects', 'hypervisors', 'live_instances'],
+        dep : ['projects', 'hypervisors', 'live_instances', 'volumes'],
         fun : report_resources,
     },
     {
@@ -322,6 +322,12 @@ function report_live(dep) {
 
 function report_resources(dep) {
     var s = d3.select(dep.sel);
+
+    // compute mapping of project_id => total volume size
+    var vol = {}, vol_t = 0;
+    g.projects.forEach(function(p) { vol[p.uuid] = 0 });
+    g.volumes.forEach(function(v) { if(v.deleted == 'None'/* TODO live_volumes report would be better */) { vol[v.project_id] += +v.size; vol_t += +v.size }});
+
     var aggs = [ // pls don't use key "key"
         {
             key      : 'vcpus',
@@ -351,6 +357,20 @@ function report_resources(dep) {
             accessor : {
                 hypervisors : function(h) { return +h.local_storage },
                 instances   : function(i) { return (+i.root) + (+i.ephemeral) },
+            },
+        },
+        {
+            key      : 'volume',
+            title    : 'Allocated storage',
+            format   : function(disk_gb) { console.log('formatting %o',disk_gb);return disk_gb===null ? '(no quota)' : Formatters.si_bytes(disk_gb*1024*1024*1024); },
+            quota    : function(project) { return isNaN(+project.quota_volume_total) ? null : +project.quota_volume_total },
+            accessor : {
+                hypervisors : function() { return 0 },
+                instances   : function(ins) {
+                    // this is dirty and wrong but makes calculations below uniform, rather than having 'volume' as special case
+                    var project_instances = g.live_instances.filter(function(i){return i.project_id==ins.project_id}).length;
+                    return vol[ins.project_id]/project_instances; // so that when summed over all instances, we get back vol[puuid] -_-
+                },
             },
         },
     ];
@@ -390,6 +410,10 @@ function report_resources(dep) {
             }
         });
     });
+
+    // we can almost treat the 'volume' case the same as the others, but not quite... :C
+    data[''][0].volume = vol_t; // necessary in case there are volumes allocated to projects with no live instances, which wouldn't be picked up above
+    data[''][1].volume = null; // because, unlike vcpus/memory/local, there is no (meaningful) limit on how much external storage we may allocate
 
     // generate <select>s for controlling pie
     var data_key_sel = s.select('select.option')
