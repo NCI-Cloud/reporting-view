@@ -11,12 +11,13 @@
   <script src="{% static 'front_end/d3-tip.min.js' %}"></script>
   <script src="{% static 'front_end/formatters.js' %}"></script>
   <script src="{% static 'front_end/polyfill.js' %}"></script>
-  <script src="{% static 'front_end/report.js' %}"></script>
+  <script src="{% static 'front_end/utilisation.js' %}"></script>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link href="//fonts.googleapis.com/css?family=Raleway:400,300,600" rel="stylesheet" type="text/css">
   <link rel="stylesheet" href="{% static 'front_end/css/normalize.css' %}">
   <link rel="stylesheet" href="{% static 'front_end/css/skeleton.css' %}">
   <link rel="stylesheet" href="{% static 'front_end/css/base.css' %}">
+  <link rel="stylesheet" href="{% static 'front_end/css/utilisation.css' %}">
   <link rel="stylesheet" href="{% static 'front_end/css/d3-tip.css' %}">
   <link rel="stylesheet" href="//cdn.datatables.net/1.10.7/css/jquery.dataTables.min.css">
 </head>
@@ -26,7 +27,7 @@
 <section class="title">
 <div class="row">
 <div class="twelve column">
-<h2>Tenjin</h2>
+<h2>Tenjin Utilisation</h2>
     <p>If a pie chart disappears, it is probably because the browser isn't sure how to draw 0/0.</p>
     <p><label><input type="checkbox" checked id="pielock">Lock charts</label></p>
 </div>
