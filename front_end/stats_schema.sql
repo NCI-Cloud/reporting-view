@@ -236,6 +236,7 @@ create table instances (
         wall_time int comment "Number of seconds instance has been running",
         cpu_time int comment "Number of seconds instnace has been using CPU",
         active boolean comment "Is the instance active",
+	hypervisor varchar(255) comment "Hypervisor the instance is running on",
 	availability_zone varchar(255) comment "Availabilty zone the instance is running in",
         primary key (uuid),
         key instances_project_id_key (project_id)
@@ -270,6 +271,7 @@ select
         0 as wall_time,
         0 as cpu_time,
         if(deleted<>0,false,true) as active,
+	host as hypervisor,
 	availability_zone
 from
         nova.instances;
