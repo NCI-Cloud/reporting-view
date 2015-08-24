@@ -1,5 +1,6 @@
-div.title {
+section.title {
     text-align: center;
+    padding: 4.5rem 0;
 }
 section, footer {
     border-top: 1px solid #ccc;
@@ -28,18 +29,10 @@ footer a {
     background-image: url(../img/loading.gif); /* From https://commons.wikimedia.org/wiki/File:Loading.gif (CC-BY-SA-2.5) */
 }
 path { stroke: #fff; }
-path.arc:hover { fill: pink; }
-path.selected { fill: #900; }
+path.selected { fill: pink; }
 path.res-used { fill: #d62728; } /* hard-coded to match category20 */
 path.res-free { fill: #2ca02c; }
-div.overview select  { float: right; }
-div.resources select { float: left; }
-div.resources label {
-    float: left;
-    clear: left;
-    font-weight: normal;
-}
-div.resources label > *:first-child {
+.title label > *:first-child {
     margin-right: 0.5em;
 }
 .error {
@@ -48,9 +41,55 @@ div.resources label > *:first-child {
     border: 2px dashed crimson;
     border-radius: 1rem;
 }
-div.live table {
+table {
     font-size: 1.2rem;
 }
 div.live td.date {
     white-space: nowrap;
+}
+
+.overview .handles circle, .resources .handles circle {
+    fill-opacity: 0; /* invisible targets for tooltips */
+}
+
+.historical .axis text {
+    font-size: 1.2rem; /* match table */
+}
+.historical g.date .x.axis text {
+    cursor: pointer;
+}
+.historical .axis path, .historical .axis line {
+    fill: none;
+    stroke: black;
+    shape-rendering: crispEdges;
+}
+.historical .line {
+    fill: none;
+    stroke: steelblue;
+    stroke-width: 2px;
+}
+.historical .area {
+    fill: lightsteelblue;
+    stroke: none;
+}
+.historical .extent {
+    fill: rgba(0,0,0,0.2);
+    stroke: gray;
+    stroke-width: 2px;
+    stroke-dasharray: 1 1;
+}
+.historical line.bar {
+    stroke: lightsteelblue;
+    stroke-width: 1px;
+    stroke-dasharray: 5 5;
+    display: none;
+}
+.historical circle {
+    fill: steelblue;
+    stroke: crimson; /* jk it will be invisible */
+    stroke-opacity: 0; /* told you */
+    stroke-width: 15px; /* this hack is meant to give a large invisible area for mouse events */
+}
+.historical circle.highlight {
+    stroke-opacity: 0.5;
 }

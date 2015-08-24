@@ -4,15 +4,15 @@ var Formatters = {};
     Formatters.relativeDateDisplay = function(date) {
         var t = Date.parse(date);
         if(isNaN(t)) return '';
-        return '<span title="'+date+'">'+humanize.relativeTime(t*1e-3)+'</span>';
+        return '<span title="'+(new Date(date))+'">'+humanize.relativeTime(t*1e-3)+'</span>';
     };
 
     Formatters.flavourDisplay = function(flavours) {
         return function(flavour_id) {
-            var f = flavours[flavour_id];
+            var f = flavours.find(function(f){return f.id==flavour_id;});
             return '<abbr title="'+f.vcpus+' cpu / '
-                                  +si_bytes(f.memory*1024*1024)+' / '
-                                  +si_bytes((+f.root+(+f.ephemeral))*1024*1024*1024)
+                                  +Formatters.si_bytes(f.memory*1024*1024)+' / '
+                                  +Formatters.si_bytes((+f.root+(+f.ephemeral))*1024*1024*1024)
                    +'">'+f.name+'</abbr>';
         };
     };
@@ -26,7 +26,7 @@ var Formatters = {};
                +'</span>';
     };
 
-    function si_bytes(bytes) {
+    Formatters.si_bytes = function(bytes) {
         return humanize.intword(
             bytes, ['bytes', 'KiB', 'MiB', 'GiB', 'TiB', 'PiB'],
             1024, // using binary units

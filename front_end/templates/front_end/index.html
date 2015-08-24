@@ -9,21 +9,26 @@
   <script src="//cdn.datatables.net/1.10.7/js/jquery.dataTables.min.js"></script>
   <script src="//cdn.jsdelivr.net/humanize/0.0.9/humanize.min.js"></script>
   <script src="//cdn.jsdelivr.net/js-signals/1.0.0/signals.min.js"></script>
+  <script src="{% static 'front_end/d3-tip.min.js' %}"></script>
   <script src="{% static 'front_end/formatters.js' %}"></script>
+  <script src="{% static 'front_end/polyfill.js' %}"></script>
+  <script src="{% static 'front_end/report.js' %}"></script>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link href="//fonts.googleapis.com/css?family=Raleway:400,300,600" rel="stylesheet" type="text/css">
   <link rel="stylesheet" href="{% static 'front_end/css/normalize.css' %}">
   <link rel="stylesheet" href="{% static 'front_end/css/skeleton.css' %}">
   <link rel="stylesheet" href="{% static 'front_end/css/base.css' %}">
+  <link rel="stylesheet" href="{% static 'front_end/css/d3-tip.css' %}">
   <link rel="stylesheet" href="//cdn.datatables.net/1.10.7/css/jquery.dataTables.min.css">
 </head>
 <body>
-<div class="container">
 
-<section>
-<div class="title row">
+<div class="container">
+<section class="title">
+<div class="row">
 <div class="twelve column">
 <h2>Tenjin</h2>
+    <p><label><input type="checkbox" checked id="pielock">Lock charts</label></p>
 </div>
 </div>
 </section>
@@ -31,422 +36,58 @@
 <h3>Live usage</h3>
 <div class="row">
   <div class="one-half column resources">
-    <h4>Overall resource usage</h4>
-    <label><input type="checkbox" checked id="pielock">lock charts</label>
+    <h4>Current resource usage</h4>
+    <div class="controls">
+        <select class="project"></select>
+        <select class="option"></select>
+    </div>
+    <div class="chart"></div>
   </div>
   <div class="one-half column overview">
     <h4>Per-project distribution</h4>
+    <div class="controls">
+        <select class="option"></select>
+    </div>
+    <div class="chart"></div>
     <div class="instructions">
     <p>Click on a piece of pie to filter data.</p>
-    <p style="display:none">Click again to reset.</p>
+    <p class="selected" style="display:none">Click again to reset.</p>
     </div>
   </div>
 </div>
 <div class="row">
   <div class="twelve column live">
-    <table class="display">
-    </table>
+    <table class="display"></table>
   </div>
 </div>
 </section>
 <section>
 <h3>Historical usage</h3>
 <div class="row">
-  <div class="twelve column">
+  <div class="twelve column historical">
     <h4>Historical usage</h4>
-    <p>{% lorem %}</p>
+    <p class="instructions">Select a project to view its historical resource usage. The blue plot shows number of non-deleted instances. Click on a label on the horizontal axis, or click and drag on the chart itself, to filter by a date range.</p>
+    <p>
+        <select class="project"></select>
+        <select class="option"></select>
+        Total usage over selected time period: <span class="integral"></span>
+    </p>
+    <div class="chart">{# this is a better way than ".insert('svg', ':nth-child(fragile)')" #}</div>
+    <table class="display"></table>
   </div>
 </div>
 </section>
 <footer>
 <div class="row">
   <div class="twelve column footer">
+    <p>Last updated: <span class="date">?</span></p>
   </div>
 </div>
 </footer>
-
 </div>{# /container #}
-<script>
-(function($) {
-    // array of
-    //    sel : selector for applying loading/error classes
-    //    dep : sqldump keys for required data (will be stored in g[key]
-    //    fun : function to call after all dep data loaded (will be called with deps element as argument)
-    var deps = [
-        {
-            sel : '.resources',
-            dep : ['hypervisors', 'live_instances'],
-            fun : report_resources,
-        },
-        {
-            sel : '.overview',
-            dep : ['projects', 'live_instances'],
-            fun : report_overview,
-        },
-        {
-            sel : '.live',
-            dep : ['projects', 'flavours', 'live_instances'],
-            fun : report_live,
-        },
-    ];
-    var g = {};
 
-    var on = {
-        optionChanged : new signals.Signal(),
-    };
-
-    // overview elements
-    var live_tbl;
-
-    // get json data from sqldump app
-    function sqldump(query_key, success, error) {
-        $.ajax({
-            url : '/dump/q/' + query_key, // TODO fragile
-            headers : {
-                'accept' : 'application/json',
-            },
-            success : success,
-            error : error != undefined ? error : function(data) {
-                console.log("Couldn't get sqldump for key '"+query_key+"'");
-            },
-        });
-    }
-
-    function change_pie(data_key, pie, path, arc) {
-        // change data of pie chart to use new key for data
-        pie.value(function(d) { return d[data_key]; });
-        path = path.data(pie);
-        path.transition().duration(750).attrTween('d', function(a) {
-            // arc tween
-            var i = d3.interpolate(this._current, a);
-            this._current = i(0);
-            return function(t) {
-                return arc(i(t));
-            };
-        });
-    }
-
-    function report_overview(dep) {
-        // "lock charts" is implemented by matching keys with report_resources
-        var aggs = [
-            {
-                key    : 'vcpus',
-                title  : 'vCPU',
-                use_fn : function(val, ins) { return val + (+ins.vcpus); },
-            },
-            {
-                key    : 'memory',
-                title  : 'Memory',
-                use_fn : function(val, ins) { return val + (+ins.memory); },
-            },
-            {
-                key    : 'local',
-                title  : 'Local storage',
-                use_fn : function(val, ins) { return val + (+ins.root) + (+ins.ephemeral); },
-            },
-            {
-                key    : 'allocation_time',
-                title  : 'Allocation time',
-                use_fn : function(val, ins) { return val + (+ins.allocation_time); },
-            },
-            {
-                key    : 'wall_time',
-                title  : 'Wall time', // TODO values for this currently are all 0, which breaks the pie chart
-                use_fn : function(val, ins) { return val + (+ins.wall_time); },
-            },
-        ];
-
-        // aggregate data
-        var agg_live_instances = Object.keys(g.projects).map(function(puuid) {
-            var ret = {puuid : puuid};
-            aggs.forEach(function(f) {
-                ret[f.key] = g.live_instances.filter(function(ins) { return ins.project_id == puuid; }).reduce(f.use_fn, 0);
-            });
-            return ret;
-        });
-
-        // generate pie chart; thanks to http://bl.ocks.org/mbostock/1346410
-        var width = 300, height = 300, radius = Math.min(width, height)*0.5; // TODO responsive svg
-
-        var color = d3.scale.category20();
-
-        var pie = d3.layout.pie()
-            .value(function(d) { return d[aggs[0].key]; });
-
-        var arc = d3.svg.arc()
-            .innerRadius(0)
-            .outerRadius(radius - 10);
-
-        var svg = d3.select(dep.sel).insert('svg', ':nth-child(2)') // insert after heading
-            .attr('width', width)
-            .attr('height', height)
-          .append('g')
-            .attr('transform', 'translate(' + width*0.5 + ',' + height*0.5 + ')');
-
-        var path = svg.datum(agg_live_instances).selectAll('path')
-            .data(pie)
-          .enter().append('path')
-            .attr('class', 'arc')
-            .attr('fill', function(d, i) { return color(i); })
-            .attr('d', arc)
-            .on('mouseover', function(d, i) {}) // TODO eventually handle these
-            .on('mouseout',  function(d, i) {})
-            .on('click', function(d, i) {
-                var col = live_tbl.column('.project_id');
-                d3.selectAll('path').classed('selected', false);
-                if(col.search() == d.data.puuid) {
-                    // deselecting
-                    col.search('').draw();
-                } else {
-                    // selecting
-                    col.search(d.data.puuid).draw();
-                    d3.select(this).classed('selected', true);
-                }
-                $(dep.sel).find('p').toggle();
-             })
-            .each(function(d) { this._current = d; }); // store initial angles
-
-        // done loading pie chart now
-        d3.select(dep.sel).classed('loading', false);
-        
-        // generate <select> for controlling pie
-        d3.select(dep.sel)
-          .insert('select', 'svg')
-            .on('change', function() { on.optionChanged.dispatch(dep.sel); })
-          .selectAll('option')
-            .data(aggs)
-          .enter().append('option')
-            .attr('value', function(d) { return d.key; })
-            .text(function(d) { return d.title; })
-
-        // TODO improve tooltips
-        path
-          .append('svg:title') // idk if you're even allowed to put a title inside a path
-            .text(function(d) { return g.projects[d.data.puuid].display_name+': '+d.data[d3.select('div.overview select').property('value')]; });
-
-        // listen for option change events
-        on.optionChanged.add(function(sel) {
-            if(lock_options(dep.sel, sel)) {
-                change_pie(d3.select(dep.sel).select('select').property('value'), pie, path, arc);
-            }
-        });
-    }
-
-    function report_live(dep) {
-        // show table
-        live_tbl = $('.live table').DataTable({
-            dom : 't', // show table only
-            data : g.live_instances,
-            columns : [
-                {
-                    title : 'Created',
-                    data : 'created',
-                    className : 'date',
-                    render : {
-                        display : Formatters.relativeDateDisplay,
-                    },
-                },
-                {
-                    title : 'Project',
-                    data : function(live_instance) {
-                        return g.projects[live_instance.project_id].display_name;
-                    },
-                },
-                {
-                    title : 'Wall time',
-                    data : 'wall_time',
-                    render : { display : Formatters.timeDisplay },
-                },
-                {
-                    title : 'CPU time',
-                    data : 'cpu_time',
-                    render : { display : Formatters.timeDisplay },
-                },
-                {
-                    title : 'Name',
-                    data : 'name',
-                },
-                {
-                    title : 'Flavour',
-                    data : 'flavour',
-                    render : {
-                        display : Formatters.flavourDisplay(g.flavours),
-                        filter : function(flavour_id) { return g.flavours[flavour_id].name; }, // TODO hello
-                    },
-                },
-                {
-                    data : 'project_id',
-                    className : 'project_id', // to identify column for filtering
-                    visible : false,
-                },
-                {
-                    data : 'uuid',
-                    visible : false,
-                },
-            ],
-            order : [[0, 'desc']], // order by first col: most recently created first
-            processing : true,
-        });
-        $(dep.sel).removeClass('loading');
-    }
-
-    function report_resources(dep) {
-        var aggs = [
-            {
-                key    : 'vcpus',
-                title  : 'vCPU',
-                tot_fn : function(val, hyp) { return val + (+hyp.cpus); },
-                use_fn : function(val, ins) { return val + (+ins.vcpus); },
-            },
-            {
-                key    : 'memory',
-                title  : 'Memory',
-                tot_fn : function(val, hyp) { return val + (+hyp.memory); },
-                use_fn : function(val, ins) { return val + (+ins.memory); },
-            },
-            {
-                key    : 'local',
-                title  : 'Local storage',
-                tot_fn : function(val, hyp) { return val + (+hyp.local_storage); },
-                use_fn : function(val, ins) { return val + (+ins.root) + (+ins.ephemeral); }, // root and ephemeral are both stored locally
-            },
-        ];
-
-        // store aggregated values, using title as key
-        var res_tot = {}, res_used = {key:'used'}, res_free = {key:'free'};
-        aggs.forEach(function(f) {
-            res_tot[f.key]  = g.hypervisors.reduce(f.tot_fn, 0);
-            res_used[f.key] = g.live_instances.reduce(f.use_fn, 0);
-            res_free[f.key] = res_tot[f.key] - res_used[f.key];
-        });
-        var data = [res_used, res_free];
-
-        // generate pie chart
-        var width = 300, height = 300, radius = Math.min(width, height)*0.5; // TODO responsive svg
-
-        var color = d3.scale.category20();
-
-        var pie = d3.layout.pie()
-            .value(function(d) { return d[aggs[0].key]; });
-
-        var arc = d3.svg.arc()
-            .innerRadius(0)
-            .outerRadius(radius - 10);
-
-        var svg = d3.select(dep.sel).append('svg')
-            .attr('width', width)
-            .attr('height', height)
-          .append('g')
-            .attr('transform', 'translate(' + width*0.5 + ',' + height*0.5 + ')');
-
-        var path = svg.datum(data).selectAll('path')
-            .data(pie)
-          .enter().append('path')
-            .attr('class', function(d, i) { return 'res-'+d.data.key; })
-            .attr('fill', function(d, i) { return color(i); })
-            .attr('d', arc)
-            .on('mouseover', function(d, i) {}) // TODO eventually handle these
-            .on('mouseout',  function(d, i) {})
-            .on('click', function(d, i) {
-                // TODO this !important
-             })
-            .each(function(d) { this._current = d; }); // store initial angles
-
-        // done loading pie chart now
-        d3.select(dep.sel).classed('loading', false);
-
-        // generate <select> for controlling pie
-        d3.select(dep.sel)
-          .insert('select', 'label')
-            //.on('change',function() { change_pie(this.value, pie, path, arc); })
-            .on('change', function() { on.optionChanged.dispatch(dep.sel); })
-          .selectAll('option')
-            .data(aggs)
-          .enter().append('option')
-            .attr('value', function(d) { return d.key; })
-            .text(function(d) { return d.title; })
-
-        // TODO improve tooltips
-        path
-          .append('svg:title') // idk if you're even allowed to put a title inside a path
-            .text(function(d) { return d.data.key; });
-
-        // listen for option change events
-        on.optionChanged.add(function(sel) {
-            if(lock_options(dep.sel, sel)) {
-                change_pie(d3.select(dep.sel).select('select').property('value'), pie, path, arc);
-            }
-        });
-    }
-
-    function lock_options(sel1, sel2) {
-        // try to make the value of "sel1 select" match that of "sel2 select" (if "#pielock" is checked)
-        // return true if sel1's select value has changed
-        var changed = sel1 === sel2, // calling this function with matching selectors means it's changed
-            sel1 = d3.select(sel1).select('select');
-        if(sel1 !== sel2 && d3.select('#pielock').node().checked) {
-            var key1 = sel1.property('value'),
-                key2 = d3.select(sel2).select('select').property('value');
-            if(key1 !== key2 && sel1.select('option[value='+key2+']').node()) {
-                // data key has changed, and there exists a matching key for this element, so update
-                sel1.property('value', key2);
-                changed = true;
-            }
-        }
-        return changed;
-    }
-
-    // putting <script> at the end of document makes sure we have all the dom we need
-    // concat all depdendency query keys, then filter out duplicates (topsort would be too cool)
-    var dep_keys = deps.reduce(function(val, dep) { return val.concat(dep.dep); }, []);
-    dep_keys = dep_keys.filter(function(dep, i) { return dep_keys.indexOf(dep)==i; });
-    deps.forEach(function(dep) { $(dep.sel).addClass('loading'); });
-    dep_keys.forEach(function(key) { sqldump(key,
-        // get all preload data, then call success
-        function(data) {
-            // maybe restructure data, then store
-            if(key == 'projects') {
-                ps = {}
-                data.forEach(function(p) {
-                    ps[p.uuid] = p;
-                });
-                data = ps;
-            } else if(key == 'flavours') {
-                fs = {}
-                data.forEach(function(f) {
-                    fs[f.id] = f;
-                });
-                data = fs;
-            }
-            g[key] = data;
-            
-            // check if any new report functions can now be called
-            // TODO not sure if a race condition is possible here in js (single-threaded execution should be ok)
-            deps.forEach(function(dep) {
-                if(!dep.done && dep.dep.every(function(k) { return k in g; })) {
-                    dep.done = true;
-                    dep.fun(dep);
-                }
-            });
-        },
-        function(err) {
-            // error
-            deps.forEach(function(dep) {
-                if(dep.dep.indexOf(key) != -1) {
-                    $(dep.sel).removeClass('loading');
-                    $(dep.sel).addClass('error');
-                    console.log('error (%i %s) for query "%s"', err.status, err.statusText, key);
-                }
-            });
-        }
-    )});
-
-    var p = $('<p></p>').html('Last update: ?'); // TODO get this from db
-    $('div.footer').append(p);
-    p = $('<p></p>');
-    p.append($('<a></a>').html('Update now').click(function(){sqldump('update', function(){location.reload();})}));
-    $('div.footer').append(p);
-})(jQuery);
+<script>{# putting <script> at the end of document makes sure we have all the dom we need (hopefully same as $(document).ready) #}
+Report.init();
 </script>
 </body>
 </html>
