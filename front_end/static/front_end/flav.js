@@ -148,9 +148,7 @@ function report_list(dep) {
         return ret;
     });
 
-    res.forEach(function(r) {
-        r.max = g.hypervisors.reduce(function(val, hyp) { return Math.max(val, r.accessor.hypervisors(hyp)) }, 0);
-    });
+    resMax = res.map(function(r) { return d3.max(g.hypervisors, r.accessor.hypervisors); });
 
     data.forEach(function(d) {
         d.instances = [];
@@ -202,7 +200,7 @@ function report_list(dep) {
             .attr('class', r.key)
           .append('div')
             .attr('class', 'bar')
-            .style('width', function(d) { return r.accessor.hypervisors(d)/r.max*100+'%' })
+            .style('width', function(d) { return r.accessor.hypervisors(d)/resMax[i]*100+'%' })
           .append('div')
             .html(function(d) { return r.format(d._allocated[i]) })
             .style('width', function(d) { return d._allocated[i]/r.accessor.hypervisors(d)*100+'%' }); // could use a d3 scale for this, but can't be bothered
