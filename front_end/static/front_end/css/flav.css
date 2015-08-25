@@ -17,7 +17,7 @@
 .hypervisors div.hypervisor.selected {
     font-weight: bold;
 }
-.hypervisors span.capacity {
+.hypervisors span.capacity, .hypervisors abbr.capacity {
     display: table-cell;
     width: 2em;
 }

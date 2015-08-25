@@ -233,6 +233,9 @@ function report_list(dep) {
             });
 
             sortBy('capacity', d3.descending);
+        } else {
+            // no flavour selected
+            row.selectAll('.capacity').html('');
         }
     });
 }
