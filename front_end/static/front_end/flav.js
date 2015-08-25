@@ -108,7 +108,7 @@ function report_flavs(dep) {
 
     // generate <select> for controlling pie
     var slct = s.select('select') // "select" is a word overused yet reserved
-        .on('change', function() { dispatch.flavChanged(dep.sel, this.value); });
+        .on('change', function() { var fid = this.value; dispatch.flavChanged(dep.sel, g.flavours.find(function(f){return f.id===fid})); });
     slct.selectAll('option')
         .data(g.flavours)
       .enter().append('option')
@@ -121,9 +121,8 @@ function report_flavs(dep) {
         return d3.scale.linear().domain([0, d3.max(g.flavours, r.accessor.flavours)]).range([0, sumHeight]);
     });
 
-    dispatch.on('flavChanged.'+dep.sel, function(sel, fid) {
+    dispatch.on('flavChanged.'+dep.sel, function(sel, f) {
         var data = [];
-        var f = g.flavours.find(function(f){return f.id==fid});
         if(f) {
             data = res.map(function(r) { return r.accessor.flavours(f) });
         }
@@ -228,13 +227,12 @@ function report_list(dep) {
             .style('top', function(d) { return d.index*rowHeight+'px' });
     };
 
-    dispatch.on('flavChanged.'+dep.sel, function(sel, fid) {
-        var f = g.flavours.find(function(f){return f.id==fid});
+    dispatch.on('flavChanged.'+dep.sel, function(sel, f) {
         d3.selectAll('.deselected').classed('deselected', false);
         if(f) {
             var tot = 0;
             data.forEach(function(d) {
-                var cap = Infinity; // TODO d3.min
+                var cap = Infinity;
                 res.forEach(function(r, i) {
                     var remaining = r.accessor.hypervisors(d) - d._allocated[i];
                     cap = Math.min(cap, Math.floor(remaining / r.accessor.flavours(f)));
