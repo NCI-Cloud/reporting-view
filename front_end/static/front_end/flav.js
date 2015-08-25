@@ -1,4 +1,4 @@
-var Report = {};
+var Report = {}; // TODO should this only show flavours with public=1? (or should this be done at db level?)
 (function($) { // TODO remove jquery dependency by rewriting sqldump
 
 // array of
@@ -23,6 +23,36 @@ var deps = [
     },
 ];
 var g = {};
+
+var res = [
+    {
+        key : 'vcpus',
+        format : function(u) { return u },
+        accessor : {
+            instances   : function(ins) { return +ins.vcpus },
+            hypervisors : function(hyp) { return +hyp.cpus },
+            flavours    : function(fla) { return +fla.vcpus },
+        },
+    },
+    {
+        key : 'memory',
+        format : function(d) { return Formatters.si_bytes(d*1024*1024) },
+        accessor : {
+            instances   : function(ins) { return +ins.memory },
+            hypervisors : function(hyp) { return +hyp.memory },
+            flavours    : function(fla) { return +fla.memory },
+        },
+    },
+    {
+        key : 'disk',
+        format : function(d) { return Formatters.si_bytes(d*1024*1024*1024) },
+        accessor : {
+            instances   : function(ins) { return (+ins.root) + (+ins.ephemeral) },
+            hypervisors : function(hyp) { return +hyp.local_storage },
+            flavours    : function(fla) { return (+fla.root) + (+fla.ephemeral) },
+        },
+    },
+];
 
 Report.init = function() {
     // concat all dependency query keys, then filter out duplicates (topsort would be too cool)
@@ -85,44 +115,30 @@ function report_flavs(dep) {
         .attr('value', function(d) { return d.id; })
         .text(function(d) { return d.name; })
 
-    // TODO draw something cute when a flavour is selected
+    var sumHeight = 50; // pixels
+    var sum = s.select('.summary').style('height', sumHeight+'px');
+    var sumScale = res.map(function(r) {
+        return d3.scale.linear().domain([0, d3.max(g.flavours, r.accessor.flavours)]).range([0, sumHeight]);
+    });
+
     dispatch.on('flavChanged.'+dep.sel, function(sel, fid) {
-        console.log('picked flavour %o', fid, g.flavours.find(function(f){return f.id==fid}));
+        var data = [];
+        var f = g.flavours.find(function(f){return f.id==fid});
+        if(f) {
+            data = res.map(function(r) { return r.accessor.flavours(f) });
+        }
+        var span = sum.selectAll('div').data(data);
+        span.enter().append('div');
+        span
+            .html(function(d, i) { return '<span title="'+res[i].key+'">'+res[i].format(d)+'</span>'; });
+        span.transition()
+            .style('height', function(d, i) { return sumScale[i](d)+'px' });
+        span.exit().transition().style('height', '0px').remove();
     });
 }
 
 function report_list(dep) {
     var s = d3.select(dep.sel);
-
-    var res = [
-        {
-            key : 'vcpus',
-            format : function(u) { return u },
-            accessor : {
-                instances   : function(ins) { return +ins.vcpus },
-                hypervisors : function(hyp) { return +hyp.cpus },
-                flavours    : function(fla) { return +fla.vcpus },
-            },
-        },
-        {
-            key : 'memory',
-            format : function(d) { return Formatters.si_bytes(d*1024*1024) },
-            accessor : {
-                instances   : function(ins) { return +ins.memory },
-                hypervisors : function(hyp) { return +hyp.memory },
-                flavours    : function(fla) { return +fla.memory },
-            },
-        },
-        {
-            key : 'disk',
-            format : function(d) { return Formatters.si_bytes(d*1024*1024*1024) },
-            accessor : {
-                instances   : function(ins) { return (+ins.root) + (+ins.ephemeral) },
-                hypervisors : function(hyp) { return +hyp.local_storage },
-                flavours    : function(fla) { return (+fla.root) + (+fla.ephemeral) },
-            },
-        },
-    ];
 
     // TODO join hypervisors and live_instances
     var data = g.hypervisors.map(function(ins) { // shallow copy of g.hypervisors
@@ -217,7 +233,7 @@ function report_list(dep) {
         d3.selectAll('.deselected').classed('deselected', false);
         if(f) {
             data.forEach(function(d) {
-                var cap = Infinity;
+                var cap = Infinity; // TODO d3.min
                 res.forEach(function(r, i) {
                     var remaining = r.accessor.hypervisors(d) - d._allocated[i];
                     cap = Math.min(cap, Math.floor(remaining / r.accessor.flavours(f)));
