@@ -232,6 +232,7 @@ function report_list(dep) {
         var f = g.flavours.find(function(f){return f.id==fid});
         d3.selectAll('.deselected').classed('deselected', false);
         if(f) {
+            var tot = 0;
             data.forEach(function(d) {
                 var cap = Infinity; // TODO d3.min
                 res.forEach(function(r, i) {
@@ -240,6 +241,7 @@ function report_list(dep) {
                 });
                 if(cap === Infinity) cap = null;
                 d._capacity = cap;
+                tot += cap;
             });
 
             row.each(function(d) {
@@ -248,10 +250,13 @@ function report_list(dep) {
                 if(d._capacity === 0) t.classed('deselected', true);
             });
 
+            d3.select('.sum').html('Total capacity: ' + tot + ' instance' + (tot==1?'':'s'));
+
             sortBy('capacity', d3.descending);
         } else {
             // no flavour selected
             row.selectAll('.capacity').html('');
+            d3.select('.sum').html('');
         }
     });
 }

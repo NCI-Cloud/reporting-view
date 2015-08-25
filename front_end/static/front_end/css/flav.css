@@ -65,7 +65,7 @@
 .deselected div.resources div.bar div {
     background: gray;
 }
-.flavs .summary {
+.flavs {
     text-align: center;
 }
 .flavs .summary div {
@@ -73,7 +73,7 @@
     background: steelblue;
     border: 1px solid lightsteelblue;
     box-sizing: border-box;
-    margin: 0 2em;
+    margin: 0 1.5em;
     display: inline-block;
     white-space: nowrap;
     position: relative;
@@ -82,4 +82,7 @@
     margin-top:-1em;
     position: relative;
     top: -1.8em;
+}
+p.sum {
+    margin-bottom: 0; /* BabyRage */
 }
