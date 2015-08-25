@@ -1,0 +1,67 @@
+.hypervisors > div { /* container */
+    position: relative;
+    border-bottom: 0;
+}
+.hypervisors div.controls {
+    width: 100%;
+    display: table;
+    font-weight: bold;
+}
+.hypervisors div.hypervisor { /* hypervisor */
+    position: absolute;
+    width: 100%;
+    height: 30px; /* match rowHeight in flav.js */
+    line-height: 30px;
+    display: table;
+}
+.hypervisors div.hypervisor.selected {
+    font-weight: bold;
+}
+.hypervisors span.capacity {
+    display: table-cell;
+    width: 2em;
+}
+.hypervisors span.hostname {
+    display: table-cell;
+    width: 9em;
+}
+.hypervisors div.resources { /* contains divs for vcpus, memory, disk */
+    display: table-cell;
+    margin-left: 11em;
+    height: 100%;
+}
+.hypervisors div.resources div { /* contains bar for one resource */
+    width: 32%;
+    margin-right: 1%;
+    display: inline-block;
+    height: 100%;
+}
+.hypervisors div.resources div.bar { /* contains a div to be styled width:x% */
+    background: lightsteelblue;
+    height: 50%;
+    position: relative;
+    top: 12.5%;
+}
+.hypervisors div.resources div.bar div {
+    background: steelblue;
+    position: absolute;
+    top: 0;
+    left: 0;
+    font-size: 80%;
+    color: rgba(0,0,0,0);
+    line-height: 100%;
+    text-align:right;
+    white-space: nowrap;
+}
+.selected div.resources div.bar div {
+    color: white;
+}
+.deselected {
+    color: gray;
+}
+.deselected div.resources div.bar {
+    background: lightgray;
+}
+.deselected div.resources div.bar div {
+    background: gray;
+}
