@@ -145,27 +145,22 @@ function report_list(dep) {
         for(var k in ins) {
             ret[k] = ins[k];
         }
+        ret._allocated = res.map(function() { return 0 });
         return ret;
     });
 
     resMax = res.map(function(r) { return d3.max(g.hypervisors, r.accessor.hypervisors); });
 
-    data.forEach(function(d) {
-        d.instances = [];
-        var running_total = res.map(function() { return 0 });
-        while(true) {
-            var f = g.flavours[Math.floor(Math.random()*g.flavours.length)];
-            for(var i=0; i<res.length; i++) {
-                if(running_total[i] + res[i].accessor.flavours(f) > res[i].accessor.hypervisors(d)) {
-                    // can't fit an instance of this flavour! oh noes
-                    d._allocated = running_total;
-                    return; // proceed to next iteration of forEach
-                }
-            }
-            d.instances.push({flavour : f.id}); // yes that is an instance i just pushed, and also icr if it's f.id or f.uuid
-            for(var i=0; i<res.length; i++) {
-                running_total[i] += res[i].accessor.flavours(f);
-            }
+    g.live_instances.forEach(function(ins) {
+        // assume that instances.hypervisor matches substr of hypervisors.hostname from start to before '.'
+        var hyp = data.find(function(h) {
+            var dIdx = h.hostname.indexOf('.');
+            return ins.hypervisor === (dIdx === -1 ? h.hostname : h.hostname.substr(0, dIdx));
+        });
+        if(hyp) {
+            res.forEach(function(r, i) {
+                hyp._allocated[i] += r.accessor.instances(ins);
+            });
         }
     });
 
