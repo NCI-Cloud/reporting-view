@@ -236,6 +236,7 @@ create table instances (
         wall_time int comment "Number of seconds instance has been running",
         cpu_time int comment "Number of seconds instnace has been using CPU",
         active boolean comment "Is the instance active",
+	hypervisor varchar(255) comment "Hypervisor the instance is running on",
 	availability_zone varchar(255) comment "Availabilty zone the instance is running in",
         primary key (uuid),
         key instances_project_id_key (project_id)
@@ -270,6 +271,7 @@ select
         0 as wall_time,
         0 as cpu_time,
         if(deleted<>0,false,true) as active,
+	host as hypervisor,
 	availability_zone
 from
         nova.instances;
@@ -296,7 +298,7 @@ create table volumes (
         attached boolean comment "Volume attached or not",
         instance_uuid varchar(36) comment "Instance the volume is attached to",
 	availability_zone varchar(255) comment "Availability zone the volume exists in",
-        primary key (uuid),
+        primary key (uuid)
 ) comment "Volume details";
 
 delimiter //
@@ -346,7 +348,7 @@ create table images (
         public boolean comment "Is this image publically available",
         created datetime comment "Image created at",
         deleted datetime comment "Image deleted at",
-        primary key (uuid),
+        primary key (uuid)
 ) comment "Image details";
 
 delimiter //
