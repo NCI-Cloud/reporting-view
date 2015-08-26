@@ -86,3 +86,10 @@
 p.sum {
     margin-bottom: 0; /* BabyRage */
 }
+
+.historical .chart {
+    margin-top: 2.5em; /* because there is no margin after the hypervisor list */
+    text-align: center;
+    color: gray;
+    font-size: 80%;
+}
