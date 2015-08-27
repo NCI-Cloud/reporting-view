@@ -2,19 +2,19 @@ var Util = {};
 (function() {
     reportStart = function(sel) {
         return function() {
-            d3.select(sel).classed('loading', true);
+            if(sel) d3.select(sel).classed('loading', true);
         };
     };
     reportSuccess = function(sel, callback) {
         return function() {
-            d3.select(sel).classed('loading', false);
+            if(sel) d3.select(sel).classed('loading', false);
             callback(sel);
         };
     };
     reportError = function(sel) {
         return function() {
-            d3.select(sel).classed('loading', false);
-            d3.select(sel).classed('error', true);
+            if(sel) d3.select(sel).classed('loading', false);
+            if(sel) d3.select(sel).classed('error', true);
         };
     };
     Util.qdeps = function(fetch, deps) {

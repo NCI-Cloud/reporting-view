@@ -1,85 +1,50 @@
 var Report = {};
 (function($) {
 
-// array of
-//    sel : selector for applying loading/error classes
-//    dep : sqldump keys for required data (will be stored in g[key]
-//    fun : function to call after all dep data loaded (will be called with deps element as argument)
-var deps = [
-    {
-        sel : '.resources',
-        dep : ['projects', 'hypervisors', 'live_instances', 'volumes'],
-        fun : report_resources,
-    },
-    {
-        sel : '.overview',
-        dep : ['projects', 'live_instances'],
-        fun : report_overview,
-    },
-    {
-        sel : '.live',
-        dep : ['projects', 'flavours', 'live_instances'],
-        fun : report_live,
-    },
-    {
-        sel : '.historical',
-        dep : ['projects', 'flavours'],
-        fun : report_historical,
-    },
-    {
-        sel : '.footer',
-        dep : ['last_updated'],
-        fun : report_footer,
-    },
-];
+/// reference to data from current endpoint
 var g = {};
 
-Report.init = function() {
-    // concat all dependency query keys, then filter out duplicates (topsort would be too cool)
-    var dep_keys = deps.reduce(function(val, dep) { return val.concat(dep.dep); }, []);
-    dep_keys = dep_keys.filter(function(dep, i) { return dep_keys.indexOf(dep)==i; });
-    deps.forEach(function(dep) { $(dep.sel).addClass('loading'); });
-    dep_keys.forEach(function(key) { sqldump(key,
-        // get all preload data, then call success
-        function(data) {
-            g[key] = data;
-
-            // check if any new report functions can now be called
-            // TODO not sure if a race condition is possible here in js (single-threaded execution should be ok)
-            deps.forEach(function(dep) {
-                if(!dep.done && dep.dep.every(function(k) { return k in g; })) {
-                    dep.done = true;
-                    dep.fun(dep);
-                }
-            });
-        },
-        function(err) {
-            // error
-            deps.forEach(function(dep) {
-                if(dep.dep.indexOf(key) != -1) {
-                    $(dep.sel).removeClass('loading');
-                    $(dep.sel).addClass('error');
-                    console.log('error (%i %s) for query "%s"', err.status, err.statusText, key);
-                }
-            });
-        }
-    )});
-}
-
+/// event broadcasting
 var dispatch = d3.dispatch('optionChanged', 'projectChanged', 'datesChanged');
 
-// get json data from sqldump app
-function sqldump(query_key, success, error) {
-    $.ajax({
-        url : '/dump/q/' + query_key, // TODO fragile
-        headers : {
-            'accept' : 'application/json',
+// TODO refactor to avoid duplicating this code between reports
+Report.init = function() {
+    var fetch = Fetcher();
+    Util.qdeps(fetch, [
+        {
+            sel : null,
+            dep : ['instances'],
+            fun : preprocess_instances, // Fetcher will invoke callbacks in the order they're queued, so this comes before anything else depending on projects
         },
-        success : success,
-        error : error != undefined ? error : function(data) {
-            console.log("Couldn't get sqldump for key '"+query_key+"'");
+        {
+            sel : '.resources',
+            dep : ['projects', 'hypervisors', 'live_instances', 'volumes'],
+            fun : report_resources,
         },
-    });
+        {
+            sel : '.overview',
+            dep : ['projects', 'live_instances'],
+            fun : report_overview,
+        },
+        {
+            sel : '.live',
+            dep : ['projects', 'flavours', 'live_instances'],
+            fun : report_live,
+        },
+        {
+            sel : '.historical',
+            dep : ['projects', 'flavours', 'instances'],
+            fun : report_historical,
+        },
+        {
+            sel : '.footer',
+            dep : ['last_updated'],
+            fun : report_footer,
+        },
+    ]);
+    var ep_name = 'sqldump';
+    fetch(ep_name);
+    g = fetch.data(ep_name)
 }
 
 function arcTween(arc) {
@@ -114,8 +79,24 @@ function pie_tip_y(r, d) {
     return  r * Math.sin(-0.5*Math.PI - 0.5*(d.startAngle+d.endAngle));
 }
 
-function report_overview(dep) {
-    var s = d3.select(dep.sel);
+/// rearrange instances data so we can efficiently group by project
+function preprocess_instances() {
+    g._instances_by_puuid = {};
+    g.instances.forEach(function(ins) {
+        if(! (ins.project_id in g._instances_by_puuid)) {
+            g._instances_by_puuid[ins.project_id] = [];
+        }
+
+        // pollute data by preparsing dates
+        ins._c_time = Date.parse(ins.created);
+        ins._d_time = Date.parse(ins.deleted);
+
+        g._instances_by_puuid[ins.project_id].push(ins);
+    });
+}
+
+function report_overview(sel) {
+    var s = d3.select(sel);
     // chart synchronisation is implemented by matching keys with report_resources
     var aggs = [
         {
@@ -151,9 +132,9 @@ function report_overview(dep) {
     ];
 
     // generate <select> for controlling pie
-    var sel = s.select('select')
-        .on('change', function() { dispatch.optionChanged(dep.sel, this.value); });
-    sel.selectAll('option')
+    var slct = s.select('select')
+        .on('change', function() { dispatch.optionChanged(sel, this.value); });
+    slct.selectAll('option')
         .data(aggs)
       .enter().append('option')
         .attr('value', function(d) { return d.key; })
@@ -202,7 +183,7 @@ function report_overview(dep) {
     handles_g.call(tip);
 
     var updateChart = function() {
-        pie.value(function(d) { return d[sel.property('value')] });
+        pie.value(function(d) { return d[slct.property('value')] });
 
         handles = handles.data(pie);
         handles.enter().append('circle')
@@ -217,7 +198,7 @@ function report_overview(dep) {
             .attr('fill', function(d, i) { return color(i); })
             .on('mouseover', function(d, i) { tip.show(d, handles[0][i]) })
             .on('mouseout', tip.hide)
-            .on('click', function(d) { dispatch.projectChanged(dep.sel, d3.select(this).classed('selected') ? null : d.data.puuid); })
+            .on('click', function(d) { dispatch.projectChanged(sel, d3.select(this).classed('selected') ? null : d.data.puuid); })
             .each(function(d) { this._current = d; }); // store initial angles
         path.transition()
             .attrTween('d', arcTween(arc)); // arcTween(arc) is a tweening function to transition 'd' element
@@ -226,18 +207,18 @@ function report_overview(dep) {
     updateChart();
     s.classed('loading', false);
 
-    dispatch.on('optionChanged.'+dep.sel, function(sender_sel, data_key) {
-        if(dep.sel!==sender_sel && !should_lock_charts()) return;
+    dispatch.on('optionChanged.'+sel, function(sender_sel, data_key) {
+        if(sel!==sender_sel && !should_lock_charts()) return;
         if(aggs.find(function(a){return a.key===data_key})) { // check if data_key makes sense in this context
-            sel.property('value', data_key);
+            slct.property('value', data_key);
             updateChart();
         }
         path.selectAll('title')
             .text(function(d) { return g.projects.find(function(p){return p.uuid==d.data.puuid;}).display_name+': '+d.data[d3.select('div.overview select').property('value')]; });
     });
-    dispatch.on('projectChanged.'+dep.sel, function(sender_sel, puuid) {
+    dispatch.on('projectChanged.'+sel, function(sender_sel, puuid) {
         // apply "selected" class to pie piece corresponding to puuid, if it has nonzero value (i.e. don't confuse user by selecting invisible data)
-        if(dep.sel!==sender_sel && !should_lock_charts()) return;
+        if(sel!==sender_sel && !should_lock_charts()) return;
         s.selectAll('path').classed('selected', false); // deselect everything
         var field = s.select('select').property('value'); // what field are we looking at
         var d = agg_live_instances.find(function(i){return i.puuid===puuid}); // find datum with given puuid
@@ -252,8 +233,8 @@ function report_overview(dep) {
     });
 }
 
-function report_live(dep) {
-    var s = $(dep.sel);
+function report_live(sel) {
+    var s = $(sel);
     // show table
     var live_tbl = $('table', s).DataTable({
         dom : 'rt', // show only processing indicator and table
@@ -314,14 +295,14 @@ function report_live(dep) {
     });
     s.removeClass('loading');
 
-    dispatch.on('projectChanged.'+dep.sel, function(sender_sel, puuid) {
+    dispatch.on('projectChanged.'+sel, function(sender_sel, puuid) {
         if(!should_lock_charts()) return;
         live_tbl.column('.project_id').search(puuid ? puuid : '').draw();
     });
 }
 
-function report_resources(dep) {
-    var s = d3.select(dep.sel);
+function report_resources(sel) {
+    var s = d3.select(sel);
 
     // compute mapping of project_id => total volume size
     var vol = {}, vol_t = 0;
@@ -417,14 +398,14 @@ function report_resources(dep) {
 
     // generate <select>s for controlling pie
     var data_key_sel = s.select('select.option')
-        .on('change', function() { dispatch.optionChanged(dep.sel, this.value); });
+        .on('change', function() { dispatch.optionChanged(sel, this.value); });
     data_key_sel.selectAll('option')
         .data(aggs)
       .enter().append('option')
         .attr('value', function(d) { return d.key; })
         .text(function(d) { return d.title; })
     var project_sel = s.select('select.project')
-        .on('change', function() { dispatch.projectChanged(dep.sel, this.value); });
+        .on('change', function() { dispatch.projectChanged(sel, this.value); });
     project_sel.selectAll('option')
         .data(g.projects)
       .enter().append('option')
@@ -491,23 +472,23 @@ function report_resources(dep) {
     s.classed('loading', false);
 
     // listen for option change events
-    dispatch.on('optionChanged.'+dep.sel, function(sender_sel, data_key) {
-        if(dep.sel!==sender_sel && !should_lock_charts()) return;
+    dispatch.on('optionChanged.'+sel, function(sender_sel, data_key) {
+        if(sel!==sender_sel && !should_lock_charts()) return;
         if(aggs.find(function(a){return a.key===data_key})) { // check if data_key makes sense in this context
             data_key_sel.property('value', data_key);
             updateChart();
         }
     });
 
-    dispatch.on('projectChanged.'+dep.sel, function(sel, project) {
-        if(dep.sel!==sel && !should_lock_charts()) return;
+    dispatch.on('projectChanged.'+sel, function(sender_sel, project) {
+        if(sender_sel!==sel && !should_lock_charts()) return;
         project_sel.property('value', project?project:''/*workaround because <option value=null> isn't possible*/);
         updateChart();
     });
 }
 
-function report_historical(dep) {
-    var s = d3.select(dep.sel);
+function report_historical(sel) {
+    var s = d3.select(sel);
     var aggs = [ // pls don't use key "time" or "uuid"
         {
             key        : 'vcpus',
@@ -540,16 +521,16 @@ function report_historical(dep) {
     ];
     var data_key = aggs[0].key;
 
-    var sel = s.select('select.option')
-        .on('change', function() { dispatch.optionChanged(dep.sel, this.value); });
-    sel.selectAll('option')
+    var slct = s.select('select.option')
+        .on('change', function() { dispatch.optionChanged(sel, this.value); });
+    slct.selectAll('option')
         .data(aggs)
       .enter().append('option')
         .attr('value', function(d) { return d.key })
         .text(function(d) { return d.title });
 
     s.select('select.project')
-        .on('change', function() { dispatch.projectChanged(dep.sel, this.value); })
+        .on('change', function() { dispatch.projectChanged(sel, this.value); })
       .selectAll('option')
         .data(g.projects)
       .enter().append('option')
@@ -562,8 +543,8 @@ function report_historical(dep) {
         .style('display', 'none')
         .text('Select project...');
 
-    var tbl = $('table', $(dep.sel)).DataTable({
-        sel : dep.sel,
+    var tbl = $('table', $(sel)).DataTable({
+        sel : sel,
         columns : [
             {
                 title : 'Created',
@@ -621,12 +602,12 @@ function report_historical(dep) {
     });
 
     // highlight points in chart when mousing over table
-    $('tbody', dep.sel).on('mouseover', 'tr', function () {
+    $('tbody', sel).on('mouseover', 'tr', function () {
         // trying to separate jquery and d3, but jquery addClass doesn't work on svg elements
         var uuid = tbl.row(this).data().uuid;
         d3.selectAll('circle.instance-'+uuid).classed('highlight', true);
     });
-    $('tbody', dep.sel).on('mouseout', 'tr', function () {
+    $('tbody', sel).on('mouseout', 'tr', function () {
         var uuid = tbl.row(this).data().uuid;
         d3.selectAll('circle.instance-'+uuid).classed('highlight', false);
     });
@@ -651,14 +632,14 @@ function report_historical(dep) {
     var date_y = d3.scale.linear().range([date_height, 0]);
     var date_x_axis = d3.svg.axis().scale(date_x).orient('bottom');
     var date_y_axis = d3.svg.axis().scale(date_y).orient('left').ticks(0);
-    var date_brush = d3.svg.brush().x(date_x).on('brushend', function() { dispatch.datesChanged(dep.sel, date_brush.empty() ? null : date_brush.extent()) });
+    var date_brush = d3.svg.brush().x(date_x).on('brushend', function() { dispatch.datesChanged(sel, date_brush.empty() ? null : date_brush.extent()) });
 
     // zoom chart elements
     var zoom_x = d3.time.scale().range([0, width]);
     var zoom_y = d3.scale.linear().range([zoom_height, 0]);
     var zoom_x_axis = d3.svg.axis().scale(zoom_x).orient('bottom');
     var zoom_y_axis = d3.svg.axis().scale(zoom_y).orient('left');
-    var zoom_brush = d3.svg.brush().x(zoom_x).on('brushend', function() { dispatch.datesChanged(dep.sel, zoom_brush.empty() ? null : zoom_brush.extent()) });
+    var zoom_brush = d3.svg.brush().x(zoom_x).on('brushend', function() { dispatch.datesChanged(sel, zoom_brush.empty() ? null : zoom_brush.extent()) });
 
     // line functions
     var date_line = d3.svg.line()
@@ -701,8 +682,8 @@ function report_historical(dep) {
     s.classed('loading', false);
 
     function redraw(do_not_animate) {
-        var sel_trans = function(sel) {
-            return do_not_animate ? sel : sel.transition();
+        var sel_trans = function(selection) {
+            return do_not_animate ? selection : selection.transition();
         };
 
         // update table
@@ -761,14 +742,14 @@ function report_historical(dep) {
         s.select('span.integral').html(aggs.find(function(a){return a.key==data_key}).intFormat(integral/3600000.0)+' hours');
     }
 
-    dispatch.on('datesChanged.'+dep.sel, function(sel, extent, do_not_redraw) {
+    dispatch.on('datesChanged.'+sel, function(sender_sel, extent, do_not_redraw) {
         // update table
         $.fn.dataTable.ext.search.pop(); // fragile
         if(extent) {
             $.fn.dataTable.ext.search.push(function(settings, _, _, instance) {
-                if(settings.oInit.sel !== dep.sel) return true; // only want to filter our own table
+                if(settings.oInit.sel !== sender_sel) return true; // only want to filter our own table
                 // don't show instance if it was deleted before the time interval, or created after
-                return !(instance.d_time < extent[0] || instance.c_time > extent[1]);
+                return !(instance._d_time < extent[0] || instance._c_time > extent[1]);
             });
         }
 
@@ -784,19 +765,19 @@ function report_historical(dep) {
         if(! do_not_redraw) redraw();
     });
 
-    dispatch.on('optionChanged.'+dep.sel, function(sender_sel, dk) {
-        if(dep.sel!==sender_sel && !should_lock_charts()) return;
+    dispatch.on('optionChanged.'+sel, function(sender_sel, dk) {
+        if(sel!==sender_sel && !should_lock_charts()) return;
         var agg = aggs.find(function(a){return a.key===dk});
         if(agg) {
             data_key = dk;
-            sel.property('value', data_key);
+            slct.property('value', data_key);
             zoom_y.domain(d3.extent(ts_data, function(d) { return d[data_key] }));
         }
         redraw();
     });
 
-    dispatch.on('projectChanged.'+dep.sel, function(sel, puuid) {
-        if(sel!==dep.sel && !should_lock_charts()) return;
+    dispatch.on('projectChanged.'+sel, function(sender_sel, puuid) {
+        if(sender_sel!==sel && !should_lock_charts()) return;
         if(!puuid) {
             s.select('select').property('value', '');
             tbl.clear(); // clear table
@@ -806,7 +787,7 @@ function report_historical(dep) {
             date_x.domain([]);
             date_y.domain([]);
             zoom_y.domain([]);
-            dispatch.datesChanged(dep.sel, null, true /*do_not_redraw*/);
+            dispatch.datesChanged(sel, null, true /*do_not_redraw*/);
             date_g.select('.x.axis').call(date_x_axis);
             date_g.select('.y.axis').call(date_y_axis);
             date_g.select('path.line').datum(ts_data).attr('d', date_line);
@@ -817,75 +798,66 @@ function report_historical(dep) {
         }
         s.classed('loading', true);
         s.select('select').property('value', puuid);
-        sqldump('instances/'+puuid, function(data) {
-            // pollute data by preparsing dates
-            data.forEach(function(d,i) {
-                data[i].c_time = Date.parse(d.created);
-                data[i].d_time = Date.parse(d.deleted);
-            });
 
-            // fill data table
-            tbl.clear().rows.add(data);
+        var instances = g._instances_by_puuid[puuid];
 
-            // generate time series data for this project
-            ts_events = [];
-            data.forEach(function(instance) {
-                var f = g.flavours.find(function(f){ return f.id===instance.flavour });
-                if(! isNaN(instance.c_time)) ts_events.push({time:instance.c_time, mult:+1, instance:instance, flavour:f});
-                if(! isNaN(instance.d_time)) ts_events.push({time:instance.d_time, mult:-1, instance:instance, flavour:f});
-            });
-            ts_events.sort(function(e1, e2) { return ts_accessor(e1) - ts_accessor(e2) });
-            var context = {};
-            aggs.forEach(function(agg) {
-                context[agg.key] = 0;
-            });
-            ts_data = ts_events.map( // compute cumulative sum of ts_events
-                function(e) {
-                    var t = this, ret = {time:e.time, uuid:e.instance.uuid};
-                    aggs.forEach(function(agg) {
-                        t[agg.key] += e.mult * agg.accessor(e.instance);
-                        ret[agg.key] = t[agg.key];
-                    });
-                    return ret;
-                },
-                context
-            );
-            if(ts_data) { // append "now" data point (hack to make the graphs a bit more readable; doesn't add any extra information)
-                var latest = ts_data[ts_data.length-1], now = {};
-                Object.keys(latest).forEach(function(k) {
-                    now[k] = latest[k];
-                });
-                now.uuid = null;
-                now.time = Date.now();
-                ts_data.push(now);
-            }
+        // fill data table
+        tbl.clear().rows.add(instances);
 
-            // reset domains and date range
-            date_x.domain(d3.extent(ts_data, ts_accessor));
-            date_y.domain(d3.extent(ts_data, function(d) { return d.count }));
-            zoom_y.domain(d3.extent(ts_data, function(d) { return d[data_key] }));
-            dispatch.datesChanged(dep.sel, null, true/*do_not_redraw*/);
-
-            // date chart domain remains the same for any given project (else most of the below code would belong in redraw())
-            date_g.select('.x.axis').call(date_x_axis);
-            date_g.select('.y.axis').call(date_y_axis);
-            date_g.select('path.line').datum(ts_data).attr('d', date_line);
-            date_g.select('path.area').datum(ts_data).attr('d', date_area);
-            date_g.selectAll('.x.axis .tick > text').on('click', function(d) { // don't know if there's a more elegant way to do this
-                var e = d3.time.month.offset(d, 1); // one month later
-                if(e > date_x.domain()[1]) e = date_x.domain()[1]; // need to clamp manually
-                date_brush_g.transition().call(date_brush.extent([d,e]));
-                dispatch.datesChanged(dep.sel, date_brush.extent());
-            });
-
-            // done
-            s.classed('loading', false);
-            redraw(true /* do not animate, since there is no continuity between projects */);
-        }, function(error) {
-            tbl.clear().draw();
-            s.classed('loading', false);
-            s.classed('error', true);
+        // generate time series data for this project
+        ts_events = [];
+        instances.forEach(function(instance) {
+            var f = g.flavours.find(function(f){ return f.id===instance.flavour });
+            if(! isNaN(instance._c_time)) ts_events.push({time:instance._c_time, mult:+1, instance:instance, flavour:f});
+            if(! isNaN(instance._d_time)) ts_events.push({time:instance._d_time, mult:-1, instance:instance, flavour:f});
         });
+        ts_events.sort(function(e1, e2) { return ts_accessor(e1) - ts_accessor(e2) });
+        var context = {};
+        aggs.forEach(function(agg) {
+            context[agg.key] = 0;
+        });
+        ts_data = ts_events.map( // compute cumulative sum of ts_events
+            function(e) {
+                var t = this, ret = {time:e.time, uuid:e.instance.uuid};
+                aggs.forEach(function(agg) {
+                    t[agg.key] += e.mult * agg.accessor(e.instance);
+                    ret[agg.key] = t[agg.key];
+                });
+                return ret;
+            },
+            context
+        );
+        if(ts_data) { // append "now" data point (hack to make the graphs a bit more readable; doesn't add any extra information)
+            var latest = ts_data[ts_data.length-1], now = {};
+            Object.keys(latest).forEach(function(k) {
+                now[k] = latest[k];
+            });
+            now.uuid = null;
+            now.time = Date.now();
+            ts_data.push(now);
+        }
+
+        // reset domains and date range
+        date_x.domain(d3.extent(ts_data, ts_accessor));
+        date_y.domain(d3.extent(ts_data, function(d) { return d.count }));
+        zoom_y.domain(d3.extent(ts_data, function(d) { return d[data_key] }));
+        dispatch.datesChanged(sel, null, true/*do_not_redraw*/);
+
+        // date chart domain remains the same for any given project (else most of the below code would belong in redraw())
+        date_g.select('.x.axis').call(date_x_axis);
+        date_g.select('.y.axis').call(date_y_axis);
+        date_g.select('path.line').datum(ts_data).attr('d', date_line);
+        date_g.select('path.area').datum(ts_data).attr('d', date_area);
+        date_g.selectAll('.x.axis .tick > text').on('click', function(d) { // don't know if there's a more elegant way to do this
+            var e = d3.time.month.offset(d, 1); // one month later
+            if(e > date_x.domain()[1]) e = date_x.domain()[1]; // need to clamp manually
+            date_brush_g.transition().call(date_brush.extent([d,e]));
+            dispatch.datesChanged(sel, date_brush.extent());
+        });
+
+        // done
+        s.classed('loading', false);
+        redraw(true /* do not animate, since there is no continuity between projects */);
     });
 }
 
