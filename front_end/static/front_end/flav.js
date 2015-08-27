@@ -1,52 +1,13 @@
 var Report = {};
 (function() {
 
-var reportStart = function(sel) {
-    return function() {
-        d3.select(sel).classed('loading', true);
-    };
-};
-var reportSuccess = function(sel, callback) {
-    return function() {
-        d3.select(sel).classed('loading', false);
-        callback(sel);
-    };
-};
-var reportError = function(sel) {
-    return function() {
-        d3.select(sel).classed('loading', false);
-        d3.select(sel).classed('error', true);
-    };
-};
-
-// array of
-//    sel : selector for applying loading/error classes
-//    dep : sqldump keys for required data (will be stored in g[key]
-//    fun : function to call after all dep data loaded (will be called with deps element as argument)
-var deps = [
-    {
-        sel : '.flavs',
-        dep : ['flavours'],
-        fun : report_flavs,
-    },
-    {
-        sel : '.hypervisors',
-        dep : ['hypervisors', 'live_instances', 'flavours'],
-        fun : report_list,
-    },
-    {
-        sel : '.historical',
-        dep : ['instances'],
-        fun : report_historical,
-    },
-    {
-        sel : '.footer',
-        dep : ['last_updated'],
-        fun : report_footer,
-    },
-];
+/// reference to data from current endpoint
 var g = {};
 
+/// event broadcasting
+var dispatch = d3.dispatch('flavChanged');
+
+/// resources associated with flavours
 var res = [
     {
         key : 'vcpus',
@@ -77,23 +38,35 @@ var res = [
     },
 ];
 
+// TODO refactor to avoid duplicating this code between reports
 Report.init = function() {
     var fetch = Fetcher();
-    deps.forEach(function(dep) {
-        fetch.q({
-            qks     : dep.dep,
-            start   : reportStart(dep.sel),
-            success : reportSuccess(dep.sel, dep.fun),
-            error   : reportError(dep.sel),
-        });
-    });
-    ep_name = 'Testjin';
+    Util.qdeps(fetch, [
+        {
+            sel : '.flavs',
+            dep : ['flavours'],
+            fun : report_flavs,
+        },
+        {
+            sel : '.hypervisors',
+            dep : ['hypervisors', 'live_instances', 'flavours'],
+            fun : report_list,
+        },
+        {
+            sel : '.historical',
+            dep : ['instances'],
+            fun : report_historical,
+        },
+        {
+            sel : '.footer',
+            dep : ['last_updated'],
+            fun : report_footer,
+        },
+    ]);
+    var ep_name = 'sqldump';
     fetch(ep_name);
     g = fetch.data(ep_name)
 }
-
-var dispatch = d3.dispatch('flavChanged');
-
 
 function report_flavs(sel) {
     var s = d3.select(sel);
