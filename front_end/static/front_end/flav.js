@@ -1,5 +1,23 @@
-var Report = {}; // TODO should this only show flavours with public=1? (or should this be done at db level?)
-(function($) { // TODO remove jquery dependency by rewriting sqldump
+var Report = {};
+(function() {
+
+var reportStart = function(sel) {
+    return function() {
+        d3.select(sel).classed('loading', true);
+    };
+};
+var reportSuccess = function(sel, callback) {
+    return function() {
+        d3.select(sel).classed('loading', false);
+        callback(sel);
+    };
+};
+var reportError = function(sel) {
+    return function() {
+        d3.select(sel).classed('loading', false);
+        d3.select(sel).classed('error', true);
+    };
+};
 
 // array of
 //    sel : selector for applying loading/error classes
@@ -60,60 +78,29 @@ var res = [
 ];
 
 Report.init = function() {
-    // concat all dependency query keys, then filter out duplicates (topsort would be too cool)
-    var dep_keys = deps.reduce(function(val, dep) { return val.concat(dep.dep); }, []);
-    dep_keys = dep_keys.filter(function(dep, i) { return dep_keys.indexOf(dep)==i; });
-    deps.forEach(function(dep) { d3.select(dep.sel).classed('loading', true); });
-    dep_keys.forEach(function(key) { sqldump(key,
-        // get all preload data, then call success
-        function(data) {
-            g[key] = data;
-
-            // check if any new report functions can now be called
-            // TODO not sure if a race condition is possible here in js (single-threaded execution should be ok)
-            deps.forEach(function(dep) {
-                if(!dep.done && dep.dep.every(function(k) { return k in g; })) {
-                    dep.done = true;
-                    dep.fun(dep);
-                    d3.select(dep.sel).classed('loading', false);
-                }
-            });
-        },
-        function(err) {
-            // error
-            deps.forEach(function(dep) {
-                if(dep.dep.indexOf(key) != -1) {
-                    d3.select(dep.sel).classed('loading', false);
-                    d3.select(dep.sel).classed('error', true);
-                    console.log('error (%i %s) for query "%s"', err.status, err.statusText, key);
-                }
-            });
-        }
-    )});
+    var fetch = Fetcher();
+    deps.forEach(function(dep) {
+        fetch.q({
+            qks     : dep.dep,
+            start   : reportStart(dep.sel),
+            success : reportSuccess(dep.sel, dep.fun),
+            error   : reportError(dep.sel),
+        });
+    });
+    ep_name = 'Testjin';
+    fetch(ep_name);
+    g = fetch.data(ep_name)
 }
 
 var dispatch = d3.dispatch('flavChanged');
 
-// get json data from sqldump app
-function sqldump(query_key, success, error) {
-    $.ajax({
-        url : '/dump/q/' + query_key, // TODO fragile
-        headers : {
-            'accept' : 'application/json',
-        },
-        success : success,
-        error : error != undefined ? error : function(data) {
-            console.log("Couldn't get sqldump for key '"+query_key+"'");
-        },
-    });
-}
 
-function report_flavs(dep) {
-    var s = d3.select(dep.sel);
+function report_flavs(sel) {
+    var s = d3.select(sel);
 
     // generate <select> for controlling pie
     var slct = s.select('select') // "select" is a word overused yet reserved
-        .on('change', function() { var fid = this.value; dispatch.flavChanged(dep.sel, g.flavours.find(function(f){return f.id===fid})); });
+        .on('change', function() { var fid = this.value; dispatch.flavChanged(sel, g.flavours.find(function(f){return f.id===fid})); });
     slct.selectAll('option')
         .data(g.flavours)
       .enter().append('option')
@@ -126,7 +113,7 @@ function report_flavs(dep) {
         return d3.scale.linear().domain([0, d3.max(g.flavours, r.accessor.flavours)]).range([0, sumHeight]);
     });
 
-    dispatch.on('flavChanged.'+dep.sel, function(sel, f) {
+    dispatch.on('flavChanged.'+sel, function(sel, f) {
         var data = [];
         if(f) {
             data = res.map(function(r) { return r.accessor.flavours(f) });
@@ -141,8 +128,8 @@ function report_flavs(dep) {
     });
 }
 
-function report_list(dep) {
-    var s = d3.select(dep.sel);
+function report_list(sel) {
+    var s = d3.select(sel);
 
     // TODO join hypervisors and live_instances
     var data = g.hypervisors.map(function(ins) { // shallow copy of g.hypervisors
@@ -225,7 +212,7 @@ function report_list(dep) {
             .style('top', function(d) { return d.index*rowHeight+'px' });
     };
 
-    dispatch.on('flavChanged.'+dep.sel, function(sel, f) {
+    dispatch.on('flavChanged.'+sel, function(sel, f) {
         d3.selectAll('.deselected').classed('deselected', false);
         if(f) {
             var tot = 0;
@@ -257,15 +244,15 @@ function report_list(dep) {
     });
 }
 
-function report_historical(dep) {
-    var s = d3.select(dep.sel);
-    dispatch.on('flavChanged.'+dep.sel, function(sel, f) {
+function report_historical(sel) {
+    var s = d3.select(sel);
+    dispatch.on('flavChanged.'+sel, function(_, f) {
         console.log('draw chart for flav %o', f);
     });
 }
 
-function report_footer(dep) {
-    var s = d3.select(dep.sel);
+function report_footer(sel) {
+    var s = d3.select(sel);
 
     if(g.last_updated.length == 0) {
         // panic
@@ -283,4 +270,4 @@ function report_footer(dep) {
          });
 }
 
-})(jQuery);
+})();
