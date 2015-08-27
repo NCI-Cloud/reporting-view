@@ -1,29 +1,30 @@
 var Util = {};
 (function() {
-    reportStart = function(sel) {
-        return function() {
-            if(sel) d3.select(sel).classed('loading', true);
+    var callbacks = function(sel, callback) {
+        var s = d3.select(sel);
+        return {
+            start : function() {
+                s.classed('loading', true);
+            },
+            success : function() {
+                d3.select(sel).classed('loading', false);
+                callback(sel);
+            },
+            error : function() {
+                d3.select(sel).classed('loading', false);
+                d3.select(sel).classed('error', true);
+            },
         };
     };
-    reportSuccess = function(sel, callback) {
-        return function() {
-            if(sel) d3.select(sel).classed('loading', false);
-            callback(sel);
-        };
-    };
-    reportError = function(sel) {
-        return function() {
-            if(sel) d3.select(sel).classed('loading', false);
-            if(sel) d3.select(sel).classed('error', true);
-        };
-    };
+
     Util.qdeps = function(fetch, deps) {
         deps.forEach(function(dep) {
+            var on = callbacks(dep.sel, dep.fun);
             fetch.q({
                 qks     : dep.dep,
-                start   : reportStart(dep.sel),
-                success : reportSuccess(dep.sel, dep.fun),
-                error   : reportError(dep.sel),
+                start   : on.start,
+                success : on.success,
+                error   : on.error,
             });
         });
     };
