@@ -44,13 +44,16 @@ function Fetcher() {
             queue.forEach(function(q) { q.error() });
             return;
         }
-        
+
         // get rid of any old data (idk if js garbage collectors are smart but data[epIdx] could be quite large so definitely get rid of it pls)
         delete data[epIdx];
         data[epIdx] = {};
 
         // let everybdoy know that fetching has begun
-        queue.forEach(function(q) { if(q.start) q.start() });
+        queue.forEach(function(q) {
+            q.done = false;
+            if(q.start) q.start();
+        });
 
         // concat all dependency query keys, then filter out duplicates (topsort would be too cool)
         var qks = queue.reduce(function(val, q) { return val.concat(q.qks) }, []);
