@@ -892,16 +892,10 @@ function report_historical(dep) {
 function report_footer(dep) {
     if(g.last_updated.length == 0) {
         // panic
-        $(dep.sel).addClass('error');
+        d3.select(dep.sel).classed('error', true);
         return;
     }
-    $('.date', dep.sel).html(humanize.relativeTime(g.last_updated[0].timestamp));
-    $(dep.sel).append($('<p></p>').append($('<a></a>').html('Update now').click(function() {
-        sqldump('update', function() {
-            location.reload();
-        });
-    })));
-    $(dep.sel).removeClass('loading');
+    d3.select(dep.sel).select('.date').html(humanize.relativeTime(g.last_updated[0].timestamp));
 }
 
 function should_lock_charts() {

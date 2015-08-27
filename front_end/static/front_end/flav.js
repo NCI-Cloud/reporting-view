@@ -225,22 +225,12 @@ function report_historical(sel) {
 }
 
 function report_footer(sel) {
-    var s = d3.select(sel);
-
     if(g.last_updated.length == 0) {
         // panic
-        s.classed('error', true);
+        d3.select(sel).classed('error', true);
         return;
     }
-    s.select('.date').html(humanize.relativeTime(g.last_updated[0].timestamp));
-    s.append('p')
-      .append('a')
-        .html('Update now')
-        .on('click', function() {
-            sqldump('update', function() {
-                location.reload();
-            });
-         });
+    d3.select(sel).select('.date').html(humanize.relativeTime(g.last_updated[0].timestamp));
 }
 
 })();
