@@ -28,6 +28,10 @@ function Fetcher() {
                 'name' : 'Tenjin',
                 'url'  : 'http://130.56.247.245:9494',
             },
+            {
+                'name' : 'sqldump',
+                'url'  : '',
+            },
         ];
     var queue = []; // list of objects with keys: qks, success, error
     var data = endpoints.map(function(e) { return {} }); // for all i: data[i] fetched from endpoints[i]
@@ -51,7 +55,7 @@ function Fetcher() {
         // concat all dependency query keys, then filter out duplicates (topsort would be too cool)
         var qks = queue.reduce(function(val, q) { return val.concat(q.qks) }, []);
         qks = qks.filter(function(qk, i) { return qks.indexOf(qk) === i });
-        qks.forEach(function(qk) { sqldump(qk, // TODO sqldump url should be endpoint-dependent (when using reporting-api)
+        qks.forEach(function(qk) { fetcher.sqldump(epIdx, qk,
             function(qk_data) {
                 data[epIdx][qk] = qk_data;
 
@@ -95,36 +99,38 @@ function Fetcher() {
         return fetcher; // so we can chain Fetcher().q(d1).q(d2)...(); idk it looks cool
     }
 
-    return fetcher;
-}
+    // TODO use reporting-api
+    /// get json data from sqldump app
+    fetcher.sqldump = function(epIdx, qk, success, error) {
+        if(qk === 'live_instances') {
+            // TODO want to make a live_instances view and a separate report, so this hackery becomes unnecessary
+            qk = 'instances';
+            var success_o = success;
+            success = function(all_instances) {
+                success_o(all_instances.filter(function(ins) { return ins.deleted === 'None' })); // TODO ===null for reporting-api
+            };
+        } else if(qk === 'last_updated') {
+            // TODO this will be more cleanly done in the report code, not here (but keeping it here for now to avoid breaking older code)
+            qk = 'metadata';
+            var success_o = success;
+            success = function(metadata) {
+                success_o([{timestamp : d3.min(metadata, function(m) { return Date.parse(m.ts)*0.001 /* because nromally we expect seconds, not ms */ })}]);
+            };
+        }
 
-// TODO use reporting-api
-/// get json data from sqldump app
-function sqldump(query_key, success, error) {
-    if(query_key === 'live_instances') {
-        // TODO want to make a live_instances view and a separate report, so this hackery becomes unnecessary
-        query_key = 'instances';
-        var success_o = success;
-        success = function(all_instances) {
-            success_o(all_instances.filter(function(ins) { return ins.deleted === 'None' })); // TODO ===null for reporting-api
-        };
-    } else if(query_key === 'last_updated') {
-        // TODO this will be more cleanly done in the report code, not here (but keeping it here for now to avoid breaking older code)
-        query_key = 'metadata';
-        var success_o = success;
-        success = function(metadata) {
-            success_o([{timestamp : d3.min(metadata, function(m) { return Date.parse(m.ts)*0.001 /* because nromally we expect seconds, not ms */ })}]);
-        };
-    }
-        
-    jQuery.ajax({
-        url : '/dump/q/' + query_key, // TODO fragile
-        headers : {
-            'accept' : 'application/json',
-        },
-        success : success,
-        error : error != undefined ? error : function(data) {
-            console.log("Couldn't get sqldump for key '"+query_key+"'");
-        },
-    });
+        var url = endpoints[epIdx].url + (endpoints[epIdx].name === 'sqldump' ? '/q/' : '/v1/reports/') + qk; // fragile
+
+        jQuery.ajax({
+            url : url,
+            headers : {
+                'accept' : 'application/json',
+            },
+            success : success,
+            error : error != undefined ? error : function(data) {
+                console.log("Couldn't get sqldump for key '"+qk+"'");
+            },
+        });
+    };
+
+    return fetcher;
 }
