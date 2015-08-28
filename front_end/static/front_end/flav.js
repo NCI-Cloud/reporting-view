@@ -73,7 +73,7 @@ function report_flavs(sel) {
 
     // generate <select> for controlling pie
     var slct = s.select('select') // "select" is a word overused yet reserved
-        .on('change', function() { var fid = this.value; dispatch.flavChanged(sel, g.flavours.find(function(f){return f.id===fid})); });
+        .on('change', function() { var fid = this.value; dispatch.flavChanged(sel, g.flavours.find(function(f){ return f.id==fid })); });
     slct.selectAll('option')
         .data(g.flavours)
       .enter().append('option')
