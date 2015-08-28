@@ -314,7 +314,7 @@ function report_resources(sel) {
             key      : 'vcpus',
             title    : 'vCPU',
             format   : function(n) { return n===null ? '(no quota)' :  n + ' vcpus'; },
-            quota    : function(project) { return isNaN(+project.quota_vcpus) ? null : +project.quota_vcpus },
+            quota    : function(project) { return (isNaN(+project.quota_vcpus) || +project.quota_vcpus===-1) ? null : +project.quota_vcpus },
             accessor : {
                 hypervisors : function(h) { return +h.cpus },
                 instances   : function(i) { return +i.vcpus },
@@ -324,7 +324,7 @@ function report_resources(sel) {
             key      : 'memory',
             title    : 'Memory',
             format   : function(mem_mb) { return mem_mb===null ? '(no quota)' : Formatters.si_bytes(mem_mb*1024*1024); },
-            quota    : function(project) { return isNaN(+project.quota_memory) ? null : +project.quota_memory },
+            quota    : function(project) { return (isNaN(+project.quota_memory) || +project.quota_memory===-1) ? null : +project.quota_memory },
             accessor : {
                 hypervisors : function(h) { return +h.memory },
                 instances   : function(i) { return +i.memory },
@@ -344,7 +344,7 @@ function report_resources(sel) {
             key      : 'volume',
             title    : 'Allocated storage',
             format   : function(disk_gb) { console.log('formatting %o',disk_gb);return disk_gb===null ? '(no quota)' : Formatters.si_bytes(disk_gb*1024*1024*1024); },
-            quota    : function(project) { return isNaN(+project.quota_volume_total) ? null : +project.quota_volume_total },
+            quota    : function(project) { return (isNaN(+project.quota_volume_total) || +project.quota_volume_total===-1) ? null : +project.quota_volume_total },
             accessor : {
                 hypervisors : function() { return 0 },
                 instances   : function(ins) {
