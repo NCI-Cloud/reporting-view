@@ -1,9 +1,6 @@
 var Report = {};
 (function($) {
 
-/// reference to data from current endpoint
-var g = {};
-
 /// event broadcasting
 var dispatch = d3.dispatch('optionChanged', 'projectChanged', 'datesChanged');
 
@@ -45,7 +42,6 @@ Report.init = function() {
     ]);
     var ep_name = Config.defaultEndpoint;
     fetch(ep_name);
-    g = fetch.data(ep_name)
 }
 
 function arcTween(arc) {
@@ -81,7 +77,7 @@ function pie_tip_y(r, d) {
 }
 
 /// rearrange instances data so we can efficiently group by project
-function preprocess_instances() {
+function preprocess_instances(_, g) {
     g._instances_by_puuid = {};
     g.instances.forEach(function(ins) {
         if(! (ins.project_id in g._instances_by_puuid)) {
@@ -96,7 +92,7 @@ function preprocess_instances() {
     });
 }
 
-function report_overview(sel) {
+function report_overview(sel, g) {
     var s = d3.select(sel);
     // chart synchronisation is implemented by matching keys with report_resources
     var aggs = [
@@ -234,7 +230,7 @@ function report_overview(sel) {
     });
 }
 
-function report_live(sel) {
+function report_live(sel, g) {
     var s = $(sel);
     // show table
     var live_tbl = $('table', s).DataTable({
@@ -302,7 +298,7 @@ function report_live(sel) {
     });
 }
 
-function report_resources(sel) {
+function report_resources(sel, g) {
     var s = d3.select(sel);
 
     // compute mapping of project_id => total volume size
@@ -488,7 +484,7 @@ function report_resources(sel) {
     });
 }
 
-function report_historical(sel) {
+function report_historical(sel, g) {
     var s = d3.select(sel);
     var aggs = [ // pls don't use key "time" or "uuid"
         {
@@ -862,7 +858,7 @@ function report_historical(sel) {
     });
 }
 
-function report_footer(dep) {
+function report_footer(dep, g) {
     if(g.last_updated.length == 0) {
         // panic
         d3.select(dep.sel).classed('error', true);

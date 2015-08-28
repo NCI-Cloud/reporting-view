@@ -53,7 +53,11 @@ function Fetcher(eps) {
                         queue.forEach(function(q) {
                             if(!q.done && q.qks.every(function(qk) { return qk in data[epIdx] })) {
                                 q.done = true;
-                                q.success();
+                                var deps = {};
+                                q.qks.forEach(function(qk) {
+                                    deps[qk] = data[epIdx][qk];
+                                });
+                                q.success(deps);
                             }
                         });
                     },

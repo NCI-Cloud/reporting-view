@@ -1,9 +1,6 @@
 var Report = {};
 (function() {
 
-/// reference to data from current endpoint
-var g = {};
-
 /// event broadcasting
 var dispatch = d3.dispatch('flavChanged');
 
@@ -66,10 +63,9 @@ Report.init = function() {
     ]);
     var ep_name = Config.defaultEndpoint;
     fetch(ep_name);
-    g = fetch.data(ep_name)
 }
 
-function report_flavs(sel) {
+function report_flavs(sel, g) {
     var s = d3.select(sel);
 
     // generate <select> for controlling pie
@@ -102,7 +98,7 @@ function report_flavs(sel) {
     });
 }
 
-function report_list(sel) {
+function report_list(sel, g) {
     var s = d3.select(sel);
 
     // TODO join hypervisors and live_instances
@@ -219,14 +215,14 @@ function report_list(sel) {
     });
 }
 
-function report_historical(sel) {
+function report_historical(sel, g) {
     var s = d3.select(sel);
     dispatch.on('flavChanged.'+sel, function(_, f) {
         console.log('draw chart for flav %o', f);
     });
 }
 
-function report_footer(sel) {
+function report_footer(sel, g) {
     if(g.last_updated.length == 0) {
         // panic
         d3.select(sel).classed('error', true);

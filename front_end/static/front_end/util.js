@@ -6,9 +6,9 @@ var Util = {};
             start : function() {
                 s.classed('loading', true);
             },
-            success : function() {
+            success : function(data) {
                 d3.select(sel).classed('loading', false);
-                callback(sel);
+                callback(sel, data);
             },
             error : function() {
                 d3.select(sel).classed('loading', false);
