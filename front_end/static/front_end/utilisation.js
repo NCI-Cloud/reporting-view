@@ -237,10 +237,10 @@ function report_live(sel) {
     var s = $(sel);
     // show table
     var live_tbl = $('table', s).DataTable({
-        dom : 'rt', // show only processing indicator and table
+        dom : 'rtp', // show only processing indicator and table
         data : g.live_instances,
         processing : true,
-        paging : false, // assuming there won't be too many live instances (might be a bad assumption for production)
+        paging : true,
         columns : [
             {
                 title : 'Created',
