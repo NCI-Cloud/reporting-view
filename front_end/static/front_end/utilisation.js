@@ -619,8 +619,8 @@ function report_historical(sel) {
     var ts_accessor = function(e) { return e.time };
 
     // build chart TODO responsive svg
-    var margin = {t:30, r:30, b:30, l:60}; // this is a comment
-    var width = 900, date_height = 60, zoom_height = 300, height_sep = 30;
+    var margin = {t:30, r:60, b:30, l:60};
+    var width = 870, date_height = 60, zoom_height = 300, height_sep = 30;
     var svg = s.select('.chart').append('svg')
         .attr('width', width+margin.l+margin.r)
         .attr('height', date_height+zoom_height+height_sep+margin.t+margin.b)
