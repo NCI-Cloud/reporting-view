@@ -343,7 +343,7 @@ function report_resources(sel) {
         {
             key      : 'volume',
             title    : 'Allocated storage',
-            format   : function(disk_gb) { console.log('formatting %o',disk_gb);return disk_gb===null ? '(no quota)' : Formatters.si_bytes(disk_gb*1024*1024*1024); },
+            format   : function(disk_gb) { return disk_gb===null ? '(no quota)' : Formatters.si_bytes(disk_gb*1024*1024*1024); },
             quota    : function(project) { return (isNaN(+project.quota_volume_total) || +project.quota_volume_total===-1) ? null : +project.quota_volume_total },
             accessor : {
                 hypervisors : function() { return 0 },
