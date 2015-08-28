@@ -1,6 +1,6 @@
 /*
  * Example usage:
- *    var f = Fetcher()
+ *    var f = Fetcher([{name:'endpoint1',url:'whatever'}, {name:'endpoint2',url:'something'}])
  *      .q({ // we need key1 and key2 data to perform some_fn
  *          qks     : ['key1', 'key2'],
  *          success : some_fn,
@@ -11,28 +11,13 @@
  *          success : foo,
  *          error   : another_fn,
  *        });
- *    f(endpoint); // grab all the data from specified endpoint, making callbacks asap
- *    // now f.data(endpoint) is filled, and e.g. when foo is called, f.data(endpoint).key2 will be defined
- *    f(endpoint); // re-fetch data
- *    f(another_endpoint); // get data from another node; keeps data from first endpoint, and does not update it
+ *    f('endpoint1'); // grab all the data from endpoint1, making callbacks asap
+ *    // now f.data('endpoint1') is filled, and e.g. when foo is called, f.data('endpoint1').key2 will be defined
+ *    f('endpoint1'); // re-fetch data
+ *    f('endpoint2'); // get data from another node; keeps data from first endpoint, and does not update it
  */
-function Fetcher() {
-    // TODO these need to be defined SOMEWHERE but idk if hard-coding them here is the Best
-    // will eventually want to add some kind of abstraction for virtual endpoints, in order to define 'All nodes' endpoint with aggregation which would be defined per report
-    var endpoints = [
-            {
-                'name' : 'Testjin', // this could maybe be served by reporting-api instead of defined here
-                'url'  : 'http://130.56.247.248:9494',
-            },
-            {
-                'name' : 'Tenjin',
-                'url'  : 'http://130.56.247.245:9494',
-            },
-            {
-                'name' : 'sqldump',
-                'url'  : '',
-            },
-        ];
+function Fetcher(eps) {
+    var endpoints = eps; // list of objects with keys: name, url
     var queue = []; // list of objects with keys: qks, success, error
     var data = endpoints.map(function(e) { return {} }); // for all i: data[i] fetched from endpoints[i]
 
@@ -106,7 +91,6 @@ function Fetcher() {
         return fetcher; // so we can chain Fetcher().q(d1).q(d2)...(); idk it looks cool
     }
 
-    // TODO use reporting-api
     /// get json data from sqldump app
     fetcher.sqldump = function(epIdx, qk, success, error) {
         if(qk === 'live_instances') {

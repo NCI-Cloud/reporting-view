@@ -40,7 +40,7 @@ var res = [
 
 // TODO refactor to avoid duplicating this code between reports
 Report.init = function() {
-    var fetch = Fetcher();
+    var fetch = Fetcher(Config.endpoints);
     Util.qdeps(fetch, [
         {
             sel : '.flavs',
@@ -63,7 +63,7 @@ Report.init = function() {
             fun : report_footer,
         },
     ]);
-    var ep_name = 'sqldump';
+    var ep_name = Config.defaultEndpoint;
     fetch(ep_name);
     g = fetch.data(ep_name)
 }
