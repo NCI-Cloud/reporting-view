@@ -163,7 +163,8 @@ function report_list(sel) {
             .style('width', function(d) { return r.accessor.hypervisors(d)/resMax[i]*100+'%' })
           .append('div')
             .html(function(d) { return r.format(d._allocated[i]) })
-            .style('width', function(d) { return d._allocated[i]/r.accessor.hypervisors(d)*100+'%' }); // could use a d3 scale for this, but can't be bothered
+            .style('width', function(d) { return d._allocated[i]/r.accessor.hypervisors(d)*100+'%' }) // could use a d3 scale for this, but can't be bothered
+            .attr('class', function(d) { return d._allocated[i] > r.accessor.hypervisors(d) ? 'oversubscribed' : '' });
         header.append('div')
             .attr('class', r.key)
             .html(r.key)
@@ -192,7 +193,7 @@ function report_list(sel) {
             data.forEach(function(d) {
                 var cap = Infinity;
                 res.forEach(function(r, i) {
-                    var remaining = r.accessor.hypervisors(d) - d._allocated[i];
+                    var remaining = Math.max(0, r.accessor.hypervisors(d) - d._allocated[i]);
                     cap = Math.min(cap, Math.floor(remaining / r.accessor.flavours(f)));
                 });
                 if(cap === Infinity) cap = null;

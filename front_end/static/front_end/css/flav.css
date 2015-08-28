@@ -52,6 +52,11 @@
     line-height: 100%;
     text-align:right;
     white-space: nowrap;
+    max-width: 100%; /* in case of oversubscription */
+}
+.hypervisors div.resources div.bar div.oversubscribed {
+    border: 2px solid purple;
+    box-sizing: border-box;
 }
 .selected div.resources div.bar div {
     color: white;
