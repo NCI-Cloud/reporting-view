@@ -1,9 +1,10 @@
 section.title {
     text-align: center;
-    padding: 4.5rem 0;
 }
-section, footer {
-    border-top: 1px solid #ccc;
+section, nav {
+    border-bottom: 1px solid #ccc;
+}
+section {
     padding: 7rem 0;
 }
 section > h3 {
@@ -33,4 +34,37 @@ footer a {
     background-color: rgba(255,0,0,0.1);
     border: 2px dashed crimson;
     border-radius: 1rem;
+}
+nav {
+    text-transform: uppercase;
+    font-size: 1.2rem;
+}
+nav select {
+    float: right;
+    margin-top: 1rem; /* or whatever */
+}
+nav ul {
+    list-style-type: none;
+    margin: 0;
+}
+nav li {
+    display: inline-block;
+    margin: 0;
+}
+nav a {
+    color: #222; /* from skeleton.css */
+    text-decoration: none;
+    display: block;
+    padding: 2rem;
+    box-sizing: border-box;
+}
+nav a:hover {
+    background: lightgray;
+    color: black;
+    border-bottom: 2px solid lightgray; /* literally don't know why box-sizing:border-box didn't work */
+}
+nav li.current a {
+    color: steelblue;
+    font-weight: bold;
+    border-bottom: 2px solid steelblue;
 }

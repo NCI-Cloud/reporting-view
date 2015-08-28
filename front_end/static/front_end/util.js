@@ -28,4 +28,26 @@ var Util = {};
             });
         });
     };
+
+    Util.fillNav = function(fetch) {
+        var nav = d3.select('nav');
+
+        // make endpoints dropdown
+        var slct = nav.select('select')
+            .on('change', function() { fetch(this.value) });
+        var opts = slct.selectAll('option').data(Config.endpoints);
+        opts.enter().append('option')
+            .attr('value', function(d) { return d.url })
+            .html(function(d) { return d.name });
+        slct.property('value', Config.endpoints.find(function(e) { return e.name === Config.defaultEndpoint }).url);
+
+        // make nav links
+        var ul = nav.select('ul');
+        var li = ul.selectAll('li').data(Config.reports);
+        li.enter().append('li')
+            .attr('class', function(d) { return d.url === location.pathname ? 'current' : '' })
+          .append('a')
+            .attr('href', function(d) { return d.url })
+            .html(function(d) { return d.name });
+    };
 })();

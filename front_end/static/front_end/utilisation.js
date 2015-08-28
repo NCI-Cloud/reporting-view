@@ -10,6 +10,7 @@ var dispatch = d3.dispatch('optionChanged', 'projectChanged', 'datesChanged');
 // TODO refactor to avoid duplicating this code between reports
 Report.init = function() {
     var fetch = Fetcher(Config.endpoints);
+    Util.fillNav(fetch);
     Util.qdeps(fetch, [
         {
             sel : null,

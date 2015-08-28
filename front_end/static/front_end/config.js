@@ -12,4 +12,14 @@ var Config = {
         },
     ],
     defaultEndpoint : 'Tenjin',
+    reports : [
+        {
+            name : 'Utilisation',
+            url  : '/fe/utilisation/',
+        },
+        {
+            name : 'Flavours',
+            url  : '/fe/flav/',
+        },
+    ],
 };
