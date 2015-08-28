@@ -58,27 +58,31 @@ function Fetcher() {
         // concat all dependency query keys, then filter out duplicates (topsort would be too cool)
         var qks = queue.reduce(function(val, q) { return val.concat(q.qks) }, []);
         qks = qks.filter(function(qk, i) { return qks.indexOf(qk) === i });
-        qks.forEach(function(qk) { fetcher.sqldump(epIdx, qk,
-            function(qk_data) {
-                data[epIdx][qk] = qk_data;
+        qks.forEach(function(qk, i) {
+            setTimeout(function() {
+                fetcher.sqldump(epIdx, qk,
+                    function(qk_data) {
+                        data[epIdx][qk] = qk_data;
 
-                // check if any items in queue now have all necessary data loaded
-                queue.forEach(function(q) {
-                    if(!q.done && q.qks.every(function(qk) { return qk in data[epIdx] })) {
-                        q.done = true;
-                        q.success();
+                        // check if any items in queue now have all necessary data loaded
+                        queue.forEach(function(q) {
+                            if(!q.done && q.qks.every(function(qk) { return qk in data[epIdx] })) {
+                                q.done = true;
+                                q.success();
+                            }
+                        });
+                    },
+                    function(err) {
+                        console.log('error (%i %s) for query "%s"', err.status, err.statusText, qk);
+                        queue.forEach(function(q) {
+                            if(q.qks.some(function(q_qk) { return q_qk === qk })) {
+                                q.error();
+                            }
+                        });
                     }
-                });
-            },
-            function(err) {
-                console.log('error (%i %s) for query "%s"', err.status, err.statusText, qk);
-                queue.forEach(function(q) {
-                    if(q.qks.some(function(q_qk) { return q_qk === qk })) {
-                        q.error();
-                    }
-                });
-            }
-        )});
+                )
+            }, 1000*i*(endpoints[epIdx].name!=='sqldump'));
+        });
     };
 
     /// return data fetched from endpoint with given name
@@ -110,14 +114,14 @@ function Fetcher() {
             qk = 'instances';
             var success_o = success;
             success = function(all_instances) {
-                success_o(all_instances.filter(function(ins) { return ins.deleted === 'None' })); // TODO ===null for reporting-api
+                success_o(all_instances.filter(function(ins) { return ins.deleted === (endpoints[epIdx].name==='sqldump'?'None':null)}));
             };
         } else if(qk === 'last_updated') {
             // TODO this will be more cleanly done in the report code, not here (but keeping it here for now to avoid breaking older code)
             qk = 'metadata';
             var success_o = success;
             success = function(metadata) {
-                success_o([{timestamp : d3.min(metadata, function(m) { return Date.parse(m.ts)*0.001 /* because nromally we expect seconds, not ms */ })}]);
+                success_o([{timestamp : d3.min(metadata, function(m) { return Date.parse(m.ts)*0.001 /* because normally we expect seconds, not ms */ })}]);
             };
         }
 
