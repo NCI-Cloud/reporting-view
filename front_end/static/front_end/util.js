@@ -37,9 +37,9 @@ var Util = {};
             .on('change', function() { fetch(this.value) });
         var opts = slct.selectAll('option').data(Config.endpoints);
         opts.enter().append('option')
-            .attr('value', function(d) { return d.url })
+            .attr('value', function(d) { return d.name })
             .html(function(d) { return d.name });
-        slct.property('value', Config.endpoints.find(function(e) { return e.name === Config.defaultEndpoint }).url);
+        slct.property('value', Config.endpoints.find(function(e) { return e.name === Config.defaultEndpoint }).name);
 
         // make nav links
         var ul = nav.select('ul');

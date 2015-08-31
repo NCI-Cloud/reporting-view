@@ -45,7 +45,7 @@ function Fetcher(eps) {
         qks = qks.filter(function(qk, i) { return qks.indexOf(qk) === i });
         qks.forEach(function(qk, i) {
             setTimeout(function() {
-                fetcher.sqldump(epIdx, qk,
+                sqldump(epIdx, qk,
                     function(qk_data) {
                         data[epIdx][qk] = qk_data;
 
@@ -95,8 +95,8 @@ function Fetcher(eps) {
         return fetcher; // so we can chain Fetcher().q(d1).q(d2)...(); idk it looks cool
     }
 
-    /// get json data from sqldump app
-    fetcher.sqldump = function(epIdx, qk, success, error) {
+    /// retrieve json data
+    var sqldump = function(epIdx, qk, success, error) {
         if(qk === 'live_instances') {
             // TODO want to make a live_instances view and a separate report, so this hackery becomes unnecessary
             qk = 'instances';
