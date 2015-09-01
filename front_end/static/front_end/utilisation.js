@@ -76,19 +76,19 @@ function pie_tip_y(r, d) {
     return  r * Math.sin(-0.5*Math.PI - 0.5*(d.startAngle+d.endAngle));
 }
 
+var instances_by_puuid = {};
 /// rearrange instances data so we can efficiently group by project
 function preprocess_instances(_, g) {
-    g._instances_by_puuid = {};
     g.instances.forEach(function(ins) {
-        if(! (ins.project_id in g._instances_by_puuid)) {
-            g._instances_by_puuid[ins.project_id] = [];
+        if(! (ins.project_id in instances_by_puuid)) {
+            instances_by_puuid[ins.project_id] = [];
         }
 
         // pollute data by preparsing dates
         ins._c_time = Date.parse(ins.created);
         ins._d_time = Date.parse(ins.deleted);
 
-        g._instances_by_puuid[ins.project_id].push(ins);
+        instances_by_puuid[ins.project_id].push(ins);
     });
 }
 
@@ -796,7 +796,7 @@ function report_historical(sel, g) {
         s.classed('loading', true);
         s.select('select').property('value', puuid);
 
-        var instances = g._instances_by_puuid[puuid];
+        var instances = instances_by_puuid[puuid];
 
         // fill data table
         tbl.clear().rows.add(instances);
