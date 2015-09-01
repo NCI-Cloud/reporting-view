@@ -1,4 +1,4 @@
-drop database reporting;
+drop database if exists reporting;
 drop user 'reporting-update'@'localhost';
 drop user 'reporting-query'@'%';
 
