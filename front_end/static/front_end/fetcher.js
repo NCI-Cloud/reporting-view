@@ -44,33 +44,31 @@ function Fetcher(eps) {
         var qks = queue.reduce(function(val, q) { return val.concat(q.qks) }, []);
         qks = qks.filter(function(qk, i) { return qks.indexOf(qk) === i });
         qks.forEach(function(qk, i) {
-            setTimeout(function() {
-                sqldump(epIdx, qk,
-                    function(qk_data) {
-                        data[epIdx][qk] = qk_data;
+            sqldump(epIdx, qk,
+                function(qk_data) {
+                    data[epIdx][qk] = qk_data;
 
-                        // check if any items in queue now have all necessary data loaded
-                        queue.forEach(function(q) {
-                            if(!q.done && q.qks.every(function(qk) { return qk in data[epIdx] })) {
-                                q.done = true;
-                                var deps = {};
-                                q.qks.forEach(function(qk) {
-                                    deps[qk] = data[epIdx][qk];
-                                });
-                                q.success(deps);
-                            }
-                        });
-                    },
-                    function(err) {
-                        console.log('error (%i %s) for query "%s"', err.status, err.statusText, qk);
-                        queue.forEach(function(q) {
-                            if(q.qks.some(function(q_qk) { return q_qk === qk })) {
-                                q.error();
-                            }
-                        });
-                    }
-                )
-            }, 1000*i*(endpoints[epIdx].name!=='sqldump'));
+                    // check if any items in queue now have all necessary data loaded
+                    queue.forEach(function(q) {
+                        if(!q.done && q.qks.every(function(qk) { return qk in data[epIdx] })) {
+                            q.done = true;
+                            var deps = {};
+                            q.qks.forEach(function(qk) {
+                                deps[qk] = data[epIdx][qk];
+                            });
+                            q.success(deps);
+                        }
+                    });
+                },
+                function(err) {
+                    console.log('error (%i %s) for query "%s"', err.status, err.statusText, qk);
+                    queue.forEach(function(q) {
+                        if(q.qks.some(function(q_qk) { return q_qk === qk })) {
+                            q.error();
+                        }
+                    });
+                }
+            );
         });
     };
 
