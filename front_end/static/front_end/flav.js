@@ -71,11 +71,12 @@ function report_flavs(sel, g) {
     // generate <select> for controlling pie
     var slct = s.select('select') // "select" is a word overused yet reserved
         .on('change', function() { var fid = this.value; dispatch.flavChanged(sel, g.flavours.find(function(f){ return f.id==fid })); });
-    slct.selectAll('option')
-        .data(g.flavours)
-      .enter().append('option')
+    var opts = slct.selectAll('option').data(g.flavours);
+    opts.enter().append('option');
+    opts
         .attr('value', function(d) { return d.id; })
-        .text(function(d) { return d.name; })
+        .text(function(d) { return d.name; });
+    opts.exit().remove();
 
     var sumHeight = 50; // pixels
     var sum = s.select('.summary').style('height', sumHeight+'px');
@@ -136,7 +137,7 @@ function report_list(sel, g) {
     var container = s.select('div.list');
     container.style('height', g.hypervisors.length * rowHeight + 'px');
 
-    var row = container.selectAll('div')
+    var row = container.selectAll('div.hypervisor')
         .data(data);
 
     row.enter()
@@ -147,11 +148,22 @@ function report_list(sel, g) {
     row
         .html(function(d) { return '<span class="capacity"></span><span class="hostname">'+d.hostname+'</span>' })
         .style('top', function(_, i) { return i*rowHeight+'px' });
+    row.exit().remove();
 
     var resources = row.append('div')
         .attr('class', 'resources');
     var header = s.select('.controls .resources');
-    s.selectAll('.controls span').on('click', function() { sortBy(this.className) });
+    s.selectAll('.controls span');
+    var h = header.selectAll('div').data(res);
+    h.enter().append('div')
+        .attr('class', function(d) { return d.key })
+        .html(function(d) { return d.key })
+        .on('click', function() { sortBy(this.className) });
+
+    // TODO is there a bug here?
+    // i'd have thought that this code would never clean up the <div>s it creates,
+    // so flicking between endpoints would result in 3, 6, 9... resources.
+    // but this doesn't acutally seem to happen so what is going on
     res.forEach(function(r, i) {
         resources.append('div')
             .attr('class', r.key)
@@ -162,10 +174,6 @@ function report_list(sel, g) {
             .html(function(d) { return r.format(d._allocated[i]) })
             .style('width', function(d) { return d._allocated[i]/r.accessor.hypervisors(d)*100+'%' }) // could use a d3 scale for this, but can't be bothered
             .attr('class', function(d) { return d._allocated[i] > r.accessor.hypervisors(d) ? 'oversubscribed' : '' });
-        header.append('div')
-            .attr('class', r.key)
-            .html(r.key)
-            .on('click', function() { sortBy(this.className); });
     });
 
     var sortBy = function(key, order) {

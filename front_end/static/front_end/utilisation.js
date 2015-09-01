@@ -232,8 +232,12 @@ function report_overview(sel, g) {
 
 function report_live(sel, g) {
     var s = $(sel);
-    // show table
-    var live_tbl = $('table', s).DataTable({
+    var sTable = $('table', s);
+    if($.fn.dataTable.isDataTable(sTable)) {
+        // cannot re-initialise DataTable; have to delete it and start again
+        sTable.DataTable().clear().destroy();
+    }
+    var tbl = sTable.DataTable({
         dom : 'rtp', // show only processing indicator and table
         data : g.live_instances,
         processing : true,
@@ -294,7 +298,7 @@ function report_live(sel, g) {
 
     dispatch.on('projectChanged.'+sel, function(sender_sel, puuid) {
         if(!should_lock_charts()) return;
-        live_tbl.column('.project_id').search(puuid ? puuid : '').draw();
+        tbl.column('.project_id').search(puuid ? puuid : '').draw();
     });
 }
 
@@ -540,7 +544,12 @@ function report_historical(sel, g) {
         .style('display', 'none')
         .text('Select project...');
 
-    var tbl = $('table', $(sel)).DataTable({
+    var sTable = $('table', $(sel));
+    if($.fn.dataTable.isDataTable(sTable)) {
+        // if the table is already drawn, clear existing data and get rid of DataTables instance so it can be remade
+        sTable.DataTable().clear().destroy();
+    }
+    var tbl = sTable.DataTable({
         sel : sel,
         columns : [
             {
