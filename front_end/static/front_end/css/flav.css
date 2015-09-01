@@ -24,13 +24,16 @@
 .hypervisors span.hostname {
     display: table-cell;
     width: 9em;
+    border: 1px solid white;
+    vertical-align: middle;
 }
 .hypervisors div.resources { /* contains divs for vcpus, memory, disk */
     display: table-cell;
     margin-left: 11em;
     height: 100%;
+    border: 1px solid white;
 }
-.hypervisors div.resources div { /* contains bar for one resource */
+.hypervisors div.resources > div { /* contains bar for one resource */
     width: 32%;
     margin-right: 1%;
     display: inline-block;
@@ -40,7 +43,7 @@
     background: lightsteelblue;
     height: 50%;
     position: relative;
-    top: 12.5%;
+    top: 24%;
 }
 .hypervisors div.resources div.bar div {
     background: steelblue;
@@ -49,6 +52,7 @@
     left: 0;
     font-size: 80%;
     color: rgba(0,0,0,0);
+    height: 100%;
     line-height: 100%;
     text-align:right;
     white-space: nowrap;
