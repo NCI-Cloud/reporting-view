@@ -77,6 +77,7 @@ function report_flavs(sel, g) {
         .attr('value', function(d) { return d.id; })
         .text(function(d) { return d.name; });
     opts.exit().remove();
+    dispatch.flavChanged(sel, null);
 
     var sumHeight = 50; // pixels
     var sum = s.select('.summary').style('height', sumHeight+'px');
@@ -88,6 +89,9 @@ function report_flavs(sel, g) {
         var data = [];
         if(f) {
             data = res.map(function(r) { return r.accessor.flavours(f) });
+            // TODO set <option selected>
+        } else {
+            // TODO pick "select flavour" option
         }
         var span = sum.selectAll('div').data(data);
         span.enter().append('div');
