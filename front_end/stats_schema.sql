@@ -239,7 +239,9 @@ create table instances (
 	hypervisor varchar(255) comment "Hypervisor the instance is running on",
 	availability_zone varchar(255) comment "Availabilty zone the instance is running in",
         primary key (uuid),
-        key instances_project_id_key (project_id)
+        key instances_project_id_key (project_id),
+        key instances_availability_zone_key (availability_zone),
+        key instances_hypervisor_key (hypervisor)
 ) comment "Instance details";
 
 delimiter //
