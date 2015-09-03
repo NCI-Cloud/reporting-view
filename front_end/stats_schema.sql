@@ -14,9 +14,9 @@ grant select on reporting.* to 'reporting-query'@'%';
 
 -- metadata - note that this part of the design may change
 create table metadata (
-	table_name varchar(64), -- this should be an enum, but it's not worth doing that until we know what all the tables are
-	ts timestamp default current_timestamp on update current_timestamp,
-	primary key (table_name)
+        table_name varchar(64), -- this should be an enum, but it's not worth doing that until we know what all the tables are
+        ts timestamp default current_timestamp on update current_timestamp,
+        primary key (table_name)
 ) comment "Database metadata";
 
 -- what else? Also, how to keep this up to date? Triggers, or just enforce it
@@ -79,7 +79,7 @@ call hypervisors_update();
 
 -- projects comes first
 create table projects (
-        uuid varchar(36) comment "Project UUID",
+        id varchar(36) comment "Project UUID",
         display_name varchar(64) comment "Project display name",
         enabled boolean comment "Is project enabled",
         quota_instances int comment "Project quota - concurrent number of instances",
@@ -106,7 +106,7 @@ select ifnull(ts,from_unixtime(0)) into ts from metadata where table_name = 'pro
 if date_sub(now(), interval 600 second) > ts then
 replace into projects
 select
-        distinct p.id as uuid,
+        distinct p.id as id,
         p.name as display_name,
         p.enabled as enabled,
         i.hard_limit as instances,
@@ -168,6 +168,95 @@ grant execute on procedure reporting.projects_update to 'reporting-query'@'%';
 
 call projects_update();
 
+-- dirty users
+create table users (
+        id  varchar(64) comment "User ID",
+        name varchar(255) comment "User Name",
+        email varchar(255) comment "User Email address",
+        default_project varchar(36) comment "User default project",
+        enabled boolean,
+        primary key (id)
+) comment "User details";
+
+
+delimiter //
+create definer = 'reporting-update'@'localhost' procedure users_update()
+deterministic
+begin
+declare ts datetime;
+declare r int(1);
+select count(*) into r from metadata where table_name = 'users';
+if r = 0 then
+insert into metadata (table_name, ts) values ('users', null);
+end if;
+select ifnull(ts,from_unixtime(0)) into ts from metadata where table_name = 'users';
+if date_sub(now(), interval 600 second) > ts then
+replace into users
+select
+        id,
+        name,
+        trim(trailing '"}' from right(extra, (length(extra)-(locate('"email": "', extra)+9)))) as email,
+        default_project_id as default_project,
+        enabled
+from
+        user;
+insert into metadata (table_name, ts) values ('users', null)
+on duplicate key update ts = null;
+end if;
+end;
+//
+delimiter ;
+
+grant execute on procedure reporting.users_update to 'reporting-update'@'localhost';
+grant execute on procedure reporting.users_update to 'reporting-query'@'%';
+
+call users_update();
+
+-- user roles - note that this is a many to many relationship.
+create table roles (
+        role varchar(255) comment "Role name",
+        user varchar(64) comment "User this role is assigned to",
+        project varchar(36) comment "Project the user is assigned this role in",
+        foreign key roles_user_fkey (user) references users(id),
+        foreign key roles_project_fkey (project) references projects(id)
+);
+
+delimiter //
+create definer = 'reporting-update'@'localhost' procedure roles_update()
+deterministic
+begin
+declare ts datetime;
+declare r int(1);
+select count(*) into r from metadata where table_name = 'roles';
+if r = 0 then
+insert into metadata (table_name, ts) values ('roles', null);
+end if;
+select ifnull(ts,from_unixtime(0)) into ts from metadata where table_name = 'roles';
+if date_sub(now(), interval 600 second) > ts then
+replace into roles
+select
+        r.name as role,
+        a.actor_id as user,
+        a.target_id as project
+from
+        assignment as a join role as r
+        on a.role_id = r.id
+where
+        a.type = 'UserProject';
+insert into metadata (table_name, ts) values ('roles', null)
+on duplicate key update ts = null;
+end if;
+end;
+//
+delimiter ;
+
+grant execute on procedure reporting.roles_update to 'reporting-update'@'localhost';
+grant execute on procedure reporting.roles_update to 'reporting-query'@'%';
+
+call roles_update();
+
+
+
 -- this one is a real pain, because the flavorid is very similar to the uuid
 -- elsewhere, but it's /not/ unique. I didn't want to expose that kind of shit,
 -- but there are conflicts otherwise that require me to select only non-deleted
@@ -181,7 +270,8 @@ create table flavours (
         root int comment "Size of root disk in GB",
         ephemeral int comment "Size of ephemeral disk in GB",
         public boolean comment "Is this flavour publically available",
-        primary key (id)
+        primary key (id),
+        key flavours_uuid_key (uuid)
 ) comment "Flavour details";
 
 delimiter //
@@ -223,23 +313,26 @@ call flavours_update();
 -- instances depends on projects and flavours
 create table instances (
         project_id varchar(36) comment "Project UUID that owns this instance",
-        uuid varchar(36) comment "Instance UUID",
+        id varchar(36) comment "Instance UUID",
         name varchar(64) comment "Instance name",
         vcpus int comment "Number of vCPUs",
         memory int comment "Memory in MB",
         root int comment "Size of root disk in GB",
         ephemeral int comment "Size of ephemeral disk in GB",
         flavour int(11) comment "Flavour id used to create instance",
+        created_by varchar(36) comment "id of user who created this instance",
         created datetime comment "Instance created at",
         deleted datetime comment "Instance deleted at",
         allocation_time int comment "Number of seconds instance has existed",
         wall_time int comment "Number of seconds instance has been running",
         cpu_time int comment "Number of seconds instnace has been using CPU",
         active boolean comment "Is the instance active",
-	hypervisor varchar(255) comment "Hypervisor the instance is running on",
-	availability_zone varchar(255) comment "Availabilty zone the instance is running in",
+        hypervisor varchar(255) comment "Hypervisor the instance is running on",
+        availability_zone varchar(255) comment "Availabilty zone the instance is running in",
         primary key (uuid),
-        key instances_project_id_key (project_id)
+        key instances_project_id_key (project_id),
+        key instances_hypervisor_key (hypervisor),
+        key instances_az_key (availability_zone)
 ) comment "Instance details";
 
 delimiter //
@@ -258,21 +351,22 @@ if date_sub(now(), interval 600 second) > ts then
 replace into instances
 select
         project_id,
-        uuid,
+        uuid ad id,
         display_name as name,
         vcpus,
         memory_mb as memory,
         root_gb as root,
         ephemeral_gb as ephemeral,
         instance_type_id as flavour,
+        user_id as created_by,
         created_at as created,
         deleted_at as deleted,
         unix_timestamp(ifnull(deleted_at,now()))-unix_timestamp(created_at) as allocation_time,
         0 as wall_time,
         0 as cpu_time,
         if(deleted<>0,false,true) as active,
-	host as hypervisor,
-	availability_zone
+        host as hypervisor,
+        availability_zone
 from
         nova.instances;
 insert into metadata (table_name, ts) values ('instances', null)
@@ -289,16 +383,19 @@ call instances_update();
 
 -- likewise, volumes (and all the others, in fact) depend on the projects table
 create table volumes (
-        uuid varchar(36) comment "Volume UUID",
+        id varchar(36) comment "Volume UUID",
         project_id varchar(36) comment "Project ID that owns this volume",
         display_name varchar(64) comment "Volume display name",
-	size int(11) comment "Size in MB",
+        size int(11) comment "Size in MB",
         created datetime comment "Volume created at",
         deleted datetime comment "Volume deleted at",
         attached boolean comment "Volume attached or not",
         instance_uuid varchar(36) comment "Instance the volume is attached to",
-	availability_zone varchar(255) comment "Availability zone the volume exists in",
-        primary key (uuid)
+        availability_zone varchar(255) comment "Availability zone the volume exists in",
+        primary key (uuid),
+        key volumes_project_id_key (project_id),
+        key volumes_instance_uuid_key (instance_uuid),
+        key volumes_az_key (availability_zone)
 ) comment "Volume details";
 
 delimiter //
@@ -316,15 +413,15 @@ select ifnull(ts,from_unixtime(0)) into ts from metadata where table_name = 'vol
 if date_sub(now(), interval 600 second) > ts then
 replace into volumes
 select
-        id as uuid,
+        id,
         project_id,
         display_name,
-	size,
+        size,
         created_at as created,
         deleted_at as deleted,
         if(attach_status='attached',true,false) as attached,
         instance_uuid,
-	availability_zone
+        availability_zone
 from
         cinder.volumes;
 insert into metadata (table_name, ts) values ('volumes', null)
@@ -340,7 +437,7 @@ grant execute on procedure reporting.volumes_update to 'reporting-query'@'%';
 call volumes_update();
 
 create table images (
-        uuid varchar(36) comment "Image UUID",
+        id varchar(36) comment "Image UUID",
         project_id varchar(36) comment "Project ID that owns this image",
         name varchar(255) comment "Image display name",
         size int comment "Size of image in MB",
@@ -348,7 +445,8 @@ create table images (
         public boolean comment "Is this image publically available",
         created datetime comment "Image created at",
         deleted datetime comment "Image deleted at",
-        primary key (uuid)
+        primary key (uuid),
+        key images_project_id_key (project_id)
 ) comment "Image details";
 
 delimiter //
@@ -366,7 +464,7 @@ select ifnull(ts,from_unixtime(0)) into ts from metadata where table_name = 'ima
 if date_sub(now(), interval 600 second) > ts then
 replace into images
 select
-        id as uuid,
+        id,
         owner as project_id,
         name,
         size,
