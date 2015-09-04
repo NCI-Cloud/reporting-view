@@ -1,16 +1,12 @@
 drop database if exists reporting;
-drop user 'reporting-update'@'localhost';
-drop user 'reporting-query'@'%';
 
 create database reporting;
 use reporting;
 
 -- some user definitions
-create user 'reporting-update'@'localhost' identified by 'needs to be set';
-grant select on *.* to 'reporting-update'@'localhost';
-grant select,update,insert,delete on reporting.* to 'reporting-update'@'localhost';
-create user 'reporting-query'@'%' identified by 'also needs to be set';
-grant select on reporting.* to 'reporting-query'@'%';
+grant select on *.* to 'reporting-update'@'localhost'  identified by 'needs to be set';
+grant select,update,insert,delete on reporting.* to 'reporting-update'@'localhost' identified by 'needs to be set';
+grant select on reporting.* to 'reporting-query'@'%' identified by 'also needs to be set';
 
 -- metadata - note that this part of the design may change
 create table metadata (
