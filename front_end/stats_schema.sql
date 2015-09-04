@@ -154,7 +154,7 @@ from
         group by project_id
         ) as s on kp.id = s.project_id;
 insert into metadata (table_name, last_update) values ('project', null)
-on duplicate key update ts = null;
+on duplicate key update last_update = null;
 end if;
 end;
 //
@@ -198,7 +198,7 @@ select
 from
         keystone.user;
 insert into metadata (table_name, last_update) values ('user', null)
-on duplicate key update ts = null;
+on duplicate key update last_update = null;
 end if;
 end;
 //
@@ -244,7 +244,7 @@ where
         AND EXISTS(select * from keystone.user ku WHERE ku.id =  ka.actor_id)
         AND EXISTS(select * from keystone.project kp WHERE kp.id = ka.target_id);
 insert into metadata (table_name, last_update) values ('role', null)
-on duplicate key update ts = null;
+on duplicate key update last_update = null;
 end if;
 end;
 //
@@ -299,7 +299,7 @@ select
 from
         nova.instance_types;
 insert into metadata (table_name, last_update) values ('flavour', null)
-on duplicate key update ts = null;
+on duplicate key update last_update = null;
 end if;
 end;
 //
@@ -370,7 +370,7 @@ select
 from
         nova.instances;
 insert into metadata (table_name, last_update) values ('instance', null)
-on duplicate key update ts = null;
+on duplicate key update last_update = null;
 end if;
 end;
 //
@@ -426,7 +426,7 @@ select
 from
         cinder.volumes;
 insert into metadata (table_name, last_update) values ('volume', null)
-on duplicate key update ts = null;
+on duplicate key update last_update = null;
 end if;
 end;
 //
@@ -477,7 +477,7 @@ select
 from
         glance.images;
 insert into metadata (table_name, last_update) values ('image', null)
-on duplicate key update ts = null;
+on duplicate key update last_update = null;
 end if;
 end;
 //
