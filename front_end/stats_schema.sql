@@ -11,7 +11,7 @@ grant select on reporting.* to 'reporting-query'@'%' identified by 'also needs t
 -- metadata - note that this part of the design may change
 create table metadata (
         table_name varchar(64), -- this should be an enum, but it's not worth doing that until we know what all the tables are
-        ts timestamp default current_timestamp on update current_timestamp,
+        last_update timestamp default current_timestamp on update current_timestamp,
         primary key (table_name)
 ) comment "Database metadata";
 
@@ -211,7 +211,7 @@ call user_update();
 
 -- user roles in projects. Note that this is a many to many relationship:
 -- a user can have roles in many projects, and a project may have many users.
-create table role (
+create table `role` (
         role varchar(255) comment "Role name",
         user varchar(64) comment "User ID this role is assigned to",
         project varchar(36) comment "Project ID the user is assigned this role in",
