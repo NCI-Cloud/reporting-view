@@ -35,23 +35,23 @@ create table hypervisor (
         memory int(11) comment "Total installed memory in MB",
         local_storage int(11) comment "Total local disk in GB",
         primary key (id),
-        key hypervisors_hostname (hostname),
-        key hypervisors_ip (ip_address)
+        key hypervisor_hostname (hostname),
+        key hypervisor_ip (ip_address)
 ) comment "Compute nodes";
 
 delimiter //
-create definer = 'reporting-update'@'localhost' procedure hypervisors_update()
+create definer = 'reporting-update'@'localhost' procedure hypervisor_update()
 deterministic
 begin
 declare ts datetime;
 declare r int(1);
-select count(*) into r from metadata where table_name = 'hypervisors';
+select count(*) into r from metadata where table_name = 'hypervisor';
 if r = 0 then
-insert into metadata (table_name, ts) values ('hypervisors', null);
+insert into metadata (table_name, ts) values ('hypervisor', null);
 end if;
-select ifnull(ts,from_unixtime(0)) into ts from metadata where table_name = 'hypervisors';
+select ifnull(ts,from_unixtime(0)) into ts from metadata where table_name = 'hypervisor';
 if date_sub(now(), interval 600 second) > ts then
-replace into hypervisors
+replace into hypervisor
 select
         id,
         hypervisor_hostname as hostname,
@@ -61,21 +61,21 @@ select
         local_gb as local_storage
 from
         nova.compute_nodes;
-insert into metadata (table_name, ts) values ('hypervisors', null)
+insert into metadata (table_name, ts) values ('hypervisor', null)
 on duplicate key update ts = null;
 end if;
 end;
 //
 delimiter ;
 
-grant execute on procedure reporting.hypervisors_update to 'reporting-update'@'localhost';
-grant execute on procedure reporting.hypervisors_update to 'reporting-query'@'%';
+grant execute on procedure reporting.hypervisor_update to 'reporting-update'@'localhost';
+grant execute on procedure reporting.hypervisor_update to 'reporting-query'@'%';
 
-call hypervisors_update();
+call hypervisor_update();
 
 -- Projects (otherwise known as tenants) group both users and resources such as instances.
 -- Projects are also the finest-grained entity which has resource quotas.
-create table projects (
+create table project (
         id varchar(36) comment "Unique identifier",
         display_name varchar(64) comment "Human-readable display name",
         enabled boolean comment "If false, the project is not usable by users",
@@ -86,22 +86,22 @@ create table projects (
         quota_snapshot int comment "Maximum number of volume snapshots",
         quota_volume_count int comment "Maximum number of concurrently allocated volumes",
         primary key (id)
-) comment "Projects resource quotas";
+) comment "Project resource quotas";
 
 delimiter //
 
-create definer = 'reporting-update'@'localhost' procedure projects_update()
+create definer = 'reporting-update'@'localhost' procedure project_update()
 deterministic
 begin
 declare ts datetime;
 declare r int(1);
-select count(*) into r from metadata where table_name = 'projects';
+select count(*) into r from metadata where table_name = 'project';
 if r = 0 then
-insert into metadata (table_name, ts) values ('projects', null);
+insert into metadata (table_name, ts) values ('project', null);
 end if;
-select ifnull(ts,from_unixtime(0)) into ts from metadata where table_name = 'projects';
+select ifnull(ts,from_unixtime(0)) into ts from metadata where table_name = 'project';
 if date_sub(now(), interval 600 second) > ts then
-replace into projects
+replace into project
 select
         distinct kp.id as id,
         kp.name as display_name,
@@ -153,20 +153,20 @@ from
         where deleted = 0 and resource like 'snapshots%'
         group by project_id
         ) as s on kp.id = s.project_id;
-insert into metadata (table_name, ts) values ('projects', null)
+insert into metadata (table_name, ts) values ('project', null)
 on duplicate key update ts = null;
 end if;
 end;
 //
 delimiter ;
 
-grant execute on procedure reporting.projects_update to 'reporting-update'@'localhost';
-grant execute on procedure reporting.projects_update to 'reporting-query'@'%';
+grant execute on procedure reporting.project_update to 'reporting-update'@'localhost';
+grant execute on procedure reporting.project_update to 'reporting-query'@'%';
 
-call projects_update();
+call project_update();
 
 -- Users 
-create table users (
+create table user (
         id  varchar(64) comment "User unique identifier",
         name varchar(255) comment "User name",
         email varchar(255) comment "User email address",
@@ -177,18 +177,18 @@ create table users (
 
 
 delimiter //
-create definer = 'reporting-update'@'localhost' procedure users_update()
+create definer = 'reporting-update'@'localhost' procedure user_update()
 deterministic
 begin
 declare ts datetime;
 declare r int(1);
-select count(*) into r from metadata where table_name = 'users';
+select count(*) into r from metadata where table_name = 'user';
 if r = 0 then
-insert into metadata (table_name, ts) values ('users', null);
+insert into metadata (table_name, ts) values ('user', null);
 end if;
-select ifnull(ts,from_unixtime(0)) into ts from metadata where table_name = 'users';
+select ifnull(ts,from_unixtime(0)) into ts from metadata where table_name = 'user';
 if date_sub(now(), interval 600 second) > ts then
-replace into users
+replace into user
 select
         id,
         name,
@@ -197,21 +197,21 @@ select
         enabled
 from
         keystone.user;
-insert into metadata (table_name, ts) values ('users', null)
+insert into metadata (table_name, ts) values ('user', null)
 on duplicate key update ts = null;
 end if;
 end;
 //
 delimiter ;
 
-grant execute on procedure reporting.users_update to 'reporting-update'@'localhost';
-grant execute on procedure reporting.users_update to 'reporting-query'@'%';
+grant execute on procedure reporting.user_update to 'reporting-update'@'localhost';
+grant execute on procedure reporting.user_update to 'reporting-query'@'%';
 
-call users_update();
+call user_update();
 
 -- user roles in projects. Note that this is a many to many relationship:
 -- a user can have roles in many projects, and a project may have many users.
-create table roles (
+create table role (
         role varchar(255) comment "Role name",
         user varchar(64) comment "User ID this role is assigned to",
         project varchar(36) comment "Project ID the user is assigned this role in",
@@ -220,18 +220,18 @@ create table roles (
 ) comment "User membership of projects, with roles";
 
 delimiter //
-create definer = 'reporting-update'@'localhost' procedure roles_update()
+create definer = 'reporting-update'@'localhost' procedure role_update()
 deterministic
 begin
 declare ts datetime;
 declare r int(1);
-select count(*) into r from metadata where table_name = 'roles';
+select count(*) into r from metadata where table_name = 'role';
 if r = 0 then
-insert into metadata (table_name, ts) values ('roles', null);
+insert into metadata (table_name, ts) values ('role', null);
 end if;
-select ifnull(ts,from_unixtime(0)) into ts from metadata where table_name = 'roles';
+select ifnull(ts,from_unixtime(0)) into ts from metadata where table_name = 'role';
 if date_sub(now(), interval 600 second) > ts then
-replace into roles
+replace into role
 select
         kr.name as role,
         ka.actor_id as user,
@@ -243,17 +243,17 @@ where
         ka.type = 'UserProject'
         AND EXISTS(select * from keystone.user ku WHERE ku.id =  ka.actor_id)
         AND EXISTS(select * from keystone.project kp WHERE kp.id = ka.target_id);
-insert into metadata (table_name, ts) values ('roles', null)
+insert into metadata (table_name, ts) values ('role', null)
 on duplicate key update ts = null;
 end if;
 end;
 //
 delimiter ;
 
-grant execute on procedure reporting.roles_update to 'reporting-update'@'localhost';
-grant execute on procedure reporting.roles_update to 'reporting-query'@'%';
+grant execute on procedure reporting.role_update to 'reporting-update'@'localhost';
+grant execute on procedure reporting.role_update to 'reporting-query'@'%';
 
-call roles_update();
+call role_update();
 
 
 
@@ -261,7 +261,7 @@ call roles_update();
 -- elsewhere, but it's /not/ unique. I didn't want to expose that fact,
 -- but there are conflicts otherwise that require me to select only non-deleted
 -- records if I stick to the 'uuid' as key.
-create table flavours (
+create table flavour (
         id int(11) comment "Flavour ID",
         uuid varchar(36) comment "Flavour UUID - not unique",
         name varchar(255) comment "Flavour name",
@@ -271,22 +271,22 @@ create table flavours (
         ephemeral int comment "Size of ephemeral disk in GB",
         public boolean comment "Is this flavour publically available",
         primary key (id),
-        key flavours_uuid_key (uuid)
+        key flavour_uuid_key (uuid)
 ) comment "Types of virtual machine";
 
 delimiter //
-create definer = 'reporting-update'@'localhost' procedure flavours_update()
+create definer = 'reporting-update'@'localhost' procedure flavour_update()
 deterministic
 begin
 declare ts datetime;
 declare r int(1);
-select count(*) into r from metadata where table_name = 'flavours';
+select count(*) into r from metadata where table_name = 'flavour';
 if r = 0 then
-insert into metadata (table_name, ts) values ('flavours', null);
+insert into metadata (table_name, ts) values ('flavour', null);
 end if;
-select ifnull(ts,from_unixtime(0)) into ts from metadata where table_name = 'flavours';
+select ifnull(ts,from_unixtime(0)) into ts from metadata where table_name = 'flavour';
 if date_sub(now(), interval 600 second) > ts then
-replace into flavours
+replace into flavour
 select
         id,
         flavorid as uuid,
@@ -298,20 +298,20 @@ select
         is_public as public
 from
         nova.instance_types;
-insert into metadata (table_name, ts) values ('flavours', null)
+insert into metadata (table_name, ts) values ('flavour', null)
 on duplicate key update ts = null;
 end if;
 end;
 //
 delimiter ;
 
-grant execute on procedure reporting.flavours_update to 'reporting-update'@'localhost';
-grant execute on procedure reporting.flavours_update to 'reporting-query'@'%';
+grant execute on procedure reporting.flavour_update to 'reporting-update'@'localhost';
+grant execute on procedure reporting.flavour_update to 'reporting-query'@'%';
 
-call flavours_update();
+call flavour_update();
 
--- instances depends on projects and flavours
-create table instances (
+-- instances depend on projects and flavours
+create table instance (
         project_id varchar(36) comment "Project UUID that owns this instance",
         id varchar(36) comment "Instance UUID",
         name varchar(64) comment "Instance name",
@@ -330,25 +330,25 @@ create table instances (
         hypervisor varchar(255) comment "Hypervisor the instance is running on",
         availability_zone varchar(255) comment "Availability zone the instance is running in",
         primary key (id),
-        key instances_project_id_key (project_id),
-        key instances_hypervisor_key (hypervisor),
-        key instances_az_key (availability_zone)
+        key instance_project_id_key (project_id),
+        key instance_hypervisor_key (hypervisor),
+        key instance_az_key (availability_zone)
 ) comment "Virtual machine instances";
 
 delimiter //
 
-create definer = 'reporting-update'@'localhost' procedure instances_update()
+create definer = 'reporting-update'@'localhost' procedure instance_update()
 deterministic
 begin
 declare ts datetime;
 declare r int(1);
-select count(*) into r from metadata where table_name = 'instances';
+select count(*) into r from metadata where table_name = 'instance';
 if r = 0 then
-insert into metadata (table_name, ts) values ('instances', null);
+insert into metadata (table_name, ts) values ('instance', null);
 end if;
-select ifnull(ts,from_unixtime(0)) into ts from metadata where table_name = 'instances';
+select ifnull(ts,from_unixtime(0)) into ts from metadata where table_name = 'instance';
 if date_sub(now(), interval 600 second) > ts then
-replace into instances
+replace into instance
 select
         project_id,
         uuid as id,
@@ -369,21 +369,21 @@ select
         availability_zone
 from
         nova.instances;
-insert into metadata (table_name, ts) values ('instances', null)
+insert into metadata (table_name, ts) values ('instance', null)
 on duplicate key update ts = null;
 end if;
 end;
 //
 delimiter ;
 
-grant execute on procedure reporting.instances_update to 'reporting-update'@'localhost';
-grant execute on procedure reporting.instances_update to 'reporting-query'@'%';
+grant execute on procedure reporting.instance_update to 'reporting-update'@'localhost';
+grant execute on procedure reporting.instance_update to 'reporting-query'@'%';
 
-call instances_update();
+call instance_update();
 
 -- Storage volumes independent of (but attachable to) virtual machines
 -- Volumes (and all the others, in fact) depend on the projects table
-create table volumes (
+create table volume (
         id varchar(36) comment "Volume UUID",
         project_id varchar(36) comment "Project ID that owns this volume",
         display_name varchar(64) comment "Volume display name",
@@ -394,25 +394,25 @@ create table volumes (
         instance_uuid varchar(36) comment "Instance the volume is attached to",
         availability_zone varchar(255) comment "Availability zone the volume exists in",
         primary key (id),
-        key volumes_project_id_key (project_id),
-        key volumes_instance_uuid_key (instance_uuid),
-        key volumes_az_key (availability_zone)
+        key volume_project_id_key (project_id),
+        key volume_instance_uuid_key (instance_uuid),
+        key volume_az_key (availability_zone)
 ) comment "External storage volumes";
 
 delimiter //
 
-create definer = 'reporting-update'@'localhost' procedure volumes_update()
+create definer = 'reporting-update'@'localhost' procedure volume_update()
 deterministic
 begin
 declare ts datetime;
 declare r int(1);
-select count(*) into r from metadata where table_name = 'volumes';
+select count(*) into r from metadata where table_name = 'volume';
 if r = 0 then
-insert into metadata (table_name, ts) values ('volumes', null);
+insert into metadata (table_name, ts) values ('volume', null);
 end if;
-select ifnull(ts,from_unixtime(0)) into ts from metadata where table_name = 'volumes';
+select ifnull(ts,from_unixtime(0)) into ts from metadata where table_name = 'volume';
 if date_sub(now(), interval 600 second) > ts then
-replace into volumes
+replace into volume
 select
         id,
         project_id,
@@ -425,19 +425,19 @@ select
         availability_zone
 from
         cinder.volumes;
-insert into metadata (table_name, ts) values ('volumes', null)
+insert into metadata (table_name, ts) values ('volume', null)
 on duplicate key update ts = null;
 end if;
 end;
 //
 delimiter ;
 
-grant execute on procedure reporting.volumes_update to 'reporting-update'@'localhost';
-grant execute on procedure reporting.volumes_update to 'reporting-query'@'%';
+grant execute on procedure reporting.volume_update to 'reporting-update'@'localhost';
+grant execute on procedure reporting.volume_update to 'reporting-query'@'%';
 
-call volumes_update();
+call volume_update();
 
-create table images (
+create table image (
         id varchar(36) comment "Image UUID",
         project_id varchar(36) comment "Project ID that owns this image",
         name varchar(255) comment "Image display name",
@@ -448,23 +448,23 @@ create table images (
         created datetime comment "Time image was created",
         deleted datetime comment "Time image was deleted",
         primary key (id),
-        key images_project_id_key (project_id)
+        key image_project_id_key (project_id)
 ) comment "Operating system images";
 
 delimiter //
 
-create definer = 'reporting-update'@'localhost' procedure images_update()
+create definer = 'reporting-update'@'localhost' procedure image_update()
 deterministic
 begin
 declare ts datetime;
 declare r int(1);
-select count(*) into r from metadata where table_name = 'images';
+select count(*) into r from metadata where table_name = 'image';
 if r = 0 then
-insert into metadata (table_name, ts) values ('images', null);
+insert into metadata (table_name, ts) values ('image', null);
 end if;
-select ifnull(ts,from_unixtime(0)) into ts from metadata where table_name = 'images';
+select ifnull(ts,from_unixtime(0)) into ts from metadata where table_name = 'image';
 if date_sub(now(), interval 600 second) > ts then
-replace into images
+replace into image
 select
         id,
         owner as project_id,
@@ -476,14 +476,14 @@ select
         deleted_at as deleted
 from
         glance.images;
-insert into metadata (table_name, ts) values ('images', null)
+insert into metadata (table_name, ts) values ('image', null)
 on duplicate key update ts = null;
 end if;
 end;
 //
 delimiter ;
 
-grant execute on procedure reporting.images_update to 'reporting-update'@'localhost';
-grant execute on procedure reporting.images_update to 'reporting-query'@'%';
+grant execute on procedure reporting.image_update to 'reporting-update'@'localhost';
+grant execute on procedure reporting.image_update to 'reporting-query'@'%';
 
-call images_update();
+call image_update();
