@@ -106,9 +106,9 @@ select ifnull(ts,from_unixtime(0)) into ts from metadata where table_name = 'pro
 if date_sub(now(), interval 600 second) > ts then
 replace into projects
 select
-        distinct p.id as id,
-        p.name as display_name,
-        p.enabled as enabled,
+        distinct kp.id as id,
+        kp.name as display_name,
+        kp.enabled as enabled,
         i.hard_limit as instances,
         c.hard_limit as cores,
         r.hard_limit as ram,
@@ -116,19 +116,19 @@ select
         v.total_limit as volumes,
         s.total_limit as snapshots
 from
-        keystone.project as p left outer join
+        keystone.project as kp left outer join
         (
         select  *  from  nova.quotas
         where deleted = 0 and resource = 'ram'
-        ) as r on p.id = r.project_id left outer join
+        ) as r on kp.id = r.project_id left outer join
         (
         select  *  from  nova.quotas
         where deleted = 0 and resource = 'instances'
-        ) as i on p.id = i.project_id left outer join
+        ) as i on kp.id = i.project_id left outer join
         (
         select  *  from  nova.quotas
         where deleted = 0 and resource = 'cores'
-        ) as c on p.id = c.project_id left outer join
+        ) as c on kp.id = c.project_id left outer join
         (
         select
                 project_id,
@@ -137,7 +137,7 @@ from
                 cinder.quotas
         where deleted = 0 and resource like 'gigabytes%'
         group by project_id
-        ) as g on p.id = g.project_id left outer join
+        ) as g on kp.id = g.project_id left outer join
         (
         select
                 project_id,
@@ -146,7 +146,7 @@ from
                 cinder.quotas
         where deleted = 0 and resource like 'volumes%'
         group by project_id
-        ) as v on p.id = v.project_id left outer join
+        ) as v on kp.id = v.project_id left outer join
         (
         select
                 project_id,
@@ -155,7 +155,7 @@ from
                 cinder.quotas
         where deleted = 0 and resource like 'snapshots%'
         group by project_id
-        ) as s on p.id = s.project_id;
+        ) as s on kp.id = s.project_id;
 insert into metadata (table_name, ts) values ('projects', null)
 on duplicate key update ts = null;
 end if;
@@ -235,12 +235,12 @@ select ifnull(ts,from_unixtime(0)) into ts from metadata where table_name = 'rol
 if date_sub(now(), interval 600 second) > ts then
 replace into roles
 select
-        r.name as role,
-        a.actor_id as user,
-        a.target_id as project
+        kr.name as role,
+        ka.actor_id as user,
+        ka.target_id as project
 from
-        keystone.assignment as a join keystone.role as r
-        on a.role_id = r.id
+        keystone.assignment as ka join keystone.role as kr
+        on ka.role_id = kr.id
 where
         a.type = 'UserProject';
 insert into metadata (table_name, ts) values ('roles', null)
@@ -445,7 +445,7 @@ create table images (
         public boolean comment "Is this image publically available",
         created datetime comment "Image created at",
         deleted datetime comment "Image deleted at",
-        primary key (uuid),
+        primary key (id),
         key images_project_id_key (project_id)
 ) comment "Image details";
 
