@@ -24,20 +24,20 @@ create table metadata (
 -- set the ts value to null, which will update the timestamp to the current
 -- value.
 
--- hypervisors!
+-- Physical machines hosting running hypervisor software, aka compute nodes.
 --
 -- no interaction with other tables at present.
-create table hypervisors (
-        id int(11) comment "Compute node ID",
+create table hypervisor (
+        id int(11) comment "Compute node unique identifier",
         hostname varchar(255) comment "Compute node hostname",
         ip_address varchar(39) comment "Compute node IP address",
-        cpus int(11) comment "Number of installed CPUs",
+        cpus int(11) comment "Number of installed CPU cores",
         memory int(11) comment "Total installed memory in MB",
         local_storage int(11) comment "Total local disk in GB",
         primary key (id),
         key hypervisors_hostname (hostname),
         key hypervisors_ip (ip_address)
-) comment "Compute node details";
+) comment "Compute nodes";
 
 delimiter //
 create definer = 'reporting-update'@'localhost' procedure hypervisors_update()
@@ -73,19 +73,20 @@ grant execute on procedure reporting.hypervisors_update to 'reporting-query'@'%'
 
 call hypervisors_update();
 
--- projects comes first
+-- Projects (otherwise known as tenants) group both users and resources such as instances.
+-- Projects are also the finest-grained entity which has resource quotas.
 create table projects (
-        id varchar(36) comment "Project UUID",
-        display_name varchar(64) comment "Project display name",
-        enabled boolean comment "Is project enabled",
-        quota_instances int comment "Project quota - concurrent number of instances",
-        quota_vcpus int comment "Project quota - concurrent vCPUs allocated",
-        quota_memory int comment "Project quota - concurrent memory allocated in MB",
-        quota_volume_total int comment "Project quota - total size of volumes in GB",
-        quota_snapshot int comment "Project quota - number of snapshots",
-        quota_volume_count int comment "Project quota - number of volumes",
+        id varchar(36) comment "Unique identifier",
+        display_name varchar(64) comment "Human-readable display name",
+        enabled boolean comment "If false, the project is not usable by users",
+        quota_instances int comment "Maximum concurrent instances",
+        quota_vcpus int comment "Maximum concurrent virtual processor cores",
+        quota_memory int comment "Maximum memory concurrently allocated in MB",
+        quota_volume_total int comment "Maximum total size of storage volumes in GB",
+        quota_snapshot int comment "Maximum number of volume snapshots",
+        quota_volume_count int comment "Maximum number of concurrently allocated volumes",
         primary key (id)
-) comment "Project details and quota information";
+) comment "Projects resource quotas";
 
 delimiter //
 
@@ -164,15 +165,15 @@ grant execute on procedure reporting.projects_update to 'reporting-query'@'%';
 
 call projects_update();
 
--- dirty users
+-- Users 
 create table users (
-        id  varchar(64) comment "User ID",
-        name varchar(255) comment "User Name",
-        email varchar(255) comment "User Email address",
+        id  varchar(64) comment "User unique identifier",
+        name varchar(255) comment "User name",
+        email varchar(255) comment "User email address",
         default_project varchar(36) comment "User default project",
         enabled boolean,
         primary key (id)
-) comment "User details";
+) comment "Users";
 
 
 delimiter //
@@ -208,14 +209,15 @@ grant execute on procedure reporting.users_update to 'reporting-query'@'%';
 
 call users_update();
 
--- user roles - note that this is a many to many relationship.
+-- user roles in projects. Note that this is a many to many relationship:
+-- a user can have roles in many projects, and a project may have many users.
 create table roles (
         role varchar(255) comment "Role name",
-        user varchar(64) comment "User this role is assigned to",
-        project varchar(36) comment "Project the user is assigned this role in",
+        user varchar(64) comment "User ID this role is assigned to",
+        project varchar(36) comment "Project ID the user is assigned this role in",
         foreign key roles_user_fkey (user) references users(id),
         foreign key roles_project_fkey (project) references projects(id)
-);
+) comment "User membership of projects, with roles";
 
 delimiter //
 create definer = 'reporting-update'@'localhost' procedure roles_update()
@@ -256,7 +258,7 @@ call roles_update();
 
 
 -- this one is a real pain, because the flavorid is very similar to the uuid
--- elsewhere, but it's /not/ unique. I didn't want to expose that kind of shit,
+-- elsewhere, but it's /not/ unique. I didn't want to expose that fact,
 -- but there are conflicts otherwise that require me to select only non-deleted
 -- records if I stick to the 'uuid' as key.
 create table flavours (
@@ -270,7 +272,7 @@ create table flavours (
         public boolean comment "Is this flavour publically available",
         primary key (id),
         key flavours_uuid_key (uuid)
-) comment "Flavour details";
+) comment "Types of virtual machine";
 
 delimiter //
 create definer = 'reporting-update'@'localhost' procedure flavours_update()
@@ -313,25 +315,25 @@ create table instances (
         project_id varchar(36) comment "Project UUID that owns this instance",
         id varchar(36) comment "Instance UUID",
         name varchar(64) comment "Instance name",
-        vcpus int comment "Number of vCPUs",
-        memory int comment "Memory in MB",
+        vcpus int comment "Allocated number of vCPUs",
+        memory int comment "Allocated memory in MB",
         root int comment "Size of root disk in GB",
         ephemeral int comment "Size of ephemeral disk in GB",
         flavour int(11) comment "Flavour id used to create instance",
         created_by varchar(36) comment "id of user who created this instance",
-        created datetime comment "Instance created at",
-        deleted datetime comment "Instance deleted at",
+        created datetime comment "Time instance was created",
+        deleted datetime comment "Time instance was deleted",
         allocation_time int comment "Number of seconds instance has existed",
-        wall_time int comment "Number of seconds instance has been running",
+        wall_time int comment "Number of seconds instance has been in active state",
         cpu_time int comment "Number of seconds instance has been using CPU",
-        active boolean comment "Is the instance active",
+        active boolean comment "True if the instance is currently active",
         hypervisor varchar(255) comment "Hypervisor the instance is running on",
         availability_zone varchar(255) comment "Availability zone the instance is running in",
         primary key (id),
         key instances_project_id_key (project_id),
         key instances_hypervisor_key (hypervisor),
         key instances_az_key (availability_zone)
-) comment "Instance details";
+) comment "Virtual machine instances";
 
 delimiter //
 
@@ -379,7 +381,8 @@ grant execute on procedure reporting.instances_update to 'reporting-query'@'%';
 
 call instances_update();
 
--- likewise, volumes (and all the others, in fact) depend on the projects table
+-- Storage volumes independent of (but attachable to) virtual machines
+-- Volumes (and all the others, in fact) depend on the projects table
 create table volumes (
         id varchar(36) comment "Volume UUID",
         project_id varchar(36) comment "Project ID that owns this volume",
@@ -394,7 +397,7 @@ create table volumes (
         key volumes_project_id_key (project_id),
         key volumes_instance_uuid_key (instance_uuid),
         key volumes_az_key (availability_zone)
-) comment "Volume details";
+) comment "External storage volumes";
 
 delimiter //
 
@@ -439,13 +442,14 @@ create table images (
         project_id varchar(36) comment "Project ID that owns this image",
         name varchar(255) comment "Image display name",
         size int comment "Size of image in MB",
+        -- TODO: It would be nice if status were an enum, and if the view layer could somehow see that.
         status varchar(30) comment "Current status of image",
         public boolean comment "Is this image publically available",
-        created datetime comment "Image created at",
-        deleted datetime comment "Image deleted at",
+        created datetime comment "Time image was created",
+        deleted datetime comment "Time image was deleted",
         primary key (id),
         key images_project_id_key (project_id)
-) comment "Image details";
+) comment "Operating system images";
 
 delimiter //
 
