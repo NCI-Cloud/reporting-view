@@ -394,7 +394,7 @@ create table volumes (
         attached boolean comment "Volume attached or not",
         instance_uuid varchar(36) comment "Instance the volume is attached to",
         availability_zone varchar(255) comment "Availability zone the volume exists in",
-        primary key (uuid),
+        primary key (id),
         key volumes_project_id_key (project_id),
         key volumes_instance_uuid_key (instance_uuid),
         key volumes_az_key (availability_zone)
