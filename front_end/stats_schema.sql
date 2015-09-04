@@ -47,7 +47,7 @@ declare ts datetime;
 declare r int(1);
 select count(*) into r from metadata where table_name = 'hypervisor';
 if r = 0 then
-insert into metadata (table_name, ts) values ('hypervisor', null);
+insert into metadata (table_name, last_update) values ('hypervisor', null);
 end if;
 select ifnull(ts,from_unixtime(0)) into ts from metadata where table_name = 'hypervisor';
 if date_sub(now(), interval 600 second) > ts then
@@ -61,8 +61,8 @@ select
         local_gb as local_storage
 from
         nova.compute_nodes;
-insert into metadata (table_name, ts) values ('hypervisor', null)
-on duplicate key update ts = null;
+insert into metadata (table_name, last_update) values ('hypervisor', null)
+on duplicate key update last_update = null;
 end if;
 end;
 //
@@ -97,7 +97,7 @@ declare ts datetime;
 declare r int(1);
 select count(*) into r from metadata where table_name = 'project';
 if r = 0 then
-insert into metadata (table_name, ts) values ('project', null);
+insert into metadata (table_name, last_update) values ('project', null);
 end if;
 select ifnull(ts,from_unixtime(0)) into ts from metadata where table_name = 'project';
 if date_sub(now(), interval 600 second) > ts then
@@ -153,7 +153,7 @@ from
         where deleted = 0 and resource like 'snapshots%'
         group by project_id
         ) as s on kp.id = s.project_id;
-insert into metadata (table_name, ts) values ('project', null)
+insert into metadata (table_name, last_update) values ('project', null)
 on duplicate key update ts = null;
 end if;
 end;
@@ -184,7 +184,7 @@ declare ts datetime;
 declare r int(1);
 select count(*) into r from metadata where table_name = 'user';
 if r = 0 then
-insert into metadata (table_name, ts) values ('user', null);
+insert into metadata (table_name, last_update) values ('user', null);
 end if;
 select ifnull(ts,from_unixtime(0)) into ts from metadata where table_name = 'user';
 if date_sub(now(), interval 600 second) > ts then
@@ -197,7 +197,7 @@ select
         enabled
 from
         keystone.user;
-insert into metadata (table_name, ts) values ('user', null)
+insert into metadata (table_name, last_update) values ('user', null)
 on duplicate key update ts = null;
 end if;
 end;
@@ -227,7 +227,7 @@ declare ts datetime;
 declare r int(1);
 select count(*) into r from metadata where table_name = 'role';
 if r = 0 then
-insert into metadata (table_name, ts) values ('role', null);
+insert into metadata (table_name, last_update) values ('role', null);
 end if;
 select ifnull(ts,from_unixtime(0)) into ts from metadata where table_name = 'role';
 if date_sub(now(), interval 600 second) > ts then
@@ -243,7 +243,7 @@ where
         ka.type = 'UserProject'
         AND EXISTS(select * from keystone.user ku WHERE ku.id =  ka.actor_id)
         AND EXISTS(select * from keystone.project kp WHERE kp.id = ka.target_id);
-insert into metadata (table_name, ts) values ('role', null)
+insert into metadata (table_name, last_update) values ('role', null)
 on duplicate key update ts = null;
 end if;
 end;
@@ -282,7 +282,7 @@ declare ts datetime;
 declare r int(1);
 select count(*) into r from metadata where table_name = 'flavour';
 if r = 0 then
-insert into metadata (table_name, ts) values ('flavour', null);
+insert into metadata (table_name, last_update) values ('flavour', null);
 end if;
 select ifnull(ts,from_unixtime(0)) into ts from metadata where table_name = 'flavour';
 if date_sub(now(), interval 600 second) > ts then
@@ -298,7 +298,7 @@ select
         is_public as public
 from
         nova.instance_types;
-insert into metadata (table_name, ts) values ('flavour', null)
+insert into metadata (table_name, last_update) values ('flavour', null)
 on duplicate key update ts = null;
 end if;
 end;
@@ -344,7 +344,7 @@ declare ts datetime;
 declare r int(1);
 select count(*) into r from metadata where table_name = 'instance';
 if r = 0 then
-insert into metadata (table_name, ts) values ('instance', null);
+insert into metadata (table_name, last_update) values ('instance', null);
 end if;
 select ifnull(ts,from_unixtime(0)) into ts from metadata where table_name = 'instance';
 if date_sub(now(), interval 600 second) > ts then
@@ -369,7 +369,7 @@ select
         availability_zone
 from
         nova.instances;
-insert into metadata (table_name, ts) values ('instance', null)
+insert into metadata (table_name, last_update) values ('instance', null)
 on duplicate key update ts = null;
 end if;
 end;
@@ -408,7 +408,7 @@ declare ts datetime;
 declare r int(1);
 select count(*) into r from metadata where table_name = 'volume';
 if r = 0 then
-insert into metadata (table_name, ts) values ('volume', null);
+insert into metadata (table_name, last_update) values ('volume', null);
 end if;
 select ifnull(ts,from_unixtime(0)) into ts from metadata where table_name = 'volume';
 if date_sub(now(), interval 600 second) > ts then
@@ -425,7 +425,7 @@ select
         availability_zone
 from
         cinder.volumes;
-insert into metadata (table_name, ts) values ('volume', null)
+insert into metadata (table_name, last_update) values ('volume', null)
 on duplicate key update ts = null;
 end if;
 end;
@@ -460,7 +460,7 @@ declare ts datetime;
 declare r int(1);
 select count(*) into r from metadata where table_name = 'image';
 if r = 0 then
-insert into metadata (table_name, ts) values ('image', null);
+insert into metadata (table_name, last_update) values ('image', null);
 end if;
 select ifnull(ts,from_unixtime(0)) into ts from metadata where table_name = 'image';
 if date_sub(now(), interval 600 second) > ts then
@@ -476,7 +476,7 @@ select
         deleted_at as deleted
 from
         glance.images;
-insert into metadata (table_name, ts) values ('image', null)
+insert into metadata (table_name, last_update) values ('image', null)
 on duplicate key update ts = null;
 end if;
 end;
