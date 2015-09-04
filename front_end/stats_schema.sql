@@ -242,7 +242,7 @@ from
         keystone.assignment as ka join keystone.role as kr
         on ka.role_id = kr.id
 where
-        a.type = 'UserProject';
+        ka.type = 'UserProject';
 insert into metadata (table_name, ts) values ('roles', null)
 on duplicate key update ts = null;
 end if;
@@ -351,7 +351,7 @@ if date_sub(now(), interval 600 second) > ts then
 replace into instances
 select
         project_id,
-        uuid ad id,
+        uuid as id,
         display_name as name,
         vcpus,
         memory_mb as memory,
