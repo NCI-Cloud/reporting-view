@@ -88,7 +88,7 @@ create table projects (
         quota_volume_total int comment "Project quota - total size of volumes in GB",
         quota_snapshot int comment "Project quota - number of snapshots",
         quota_volume_count int comment "Project quota - number of volumes",
-        primary key (uuid)
+        primary key (id)
 ) comment "Project details and quota information";
 
 delimiter //
