@@ -199,7 +199,7 @@ select
         default_project_id as default_project,
         enabled
 from
-        user;
+        keystone.user;
 insert into metadata (table_name, ts) values ('users', null)
 on duplicate key update ts = null;
 end if;
@@ -239,7 +239,7 @@ select
         a.actor_id as user,
         a.target_id as project
 from
-        assignment as a join role as r
+        keystone.assignment as a join keystone.role as r
         on a.role_id = r.id
 where
         a.type = 'UserProject';
