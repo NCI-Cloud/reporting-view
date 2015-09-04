@@ -215,8 +215,8 @@ create table `role` (
         role varchar(255) comment "Role name",
         user varchar(64) comment "User ID this role is assigned to",
         project varchar(36) comment "Project ID the user is assigned this role in",
-        foreign key roles_user_fkey (user) references users(id),
-        foreign key roles_project_fkey (project) references projects(id)
+        foreign key role_user_fkey (user) references user(id),
+        foreign key role_project_fkey (project) references project(id)
 ) comment "User membership of projects, with roles";
 
 delimiter //
