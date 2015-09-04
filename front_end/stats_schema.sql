@@ -242,7 +242,9 @@ from
         keystone.assignment as ka join keystone.role as kr
         on ka.role_id = kr.id
 where
-        ka.type = 'UserProject';
+        ka.type = 'UserProject'
+        AND EXISTS(select * from keystone.user ku WHERE ku.id =  ka.actor_id)
+        AND EXISTS(select * from keystone.project kp WHERE kp.id = ka.target_id);
 insert into metadata (table_name, ts) values ('roles', null)
 on duplicate key update ts = null;
 end if;
