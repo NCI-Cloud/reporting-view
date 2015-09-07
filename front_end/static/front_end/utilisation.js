@@ -146,59 +146,30 @@ function report_overview(sel, g) {
         return ret;
     });
 
-    // generate pie chart; thanks to http://bl.ocks.org/mbostock/1346410
-    var width = 300, height = 300, radius = Math.min(width, height)*0.5; // TODO responsive svg
-
-    var color = d3.scale.category20();
-
-    var pie = d3.layout.pie().sort(null);
-
-    var arc = d3.svg.arc()
-        .innerRadius(0)
-        .outerRadius(radius - 10);
-
-    var svg = s.select('.chart').append('svg') // insert after heading
-        .attr('width', width)
-        .attr('height', height);
-    var chart = svg.append('g')
-        .attr('transform', 'translate(' + width*0.5 + ',' + height*0.5 + ')');
-    var path = chart.datum(agg_live_instances).selectAll('path');
-
-    var handles_g = svg.append('g')
-        .attr('class', 'handles')
-        .attr('transform', 'translate(' + width*0.5 + ',' + height*0.5 + ')')
-        .datum(agg_live_instances);
-    var handles = handles_g.selectAll('circle');
-    var tip = d3.tip()
-        .attr('class', 'd3-tip')
-        .direction(pie_tip_direction)
-        .html(function(d) {
-            var data_key = s.select('select').property('value');
-            return g.projects.find(function(p) { return p.uuid == d.data.puuid }).display_name
-                  + ': <span>'+aggs.find(function(a){return a.key==data_key}).format(d.data[data_key])+'</span>';
-         });
-    handles_g.call(tip);
+    // set up chart
+    var pie = Charts.pie()
+        .key(function(d) { return d.puuid })
+        .pathClass(function(d) { return 'project-'+d.puuid });
+    var sPie = s.select('.chart').datum(agg_live_instance);
+    pie.on('click.'+sel, function(d, i) {
+        // if corresponding path element has "selected" class, remove project selection; else select clicked project
+        dispatch.projectChanged(sel, d3.select(sPie.selectAll('path')[0][i]).classed('selected') ? null : d.puuid);
+    });
 
     var updateChart = function() {
-        pie.value(function(d) { return d[slct.property('value')] });
-
-        handles = handles.data(pie);
-        handles.enter().append('circle')
-            .attr('r', 1); // r=0 gets drawn at (0,0) in firefox, so can't be used as anchor
-        handles
-            .attr('cx', function(d) { return pie_tip_x(arc.outerRadius()(d), d) })
-            .attr('cy', function(d) { return pie_tip_y(arc.outerRadius()(d), d) });
-
-        path = path.data(pie);
-        path.enter().append('path')
-            .attr('class', function(d) { return 'project-' + d.data.puuid })
-            .attr('fill', function(d, i) { return color(i); })
-            .on('mouseover', function(d, i) { tip.show(d, handles[0][i]) })
-            .on('mouseout', tip.hide)
-            .on('click', function(d) { dispatch.projectChanged(sel, d3.select(this).classed('selected') ? null : d.data.puuid); })
-            .each(function(d) { this._current = d; }); // store initial angles
-        path.transition()
-            .attrTween('d', arcTween(arc)); // arcTween(arc) is a tweening function to transition 'd' element
+        var dk = slct.property('value');
+        var ps = g.projects;
+        pie
+            .val(function(d) { return d[dk] })
+            .tip(function(d) {
+                var p = g.projects.find(function(p) { return p.uuid == d.puuid });
+                var pname = p ? p.display_name : '?('+d.puuid+')';
+                var a = aggs.find(function(a) { return a.key == dk });
+                return pname + ': <span>' + a.format(d[dk]) + '</span>';
+             });
+        // TODO given datum() is called above, don't really need to re-call it here, except if chart breaks
+        // (which happens all the time with wall_time = 0 bug)
+        sPie.datum(agg_live_instances).call(pie);
     };
 
     updateChart();
@@ -417,56 +388,20 @@ function report_resources(sel, g) {
         .attr('selected', '')
         .text('All projects');
 
-    // generate pie chart
-    var width = 300, height = 300, radius = Math.min(width, height)*0.5; // TODO responsive svg
-
-    var pie = d3.layout.pie().sort(null);
-
-    var arc = d3.svg.arc()
-        .innerRadius(0)
-        .outerRadius(radius - 10);
-
-    var svg = s.select('.chart').append('svg')
-        .attr('width', width)
-        .attr('height', height);
-    var chart = svg.append('g')
-        .attr('transform', 'translate(' + width*0.5 + ',' + height*0.5 + ')');
-    var path = chart.selectAll('path');
-
-    var handles_g = svg.append('g')
-        .attr('class', 'handles')
-        .attr('transform', 'translate('+width*0.5+','+height*0.5+')');
-    var handles = handles_g.selectAll('circle');
-    var tip = d3.tip()
-        .attr('class', 'd3-tip')
-        .direction(pie_tip_direction)
-        .html(function(d) {
-            var dk = data_key_sel.property('value');
-            return pretty_key[d.data.key] + ': <span>' + aggs.find(function(a){return a.key==dk}).format(d.data[dk]) + '</span>';
-         });
-    handles_g.call(tip);
-
+    // set up pie chart
+    var pie = Charts.pie()
+        .key(function(d) { return d.key });
+    var sPie = s.select('.chart');
     var updateChart = function() {
-        chart.datum(data[project_sel.property('value')]);
-        handles_g.datum(data[project_sel.property('value')]);
-        pie.value(function(d) { return d[data_key_sel.property('value')] });
-
-        handles = handles.data(pie);
-        handles.enter().append('circle')
-            .attr('r', 1);
-        handles
-            .attr('cx', function(d) { return pie_tip_x(arc.outerRadius()(d), d) })
-            .attr('cy', function(d) { return pie_tip_y(arc.outerRadius()(d), d) });
-
-        path = path.data(pie);
-        path.enter().append('path')
-            .attr('class', function(d, i) { return 'res-'+d.data.key; })
-            .on('mouseover', function(d, i) { tip.show(d, handles[0][i]) })
-            .on('mouseout', tip.hide)
-            .each(function(d) { this._current = d; }); // store initial angles
-        path.transition()
-            .attrTween('d', arcTween(arc));
-    };
+        var pid = project_sel.property('value');
+        var dk  = data_key_sel.property('value');
+        pie
+            .val(function(d) { return d[dk] })
+            .tip(function(d) {
+                return pretty_key[d.key] + ': <span>' + aggs.find(function(a){return a.key==dk}).format(d[dk]) + '</span>';
+             });
+        sPie.datum(data[pid]).call(pie);
+    }
 
     // done loading pie chart now
     updateChart();
