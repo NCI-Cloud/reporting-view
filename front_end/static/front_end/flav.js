@@ -10,27 +10,27 @@ var res = [
         key : 'vcpus',
         format : function(u) { return u },
         accessor : {
-            instances   : function(ins) { return +ins.vcpus },
-            hypervisors : function(hyp) { return +hyp.cpus },
-            flavours    : function(fla) { return +fla.vcpus },
+            instance   : function(ins) { return +ins.vcpus },
+            hypervisor : function(hyp) { return +hyp.cpus },
+            flavour    : function(fla) { return +fla.vcpus },
         },
     },
     {
         key : 'memory',
         format : function(d) { return Formatters.si_bytes(d*1024*1024) },
         accessor : {
-            instances   : function(ins) { return +ins.memory },
-            hypervisors : function(hyp) { return +hyp.memory },
-            flavours    : function(fla) { return +fla.memory },
+            instance   : function(ins) { return +ins.memory },
+            hypervisor : function(hyp) { return +hyp.memory },
+            flavour    : function(fla) { return +fla.memory },
         },
     },
     {
         key : 'disk',
         format : function(d) { return Formatters.si_bytes(d*1024*1024*1024) },
         accessor : {
-            instances   : function(ins) { return (+ins.root) + (+ins.ephemeral) },
-            hypervisors : function(hyp) { return +hyp.local_storage },
-            flavours    : function(fla) { return (+fla.root) + (+fla.ephemeral) },
+            instance   : function(ins) { return (+ins.root) + (+ins.ephemeral) },
+            hypervisor : function(hyp) { return +hyp.local_storage },
+            flavour    : function(fla) { return (+fla.root) + (+fla.ephemeral) },
         },
     },
 ];
@@ -42,17 +42,17 @@ Report.init = function() {
     Util.qdeps(fetch, [
         {
             sel : '.flavs',
-            dep : ['flavours'],
+            dep : ['flavour'],
             fun : report_flavs,
         },
         {
             sel : '.hypervisors',
-            dep : ['hypervisors', 'live_instances', 'flavours'],
+            dep : ['hypervisor', 'live_instance', 'flavour'],
             fun : report_list,
         },
         {
             sel : '.historical',
-            dep : ['instances'],
+            dep : ['instance'],
             fun : report_historical,
         },
         {
@@ -70,8 +70,8 @@ function report_flavs(sel, g) {
 
     // generate <select> for controlling pie
     var slct = s.select('select') // "select" is a word overused yet reserved
-        .on('change', function() { var fid = this.value; dispatch.flavChanged(sel, g.flavours.find(function(f){ return f.id==fid })); });
-    var opts = slct.selectAll('option').data(g.flavours);
+        .on('change', function() { var fid = this.value; dispatch.flavChanged(sel, g.flavour.find(function(f){ return f.id==fid })); });
+    var opts = slct.selectAll('option').data(g.flavour);
     opts.enter().append('option');
     opts
         .attr('value', function(d) { return d.id; })
@@ -82,13 +82,13 @@ function report_flavs(sel, g) {
     var sumHeight = 50; // pixels
     var sum = s.select('.summary').style('height', sumHeight+'px');
     var sumScale = res.map(function(r) {
-        return d3.scale.linear().domain([0, d3.max(g.flavours, r.accessor.flavours)]).range([0, sumHeight]);
+        return d3.scale.linear().domain([0, d3.max(g.flavour, r.accessor.flavour)]).range([0, sumHeight]);
     });
 
     dispatch.on('flavChanged.'+sel, function(sel, f) {
         var data = [];
         if(f) {
-            data = res.map(function(r) { return r.accessor.flavours(f) });
+            data = res.map(function(r) { return r.accessor.flavour(f) });
             // TODO set <option selected>
         } else {
             // TODO pick "select flavour" option
@@ -107,7 +107,7 @@ function report_list(sel, g) {
     var s = d3.select(sel);
 
     // TODO join hypervisors and live_instances
-    var data = g.hypervisors.map(function(ins) { // shallow copy of g.hypervisors
+    var data = g.hypervisor.map(function(ins) { // shallow copy of g.hypervisor
         var ret = {};
         for(var k in ins) {
             ret[k] = ins[k];
@@ -116,17 +116,17 @@ function report_list(sel, g) {
         return ret;
     });
 
-    resMax = res.map(function(r) { return d3.max(g.hypervisors, r.accessor.hypervisors); });
+    resMax = res.map(function(r) { return d3.max(g.hypervisor, r.accessor.hypervisor); });
 
-    g.live_instances.forEach(function(ins) {
-        // assume that instances.hypervisor matches substr of hypervisors.hostname from start to before '.'
+    g.live_instance.forEach(function(ins) {
+        // assume that instance.hypervisor matches substr of hypervisor.hostname from start to before '.'
         var hyp = data.find(function(h) {
             var dIdx = h.hostname.indexOf('.');
             return ins.hypervisor === (dIdx === -1 ? h.hostname : h.hostname.substr(0, dIdx));
         });
         if(hyp) {
             res.forEach(function(r, i) {
-                hyp._allocated[i] += r.accessor.instances(ins);
+                hyp._allocated[i] += r.accessor.instance(ins);
             });
         }
     });
@@ -139,7 +139,7 @@ function report_list(sel, g) {
 
     var rowHeight = 30; //px, has to match some stuff in flav.css
     var container = s.select('div.list');
-    container.style('height', g.hypervisors.length * rowHeight + 'px');
+    container.style('height', g.hypervisor.length * rowHeight + 'px');
 
     var row = container.selectAll('div.hypervisor')
         .data(data);
@@ -173,11 +173,11 @@ function report_list(sel, g) {
             .attr('class', r.key)
           .append('div')
             .attr('class', 'bar')
-            .style('width', function(d) { return r.accessor.hypervisors(d)/resMax[i]*100+'%' })
+            .style('width', function(d) { return r.accessor.hypervisor(d)/resMax[i]*100+'%' })
           .append('div')
             .html(function(d) { return r.format(d._allocated[i]) })
-            .style('width', function(d) { return d._allocated[i]/r.accessor.hypervisors(d)*100+'%' }) // could use a d3 scale for this, but can't be bothered
-            .attr('class', function(d) { return d._allocated[i] > r.accessor.hypervisors(d) ? 'oversubscribed' : '' });
+            .style('width', function(d) { return d._allocated[i]/r.accessor.hypervisor(d)*100+'%' }) // could use a d3 scale for this, but can't be bothered
+            .attr('class', function(d) { return d._allocated[i] > r.accessor.hypervisor(d) ? 'oversubscribed' : '' });
     });
 
     var sortBy = function(key, order) {
@@ -202,8 +202,8 @@ function report_list(sel, g) {
             data.forEach(function(d) {
                 var cap = Infinity;
                 res.forEach(function(r, i) {
-                    var remaining = Math.max(0, r.accessor.hypervisors(d) - d._allocated[i]);
-                    cap = Math.min(cap, Math.floor(remaining / r.accessor.flavours(f)));
+                    var remaining = Math.max(0, r.accessor.hypervisor(d) - d._allocated[i]);
+                    cap = Math.min(cap, Math.floor(remaining / r.accessor.flavour(f)));
                 });
                 if(cap === Infinity) cap = null;
                 d._capacity = cap;

@@ -95,9 +95,9 @@ function Fetcher(eps) {
 
     /// retrieve json data
     var sqldump = function(epIdx, qk, success, error) {
-        if(qk === 'live_instances') {
+        if(qk === 'live_instance') {
             // TODO want to make a live_instances view and a separate report, so this hackery becomes unnecessary
-            qk = 'instances';
+            qk = 'instance';
             var success_o = success;
             success = function(all_instances) {
                 success_o(all_instances.filter(function(ins) { return ins.deleted === (endpoints[epIdx].name==='sqldump'?'None':null)}));
@@ -107,7 +107,7 @@ function Fetcher(eps) {
             qk = 'metadata';
             var success_o = success;
             success = function(metadata) {
-                success_o([{timestamp : d3.min(metadata, function(m) { return Date.parse(m.ts)*0.001 /* because normally we expect seconds, not ms */ })}]);
+                success_o([{timestamp : d3.min(metadata, function(m) { return Date.parse(m.last_update)*0.001 /* because normally we expect seconds, not ms */ })}]);
             };
         }
 

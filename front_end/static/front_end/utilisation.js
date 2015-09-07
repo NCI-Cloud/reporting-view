@@ -11,27 +11,27 @@ Report.init = function() {
     Util.qdeps(fetch, [
         {
             sel : null,
-            dep : ['instances'],
-            fun : preprocess_instances, // Fetcher will invoke callbacks in the order they're queued, so this comes before anything else depending on projects
+            dep : ['instance'],
+            fun : preprocess_instance, // Fetcher will invoke callbacks in the order they're queued, so this comes before anything else depending on projects
         },
         {
             sel : '.resources',
-            dep : ['projects', 'hypervisors', 'live_instances', 'volumes'],
+            dep : ['project', 'hypervisor', 'live_instance', 'volume'],
             fun : report_resources,
         },
         {
             sel : '.overview',
-            dep : ['projects', 'live_instances'],
+            dep : ['project', 'live_instance'],
             fun : report_overview,
         },
         {
             sel : '.live',
-            dep : ['projects', 'flavours', 'live_instances'],
+            dep : ['project', 'flavour', 'live_instance'],
             fun : report_live,
         },
         {
             sel : '.historical',
-            dep : ['projects', 'flavours', 'instances'],
+            dep : ['project', 'flavour', 'instance'],
             fun : report_historical,
         },
         {
@@ -76,19 +76,19 @@ function pie_tip_y(r, d) {
     return  r * Math.sin(-0.5*Math.PI - 0.5*(d.startAngle+d.endAngle));
 }
 
-var instances_by_puuid = {};
-/// rearrange instances data so we can efficiently group by project
-function preprocess_instances(_, g) {
-    g.instances.forEach(function(ins) {
-        if(! (ins.project_id in instances_by_puuid)) {
-            instances_by_puuid[ins.project_id] = [];
+var instance_by_puuid = {};
+/// rearrange instance data so we can efficiently group by project
+function preprocess_instance(_, g) {
+    g.instance.forEach(function(ins) {
+        if(! (ins.project_id in instance_by_puuid)) {
+            instance_by_puuid[ins.project_id] = [];
         }
 
         // pollute data by preparsing dates
         ins._c_time = Date.parse(ins.created);
         ins._d_time = Date.parse(ins.deleted);
 
-        instances_by_puuid[ins.project_id].push(ins);
+        instance_by_puuid[ins.project_id].push(ins);
     });
 }
 
@@ -138,10 +138,10 @@ function report_overview(sel, g) {
         .text(function(d) { return d.title; })
 
     // aggregate data
-    var agg_live_instances = g.projects.map(function(p) {
-        var ret = {puuid : p.uuid};
+    var agg_live_instance = g.project.map(function(p) {
+        var ret = {puuid : p.id}; // TODO rename puuid
         aggs.forEach(function(f) {
-            ret[f.key] = g.live_instances.filter(function(ins) { return ins.project_id == p.uuid; }).reduce(f.use_fn, 0);
+            ret[f.key] = g.live_instance.filter(function(ins) { return ins.project_id == p.id; }).reduce(f.use_fn, 0);
         });
         return ret;
     });
@@ -158,18 +158,18 @@ function report_overview(sel, g) {
 
     var updateChart = function() {
         var dk = slct.property('value');
-        var ps = g.projects;
+        var ps = g.project;
         pie
             .val(function(d) { return d[dk] })
             .tip(function(d) {
-                var p = g.projects.find(function(p) { return p.uuid == d.puuid });
+                var p = g.project.find(function(p) { return p.id == d.puuid });
                 var pname = p ? p.display_name : '?('+d.puuid+')';
                 var a = aggs.find(function(a) { return a.key == dk });
                 return pname + ': <span>' + a.format(d[dk]) + '</span>';
              });
         // TODO given datum() is called above, don't really need to re-call it here, except if chart breaks
         // (which happens all the time with wall_time = 0 bug)
-        sPie.datum(agg_live_instances).call(pie);
+        sPie.datum(agg_live_instance).call(pie);
     };
 
     updateChart();
@@ -181,15 +181,13 @@ function report_overview(sel, g) {
             slct.property('value', data_key);
             updateChart();
         }
-        path.selectAll('title')
-            .text(function(d) { return g.projects.find(function(p){return p.uuid==d.data.puuid;}).display_name+': '+d.data[d3.select('div.overview select').property('value')]; });
     });
     dispatch.on('projectChanged.'+sel, function(sender_sel, puuid) {
         // apply "selected" class to pie piece corresponding to puuid, if it has nonzero value (i.e. don't confuse user by selecting invisible data)
         if(sel!==sender_sel && !should_lock_charts()) return;
         s.selectAll('path').classed('selected', false); // deselect everything
         var field = s.select('select').property('value'); // what field are we looking at
-        var d = agg_live_instances.find(function(i){return i.puuid===puuid}); // find datum with given puuid
+        var d = agg_live_instance.find(function(i){return i.puuid===puuid}); // find datum with given puuid
         if(d && d[field]) { // datum exists (expected), and has nonzero value of field, so can be selected on pie chart
             s.selectAll('path.project-'+puuid).classed('selected', true);
             s.select('.instructions p.selected').style('display', 'block');
@@ -210,7 +208,7 @@ function report_live(sel, g) {
     }
     var tbl = sTable.DataTable({
         dom : 'rtp', // show only processing indicator and table
-        data : g.live_instances,
+        data : g.live_instance,
         processing : true,
         paging : true,
         columns : [
@@ -225,7 +223,7 @@ function report_live(sel, g) {
             {
                 title : 'Project',
                 data : function(live_instance) {
-                    return g.projects.find(function(p){return p.uuid==live_instance.project_id;}).display_name;
+                    return g.project.find(function(p){return p.id==live_instance.project_id;}).display_name;
                 },
             },
             {
@@ -246,8 +244,8 @@ function report_live(sel, g) {
                 title : 'Flavour',
                 data : 'flavour',
                 render : {
-                    display : Formatters.flavourDisplay(g.flavours),
-                    filter : function(flavour_id) { return g.flavours.find(function(f){return f.id==flavour_id;}).name; },
+                    display : Formatters.flavourDisplay(g.flavour),
+                    filter : function(flavour_id) { return g.flavour.find(function(f){return f.id==flavour_id;}).name; },
                 },
             },
             {
@@ -256,7 +254,7 @@ function report_live(sel, g) {
                 visible : false,
             },
             {
-                data : 'uuid',
+                data : 'id',
                 visible : false,
             },
         ],
@@ -278,8 +276,8 @@ function report_resources(sel, g) {
 
     // compute mapping of project_id => total volume size
     var vol = {}, vol_t = 0;
-    g.projects.forEach(function(p) { vol[p.uuid] = 0 });
-    g.volumes.forEach(function(v) { if(v.deleted == 'None'/* TODO live_volumes report would be better */) { vol[v.project_id] += +v.size; vol_t += +v.size }});
+    g.project.forEach(function(p) { vol[p.id] = 0 });
+    g.volume.forEach(function(v) { if(v.deleted == 'None'/* TODO this is buggy and wrong; need live_volume report */) { vol[v.project_id] += +v.size; vol_t += +v.size }});
 
     var aggs = [ // pls don't use key "key"
         {
@@ -288,8 +286,8 @@ function report_resources(sel, g) {
             format   : function(n) { return n===null ? '(no quota)' :  n + ' vcpus'; },
             quota    : function(project) { return (isNaN(+project.quota_vcpus) || +project.quota_vcpus===-1) ? null : +project.quota_vcpus },
             accessor : {
-                hypervisors : function(h) { return +h.cpus },
-                instances   : function(i) { return +i.vcpus },
+                hypervisor : function(h) { return +h.cpus },
+                instance   : function(i) { return +i.vcpus },
             },
         },
         {
@@ -298,8 +296,8 @@ function report_resources(sel, g) {
             format   : function(mem_mb) { return mem_mb===null ? '(no quota)' : Formatters.si_bytes(mem_mb*1024*1024); },
             quota    : function(project) { return (isNaN(+project.quota_memory) || +project.quota_memory===-1) ? null : +project.quota_memory },
             accessor : {
-                hypervisors : function(h) { return +h.memory },
-                instances   : function(i) { return +i.memory },
+                hypervisor : function(h) { return +h.memory },
+                instance   : function(i) { return +i.memory },
             },
         },
         {
@@ -308,8 +306,8 @@ function report_resources(sel, g) {
             format   : function(disk_gb) { return disk_gb===null ? '(no quota)' : Formatters.si_bytes(disk_gb*1024*1024*1024); },
             quota    : function() { return null }, /* because there are no such quotas in openstack */
             accessor : {
-                hypervisors : function(h) { return +h.local_storage },
-                instances   : function(i) { return (+i.root) + (+i.ephemeral) },
+                hypervisor : function(h) { return +h.local_storage },
+                instance   : function(i) { return (+i.root) + (+i.ephemeral) },
             },
         },
         {
@@ -318,11 +316,11 @@ function report_resources(sel, g) {
             format   : function(disk_gb) { return disk_gb===null ? '(no quota)' : Formatters.si_bytes(disk_gb*1024*1024*1024); },
             quota    : function(project) { return (isNaN(+project.quota_volume_total) || +project.quota_volume_total===-1) ? null : +project.quota_volume_total },
             accessor : {
-                hypervisors : function() { return 0 },
-                instances   : function(ins) {
+                hypervisor : function() { return 0 },
+                instance   : function(ins) {
                     // this is dirty and wrong but makes calculations below uniform, rather than having 'volume' as special case
-                    var project_instances = g.live_instances.filter(function(i){return i.project_id==ins.project_id}).length;
-                    return vol[ins.project_id]/project_instances; // so that when summed over all instances, we get back vol[puuid] -_-
+                    var project_instance = g.live_instance.filter(function(i){return i.project_id==ins.project_id}).length;
+                    return vol[ins.project_id]/project_instance; // so that when summed over all instances, we get back vol[puuid] -_-
                 },
             },
         },
@@ -334,32 +332,32 @@ function report_resources(sel, g) {
     // store aggregated values, using title as key
     var res_tot = {}, res_used = {key:'used'}, res_free = {key:'free'};
     aggs.forEach(function(agg) {
-        res_tot[agg.key]  = g.hypervisors.reduce(function(val, hyp) { return val + agg.accessor.hypervisors(hyp) }, 0);
-        res_used[agg.key] = g.live_instances.reduce(function(val, ins) { return val + agg.accessor.instances(ins) }, 0);
+        res_tot[agg.key]  = g.hypervisor.reduce(function(val, hyp) { return val + agg.accessor.hypervisor(hyp) }, 0);
+        res_used[agg.key] = g.live_instance.reduce(function(val, ins) { return val + agg.accessor.instance(ins) }, 0);
         res_free[agg.key] = res_tot[agg.key] - res_used[agg.key];
     });
     var data = {'':[res_used, res_free]}; // indexed by project id, where '' (no project) is node-wide data
 
     // include project-level data
-    g.projects.forEach(function(p) { // initialise data[project_id] = [used, free]
-        data[p.uuid] = [{key:'used'}, {key:'free'}];
+    g.project.forEach(function(p) { // initialise data[project_id] = [used, free]
+        data[p.id] = [{key:'used'}, {key:'free'}];
         aggs.forEach(function(a) {
-            data[p.uuid][0][a.key] = 0;          // used=0
-            data[p.uuid][1][a.key] = a.quota(p); // free=quota
+            data[p.id][0][a.key] = 0;          // used=0
+            data[p.id][1][a.key] = a.quota(p); // free=quota
         });
     });
-    g.live_instances.forEach(function(i) { // reduce g.live_instances, populating "used" object
+    g.live_instance.forEach(function(i) { // reduce g.live_instance, populating "used" object
         aggs.forEach(function(a) {
-            data[i.project_id][0][a.key] += a.accessor.instances(i); // increase used
+            data[i.project_id][0][a.key] += a.accessor.instance(i); // increase used
         });
     });
-    g.projects.forEach(function(p) { // calculate "free" based on quota and "used"
+    g.project.forEach(function(p) { // calculate "free" based on quota and "used"
         aggs.forEach(function(a) {
-            var quota = data[p.uuid][1][a.key];
+            var quota = data[p.id][1][a.key];
             if(quota === null) {
-                data[p.uuid][1][a.key] = null;
+                data[p.id][1][a.key] = null;
             } else {
-                data[p.uuid][1][a.key] = quota - data[p.uuid][0][a.key];
+                data[p.id][1][a.key] = quota - data[p.id][0][a.key];
             }
         });
     });
@@ -379,9 +377,9 @@ function report_resources(sel, g) {
     var project_sel = s.select('select.project')
         .on('change', function() { dispatch.projectChanged(sel, this.value); });
     project_sel.selectAll('option')
-        .data(g.projects)
+        .data(g.project)
       .enter().append('option')
-        .attr('value', function(d) { return d.uuid; })
+        .attr('value', function(d) { return d.id; })
         .text(function(d) { return d.display_name; });
     project_sel.insert('option', 'option')
         .attr('value', '')
@@ -425,7 +423,7 @@ function report_resources(sel, g) {
 
 function report_historical(sel, g) {
     var s = d3.select(sel);
-    var aggs = [ // pls don't use key "time" or "uuid"
+    var aggs = [ // pls don't use key "time" or "id"
         {
             key        : 'vcpus',
             title      : 'vCPU',
@@ -468,9 +466,9 @@ function report_historical(sel, g) {
     s.select('select.project')
         .on('change', function() { dispatch.projectChanged(sel, this.value); })
       .selectAll('option')
-        .data(g.projects)
+        .data(g.project)
       .enter().append('option')
-        .attr('value', function(d) { return d.uuid; })
+        .attr('value', function(d) { return d.id; })
         .text(function(d) { return d.display_name; });
     s.select('select.project').insert('option', 'option') // placeholder
         .attr('value', '')
@@ -526,12 +524,12 @@ function report_historical(sel, g) {
                 title : 'Flavour',
                 data : 'flavour',
                 render : {
-                    display : Formatters.flavourDisplay(g.flavours),
-                    filter : function(flavour_id) { return g.flavours.find(function(f){return f.id==flavour_id;}).name; },
+                    display : Formatters.flavourDisplay(g.flavour),
+                    filter : function(flavour_id) { return g.flavour.find(function(f){return f.id==flavour_id;}).name; },
                 },
             },
             {
-                data : 'uuid',
+                data : 'id',
                 visible : false,
             },
         ],
@@ -545,12 +543,12 @@ function report_historical(sel, g) {
     // highlight points in chart when mousing over table
     $('tbody', sel).on('mouseover', 'tr', function () {
         // trying to separate jquery and d3, but jquery addClass doesn't work on svg elements
-        var uuid = tbl.row(this).data().uuid;
-        d3.selectAll('circle.instance-'+uuid).classed('highlight', true);
+        var id = tbl.row(this).data().id;
+        d3.selectAll('circle.instance-'+id).classed('highlight', true);
     });
     $('tbody', sel).on('mouseout', 'tr', function () {
-        var uuid = tbl.row(this).data().uuid;
-        d3.selectAll('circle.instance-'+uuid).classed('highlight', false);
+        var id = tbl.row(this).data().id;
+        d3.selectAll('circle.instance-'+id).classed('highlight', false);
     });
 
     // project-level data
@@ -645,7 +643,7 @@ function report_historical(sel, g) {
         var circ = zoom_circles.selectAll('circle').data(ts_data.slice(0,-1)); // last element of ts_data is artifical "now" data point, which shouldn't be marked
         circ.enter().append('circle')
             .attr('r', 2) // little data point helps to find tooltips (step function is not very intuitive)
-            .attr('class', function(d) { return 'instance-'+d.uuid })
+            .attr('class', function(d) { return 'instance-'+d.id })
             .on('mouseover', function(d, i) { zoom_tip.show(ts_events[i], this); })
             .on('mouseout', zoom_tip.hide);
         sel_trans(circ)
@@ -697,6 +695,7 @@ function report_historical(sel, g) {
         // update charts
         if(extent) {
             zoom_x.domain(extent);
+            // TODO change zoom_y domain
             date_brush.extent(extent);
         } else {
             zoom_x.domain(date_x.domain());
@@ -740,7 +739,7 @@ function report_historical(sel, g) {
         s.classed('loading', true);
         s.select('select').property('value', puuid);
 
-        var instances = instances_by_puuid[puuid];
+        var instances = instance_by_puuid[puuid];
 
         // fill data table
         tbl.clear().rows.add(instances);
@@ -748,7 +747,7 @@ function report_historical(sel, g) {
         // generate time series data for this project
         ts_events = [];
         instances.forEach(function(instance) {
-            var f = g.flavours.find(function(f){ return f.id===instance.flavour });
+            var f = g.flavour.find(function(f){ return f.id===instance.flavour });
             if(! isNaN(instance._c_time)) ts_events.push({time:instance._c_time, mult:+1, instance:instance, flavour:f});
             if(! isNaN(instance._d_time)) ts_events.push({time:instance._d_time, mult:-1, instance:instance, flavour:f});
         });
@@ -759,7 +758,7 @@ function report_historical(sel, g) {
         });
         ts_data = ts_events.map( // compute cumulative sum of ts_events
             function(e) {
-                var t = this, ret = {time:e.time, uuid:e.instance.uuid};
+                var t = this, ret = {time:e.time, id:e.instance.id};
                 aggs.forEach(function(agg) {
                     t[agg.key] += e.mult * agg.accessor(e.instance);
                     ret[agg.key] = t[agg.key];
@@ -773,7 +772,7 @@ function report_historical(sel, g) {
             Object.keys(latest).forEach(function(k) {
                 now[k] = latest[k];
             });
-            now.uuid = null;
+            now.id = null;
             now.time = Date.now();
             ts_data.push(now);
         }
