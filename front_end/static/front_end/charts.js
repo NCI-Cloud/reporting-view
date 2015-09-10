@@ -106,10 +106,7 @@ var Charts = {};
             pathClass = value;
             return pie;
         };
-        pie.on = function(type, listener) {
-            dispatch.on(type, listener);
-            return pie;
-        };
+        pie.dispatch = dispatch;
 
         /// return a tweening function to transition pie layout element
         var arcTween = function(arc) { // return a tween from current datum (._current) to final datum pie_d

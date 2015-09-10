@@ -151,7 +151,7 @@ function report_overview(sel, g) {
         .key(function(d) { return d.puuid })
         .pathClass(function(d) { return 'project-'+d.puuid });
     var sPie = s.select('.chart').datum(agg_live_instance);
-    pie.on('click.'+sel, function(d, i) {
+    pie.dispatch.on('click.'+sel, function(d, i) {
         // if corresponding path element has "selected" class, remove project selection; else select clicked project
         dispatch.projectChanged(sel, d3.select(sPie.selectAll('path')[0][i]).classed('selected') ? null : d.puuid);
     });
