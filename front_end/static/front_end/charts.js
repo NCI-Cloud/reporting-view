@@ -143,4 +143,201 @@ var Charts = {};
 
         return pie;
     }
+
+    Charts.zoom = function() {
+        var margin     = {t:30, r:60, b:30, l:60, s:30}, /// top, right, bottom, left, separation between zoomed/finder charts
+            width      = 870, /// both charts have same width; margins are extra
+            heightZoom = 300, /// "zoom" chart shows a subset of domain
+            heightDate = 60,  /// "date" charts shows complete domain
+            xFn        = function(d) { return d.time }, /// accessor for horizontal domain
+            yDateFn    = function(d) { return d.count }, /// accessor for vertical domain
+            yZoomFn    = function(d) { return d.vcpus }, /// accessor for vertical domain
+            tickFormat = d3.format('d'), /// for zoom chart's vertical axis
+            dispatch   = d3.dispatch('brushend'),
+            pointClass = null,
+            dispatch   = d3.dispatch('zoom', 'highlight'),
+            tip        = d3.tip()
+                             .attr('class', 'd3-tip')
+                             .offset([-10,0])
+                             .html(function(d) { return yZoomFn(d) });
+
+        function zoom(selection) {
+            selection.each(function(data) {
+                // date chart elements (n.b. if this turns out to be computationally expensive, then the code could be restructured so these are only recomputed as needed, e.g. after chart resize)
+                var xDate = d3.time.scale().range([0, width]).domain(d3.extent(data, xFn));
+                var yDate = d3.scale.linear().range([heightDate, 0]).domain(d3.extent(data, yDateFn));
+                var xAxisDate = d3.svg.axis().scale(xDate).orient('bottom');
+                var yAxisDate = d3.svg.axis().scale(yDate).orient('left').ticks(0); // no ticks because the y scale is meant to be qualitative
+                var brushDate = d3.svg.brush().x(xDate).on('brushend', function() { dispatch.zoom(brushDate.empty() ? null : brushDate.extent()) });
+
+                // zoom chart elements (could be optimised similarly to as described above)
+                var xZoom = d3.time.scale().range([0, width]).domain(d3.extent(data, xFn));
+                var yZoom = d3.scale.linear().range([heightZoom, 0]).domain(d3.extent(data, yZoomFn));
+                var xAxisZoom = d3.svg.axis().scale(xZoom).orient('bottom');
+                var yAxisZoom = d3.svg.axis().scale(yZoom).orient('left').tickFormat(tickFormat);
+                var brushZoom = d3.svg.brush().x(xZoom).on('brushend', function() { dispatch.zoom(brushZoom.empty() ? null : brushZoom.extent()) });
+
+                // line functions
+                var lineDate = d3.svg.line().interpolate('step-after').x(function(d) { return xDate(xFn(d)) }).y(function(d) { return yDate(yDateFn(d)) });
+                var areaDate = d3.svg.area().interpolate('step-after').x(function(d) { return xDate(xFn(d)) }).y0(heightDate).y1(function(d) { return yDate(yDateFn(d)) });
+                var lineZoom = d3.svg.line().interpolate('step-after').x(function(d) { return xZoom(xFn(d)) }).y(function(d) { return yZoom(yZoomFn(d)) });
+
+                // make sure svg elements are initialised; structure is:
+                //  <svg>
+                //    <g> <!-- transformed for margins -->
+                //      <g class="date">
+                //        <path class="area"/>
+                //        <path class="line"/>
+                //        <g class="brush"/>
+                //        <g class="y axis"/>
+                //        <g class="x axis"/> <!-- transformed, shifted down by heightDate -->
+                //      </g>
+                //      <g class="zoom"> <!-- transformed, shifted below g.date -->
+                //        <path class="line"/>
+                //        <g class="brush"/>
+                //        <g class="handles"/>
+                //        <g class="y axis"/>
+                //        <g class="x axis"/> <!-- transformed, shifted down by heightZoom -->
+                //      </g>
+                //    </g>
+                //  </svg>
+                var svg = d3.select(this).selectAll('svg').data([data]);
+                var svgEnter = svg.enter().append('svg').append('g');
+                var dateEnter = svgEnter.append('g').attr('class', 'date');
+                dateEnter.append('path').attr('class', 'area');
+                dateEnter.append('path').attr('class', 'line');
+                dateEnter.append('g').attr('class', 'brush');
+                dateEnter.append('g').attr('class', 'y axis');
+                dateEnter.append('g').attr('class', 'x axis');
+                var zoomEnter = svgEnter.append('g').attr('class', 'zoom');
+                zoomEnter.append('defs').append('clipPath').attr('id', 'zoomclip').append('rect');
+                zoomEnter.append('path').attr('class', 'line').attr('clip-path', 'url(#zoomclip)');
+                zoomEnter.append('g').attr('class', 'brush');
+                zoomEnter.append('g').attr('class', 'handles').attr('clip-path', 'url(#zoomclip)');
+                zoomEnter.append('g').attr('class', 'y axis');
+                zoomEnter.append('g').attr('class', 'x axis');
+
+                // select some elements for updating
+                var gMargin = svg.select('g');
+                var gDate = gMargin.select('g.date');
+                var gZoom = gMargin.select('g.zoom');
+                var gHandles = gZoom.select('g.handles');
+                var gBrushDate = gDate.select('g.brush');
+                var gBrushZoom = gZoom.select('g.brush');
+
+                // update svg elements
+                svg
+                    .attr('width', width + margin.l + margin.r)
+                    .attr('height', heightZoom+heightDate+margin.t+margin.b+margin.s);
+                gDate
+                    .attr('transform', 'translate('+margin.l+','+margin.t+')');
+                gDate.select('g.axis.x')
+                    .attr('transform', 'translate(0,'+heightDate+')')
+                    .call(xAxisDate);
+                gDate.select('g.axis.y')
+                    .call(yAxisDate);
+                gDate.select('g.brush')
+                    .call(brushDate)
+                  .selectAll('rect')
+                    .attr('height', heightDate);
+                gZoom
+                    .attr('transform', 'translate('+margin.l+','+(+margin.t+margin.s+heightDate)+')')
+                    .call(tip);
+                gZoom.select('g.axis.x')
+                    .attr('transform', 'translate(0,'+heightZoom+')')
+                    .call(xAxisZoom);
+                gZoom.select('g.axis.y')
+                    .call(yAxisZoom);
+                gZoom.select('clippath rect')
+                    .attr('width', width + 1) // because stroke width is 2px, so could overflow
+                    .attr('height', heightZoom);
+                gZoom.select('g.brush')
+                    .call(brushZoom)
+                  .selectAll('rect')
+                    .attr('height', heightZoom);
+
+                // update date chart
+                gDate.select('path.line').datum(data).attr('d', lineDate);
+                gDate.select('path.area').datum(data).attr('d', areaDate);
+                gDate.selectAll('.x.axis .tick > text').on('click', function(d) { // don't know if there's a more elegant way to do this
+                    var e = d3.time.month.offset(d, 1); // one month later
+                    if(e > xDate.domain()[1]) e = date_x.domain()[1]; // need to clamp manually
+                    dispatch.zoom([d,e]);
+                });
+
+                // update zoom chart
+                gZoom.select('path.line').datum(data).attr('d', lineZoom);
+                var circ = gZoom.select('g.handles').selectAll('circle').data(data);
+                circ.enter().append('circle')
+                    .attr('r', 2) // little data point helps to find tooltips (step function is not very intuitive)
+                    .on('mouseover', function(d, i) { tip.show(data[i], this); })
+                    .on('mouseout', tip.hide);
+                circ
+                    .attr('class', pointClass)
+                    .attr('cx', function(d) { return xZoom(xFn(d)) })
+                    .attr('cy', function(d) { return yZoom(yZoomFn(d)) });
+                circ.exit().remove();
+
+                // change domain of zoom chart to extent (show full domain for null extent)
+                // redraws as necessary
+                var zoomTo = function(extent) {
+                    if(extent) {
+                        brushDate.extent(extent); // keep brushes in sync
+                        xZoom.domain(extent);
+                        // TODO yZoom.domain(something here)
+                        gBrushDate.transition().call(brushDate);
+                    } else {
+                        brushDate.clear();
+                        gBrushDate.call(brushDate); // no transition when clearing (moves to x=0, looks silly)
+                        xZoom.domain(xDate.domain());
+                    }
+
+                    // never show brush on zoom chart, since it would always be 100% selected
+                    brushZoom.clear();
+                    gBrushZoom.call(brushZoom);
+
+                    // transition update for zoom chart (axes, line, and handles)
+                    // there is a bug causing the path to disappear when the extent becomes very small (think it's a browser svg rendering bug because firefox fails differently from chromium)
+                    gZoom.select('.x.axis').transition().call(xAxisZoom);
+                    gZoom.select('.y.axis').transition().call(yAxisZoom); // jk it doesn't actually change yet
+                    gZoom.select('path.line').transition().attr('d', lineZoom);
+                    circ.transition()
+                        .attr('cx', function(d) { return xZoom(xFn(d)) })
+                        .attr('cy', function(d) { return yZoom(yZoomFn(d)) });
+                };
+
+                // highlight all data points whose pointClass matches given className
+                dispatch.on('highlight', function(className) {
+                    circ.classed('highlight', false);
+                    if(!className) return;
+                    gHandles.selectAll('circle.'+className).classed('highlight', true);
+                });
+
+                // change date range
+                dispatch.on('zoom', function(extent) {
+                    zoomTo(extent);
+                });
+            });
+        }
+
+        zoom.width = function(value) {
+            if(!arguments.length) return width;
+            width = value;
+            return zoom;
+        };
+        zoom.tip = function(_) {
+            if(!arguments.length) return tip;
+            tip = _;
+            return zoom;
+        };
+        zoom.pointClass = function(_) {
+            if(!arguments.length) return pointClass;
+            pointClass = _;
+            return zoom;
+        };
+        // TODO etc...
+        zoom.dispatch = dispatch;
+
+        return zoom;
+    }
 })();

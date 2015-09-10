@@ -544,11 +544,11 @@ function report_historical(sel, g) {
     $('tbody', sel).on('mouseover', 'tr', function () {
         // trying to separate jquery and d3, but jquery addClass doesn't work on svg elements
         var id = tbl.row(this).data().id;
-        d3.selectAll('circle.instance-'+id).classed('highlight', true);
+        chart.dispatch.highlight('instance-'+id);
     });
     $('tbody', sel).on('mouseout', 'tr', function () {
         var id = tbl.row(this).data().id;
-        d3.selectAll('circle.instance-'+id).classed('highlight', false);
+        chart.dispatch.highlight(null);
     });
 
     // project-level data
@@ -557,161 +557,97 @@ function report_historical(sel, g) {
     // how to sort data
     var ts_accessor = function(e) { return e.time };
 
-    // build chart TODO responsive svg
-    var margin = {t:30, r:60, b:30, l:60};
-    var width = 870, date_height = 60, zoom_height = 300, height_sep = 30;
-    var svg = s.select('.chart').append('svg')
-        .attr('width', width+margin.l+margin.r)
-        .attr('height', date_height+zoom_height+height_sep+margin.t+margin.b)
-        .append('g')
-        .attr('transform', 'translate('+margin.l+','+margin.t+')');
+    // what's currently being displayed; null means all data being shown
+    var extent = null;
 
-    // date chart elements
-    var date_x = d3.time.scale().range([0, width]);
-    var date_y = d3.scale.linear().range([date_height, 0]);
-    var date_x_axis = d3.svg.axis().scale(date_x).orient('bottom');
-    var date_y_axis = d3.svg.axis().scale(date_y).orient('left').ticks(0);
-    var date_brush = d3.svg.brush().x(date_x).on('brushend', function() { dispatch.datesChanged(sel, date_brush.empty() ? null : date_brush.extent()) });
+    // set up chart
+    var sChart = s.select('.chart');
+    var chart = Charts.zoom();
+    chart.pointClass(function(d) { return d._meta ? 'instance-'+d._meta.id : null }); // use instance id as class name, for highlighting data points
+    chart.tip().html(function(d) { return d._meta ? (d._meta.mult == 1 ? 'created ' : 'deleted ') + d._meta.name : 'now' });
+    chart.dispatch.on('zoom.'+sel, function(ext) {
+        dispatch.datesChanged(sChart, ext); // propagate event
+    });
 
-    // zoom chart elements
-    var zoom_x = d3.time.scale().range([0, width]);
-    var zoom_y = d3.scale.linear().range([zoom_height, 0]);
-    var zoom_x_axis = d3.svg.axis().scale(zoom_x).orient('bottom');
-    var zoom_y_axis = d3.svg.axis().scale(zoom_y).orient('left');
-    var zoom_brush = d3.svg.brush().x(zoom_x).on('brushend', function() { dispatch.datesChanged(sel, zoom_brush.empty() ? null : zoom_brush.extent()) });
+    // hide chart and table, for when no project is selected
+    var hide = function() {
+        s.selectAll('.hide').style('display', 'none');
+    };
 
-    // line functions
-    var date_line = d3.svg.line()
-        .interpolate('step-after')
-        .x(function(d) { return date_x(d.time) })
-        .y(function(d) { return date_y(d.count) });
-    var date_area = d3.svg.area()
-        .interpolate('step-after')
-        .x(function(d) { return date_x(d.time) })
-        .y0(date_height)
-        .y1(function(d) { return date_y(d.count) });
-    var zoom_line = d3.svg.line()
-        .interpolate('step-after')
-        .x(function(d) { return zoom_x(d.time) })
-        .y(function(d) { return zoom_y(d[data_key]) });
-
-    // date chart svg
-    var date_g = svg.append('g').attr('class', 'date');
-    date_g.append('path').attr('class', 'area');
-    date_g.append('path').attr('class', 'line');
-    date_g.append('g').attr('class', 'y axis');
-    date_g.append('g').attr('class', 'x axis').attr('transform', 'translate(0,'+date_height+')');
-
-    // date brush
-    var date_brush_g = date_g.append('g').call(date_brush);
-    date_brush_g.selectAll('rect').attr('height', date_height);
-
-    // zoom chart svg (if we'll have enough data that rendering becomes slow, it might help to filter data rather than draw it all and clip)
-    var zoom_g = svg.append('g').attr('class', 'zoom').attr('transform', 'translate(0,'+(+date_height+height_sep)+')');
-    zoom_g.append('defs').append('clipPath').attr('id', 'zoomclip').append('rect').attr('width', width+1/*because stroke width is 2px, so could overflow*/).attr('height', zoom_height);
-    zoom_g.append('path').attr('class', 'line').attr('clip-path', 'url(#zoomclip)');
-    var zoom_brush_g = zoom_g.append('g').call(zoom_brush);
-    var zoom_circles = zoom_g.append('g').attr('class', 'handles').attr('clip-path', 'url(#zoomclip)');
-    zoom_g.append('g').attr('class', 'y axis');
-    zoom_g.append('g').attr('class', 'x axis').attr('transform', 'translate(0,'+zoom_height+')');
-    var zoom_tip = d3.tip().attr('class','d3-tip').offset([-10,0]).html(function(d){return (d.mult==1?'created ':'deleted ')+d.instance.name});
-    zoom_g.call(zoom_tip);
-    zoom_brush_g.selectAll('rect').attr('height', zoom_height);
-
+    // chart won't actually get drawn until a project is selected; so for now we're done
+    hide();
     s.classed('loading', false);
 
-    function redraw(do_not_animate) {
-        var sel_trans = function(selection) {
-            return do_not_animate ? selection : selection.transition();
-        };
+    var redraw = function(skip_chart) {
+        if(ts_data.length === 0) return hide();
+        s.selectAll('.hide').style('display', null);
 
-        // update table
+        if(!skip_chart) sChart.datum(ts_data).call(chart);
         tbl.draw();
 
-        // update date chart (don't animate emptying brush; it moves to x=0 and looks silly)
-        (date_brush.empty() ? date_brush_g : sel_trans(date_brush_g)).call(date_brush);
-
-        // update zoom chart; there is a bug causing the path to disappear when the extent becomes very small (think it's a browser svg rendering bug because firefox fails differently)
-        zoom_y_axis.tickFormat(aggs.find(function(a){return a.key==data_key}).tickFormat);
-        sel_trans(zoom_g.select('.x.axis')).call(zoom_x_axis);
-        sel_trans(zoom_g.select('.y.axis')).call(zoom_y_axis);
-        sel_trans(zoom_g.select('path.line').datum(ts_data)).attr('d', zoom_line);
-        zoom_brush.clear(); // zoom chart by construction shows entire brush extent, so don't bother overlaying
-        zoom_brush_g.call(zoom_brush);
-
-        // update circles
-        var circ = zoom_circles.selectAll('circle').data(ts_data.slice(0,-1)); // last element of ts_data is artifical "now" data point, which shouldn't be marked
-        circ.enter().append('circle')
-            .attr('r', 2) // little data point helps to find tooltips (step function is not very intuitive)
-            .attr('class', function(d) { return 'instance-'+d.id })
-            .on('mouseover', function(d, i) { zoom_tip.show(ts_events[i], this); })
-            .on('mouseout', zoom_tip.hide);
-        sel_trans(circ)
-            .attr('cx', function(d) { return zoom_x(d.time) })
-            .attr('cy', function(d) { return zoom_y(d[data_key]) });
-        sel_trans(circ.exit()).remove();
-
         // calculate integral (sum rectangles' areas) over extent
-        //extent = extent || date_x.domain(); // extent==null means whole date range selected
-        extent = zoom_x.domain();
         var integral = 0; // units are data_key units * milliseconds (since js dates use ms)
         var bisect = d3.bisector(ts_accessor);
-        var lb = bisect.left(ts_data, extent[0]);
-        var ub = bisect.right(ts_data, extent[1]);
+        var lb = extent ? bisect.left(ts_data, extent[0]) : 0;
+        var ub = extent ? bisect.right(ts_data, extent[1]) : ts_data.length;
         var working_set = ts_data.slice(lb, ub);
         if(working_set.length) {
-            if(lb > 0) {
-                // include rect before first datapoint (if first datapoint is after ts_data[0])
-                // (first datapoint === working_set[0] === ts_data[lb])
-                integral += (ts_accessor(ts_data[lb]) - extent[0]) * ts_data[lb-1][data_key];
+            if(extent) {
+                if(lb > 0) {
+                    // include rect before first datapoint (if first datapoint is after ts_data[0])
+                    // (first datapoint === working_set[0] === ts_data[lb])
+                    integral += (ts_accessor(ts_data[lb]) - extent[0]) * ts_data[lb-1][data_key];
+                }
+                // include rect after final datapoint (reduces to zero when final datapoint is at extent[1])
+                // (final datapoint === working_set[working_set.length - 1] === ts_data[ub - 1])
+                integral += (extent[1] - ts_accessor(ts_data[ub-1])) * ts_data[ub-1][data_key]
             }
-            // include rect after final datapoint (reduces to zero when final datapoint is at extent[1])
-            // (final datapoint === working_set[working_set.length - 1] === ts_data[ub - 1])
-            integral += (extent[1] - ts_accessor(ts_data[ub-1])) * ts_data[ub-1][data_key]
 
             // integrate over working_set time range (which is a subset of extent)
             for(var i=0; i<working_set.length-1; i++) {
                 integral += (ts_accessor(working_set[i+1]) - ts_accessor(working_set[i])) * working_set[i][data_key];
             }
-        } else if(ts_data.length) {
+        } else if(ts_data.length && extent) {
             // even when no data points are in the selected domain, the integral may be nonzero.
             // empty working_set implies lb > 0 (because if lb==0, working_set must include first data point)
             integral += (extent[1]-extent[0]) * ts_data[lb-1][data_key];
         }
         s.select('span.integral').html(aggs.find(function(a){return a.key==data_key}).intFormat(integral/3600000.0)+' hours');
-    }
+    };
 
-    dispatch.on('datesChanged.'+sel, function(sender_sel, extent, do_not_redraw) {
-        // update table
-        $.fn.dataTable.ext.search.pop(); // fragile
-        if(extent) {
+    dispatch.on('datesChanged.'+sel, function(sender_sel, ext) {
+        if(sel!==sender_sel && sender_sel!==sChart && !should_lock_charts()) return;
+
+        // keep track of what dates are being displayed
+        extent = ext;
+
+        // add a filter function to our DataTable https://datatables.net/examples/plug-ins/range_filtering.html
+        $.fn.dataTable.ext.search.pop(); // assumes there is only one DataTable with a search function
+        if(ext) {
             $.fn.dataTable.ext.search.push(function(settings, _, _, instance) {
-                if(settings.oInit.sel !== sender_sel) return true; // only want to filter our own table
+                if(settings.oInit.sel !== sel) return true; // only want to filter our own table
                 // don't show instance if it was deleted before the time interval, or created after
-                return !(instance._d_time < extent[0] || instance._c_time > extent[1]);
+                return !(instance._d_time < ext[0] || instance._c_time > ext[1]);
             });
         }
 
-        // update charts
-        if(extent) {
-            zoom_x.domain(extent);
-            // TODO change zoom_y domain
-            date_brush.extent(extent);
-        } else {
-            zoom_x.domain(date_x.domain());
-            date_brush.clear();
+        // update chart
+        if(sender_sel !== sChart) {
+            // event has not come from chart, so this won't create an infinite loop:
+            chart.dispatch.zoom(extent); // (redraws chart)
         }
 
-        if(! do_not_redraw) redraw();
+        // redraw, skipping chart (that's what "true" means) because it redraws itself on chart.dispatch.zoom
+        redraw(true);
     });
 
     dispatch.on('optionChanged.'+sel, function(sender_sel, dk) {
-        if(sel!==sender_sel && !should_lock_charts()) return;
+        if(sel!==sender_sel && sel!==sChart && !should_lock_charts()) return;
         var agg = aggs.find(function(a){return a.key===dk});
         if(agg) {
             data_key = dk;
             slct.property('value', data_key);
-            zoom_y.domain(d3.extent(ts_data, function(d) { return d[data_key] }));
+            //TODO update chart instead of: zoom_y.domain(d3.extent(ts_data, function(d) { return d[data_key] }));
         }
         redraw();
     });
@@ -723,17 +659,10 @@ function report_historical(sel, g) {
             tbl.clear(); // clear table
 
             // remove everything from the two charts
-            data = []; ts_data = []; ts_events = []; // clear zoomed plot
-            date_x.domain([]);
-            date_y.domain([]);
-            zoom_y.domain([]);
-            dispatch.datesChanged(sel, null, true /*do_not_redraw*/);
-            date_g.select('.x.axis').call(date_x_axis);
-            date_g.select('.y.axis').call(date_y_axis);
-            date_g.select('path.line').datum(ts_data).attr('d', date_line);
-            date_g.select('path.area').datum(ts_data).attr('d', date_area);
+            data = []; ts_data = []; ts_events = [];
+            dispatch.datesChanged(sel, null);
 
-            redraw(true /* do_not_animate */);
+            redraw();
             return;
         }
         s.classed('loading', true);
@@ -758,7 +687,7 @@ function report_historical(sel, g) {
         });
         ts_data = ts_events.map( // compute cumulative sum of ts_events
             function(e) {
-                var t = this, ret = {time:e.time, id:e.instance.id};
+                var t = this, ret = {time:e.time, _meta:{name:e.instance.name, mult:e.mult, id:e.instance.id}};
                 aggs.forEach(function(agg) {
                     t[agg.key] += e.mult * agg.accessor(e.instance);
                     ret[agg.key] = t[agg.key];
@@ -772,32 +701,14 @@ function report_historical(sel, g) {
             Object.keys(latest).forEach(function(k) {
                 now[k] = latest[k];
             });
-            now.id = null;
+            now._meta = null; // so nobody thinks there is any real instance information associated with this datapoint
             now.time = Date.now();
             ts_data.push(now);
         }
 
-        // reset domains and date range
-        date_x.domain(d3.extent(ts_data, ts_accessor));
-        date_y.domain(d3.extent(ts_data, function(d) { return d.count }));
-        zoom_y.domain(d3.extent(ts_data, function(d) { return d[data_key] }));
-        dispatch.datesChanged(sel, null, true/*do_not_redraw*/);
-
-        // date chart domain remains the same for any given project (else most of the below code would belong in redraw())
-        date_g.select('.x.axis').call(date_x_axis);
-        date_g.select('.y.axis').call(date_y_axis);
-        date_g.select('path.line').datum(ts_data).attr('d', date_line);
-        date_g.select('path.area').datum(ts_data).attr('d', date_area);
-        date_g.selectAll('.x.axis .tick > text').on('click', function(d) { // don't know if there's a more elegant way to do this
-            var e = d3.time.month.offset(d, 1); // one month later
-            if(e > date_x.domain()[1]) e = date_x.domain()[1]; // need to clamp manually
-            date_brush_g.transition().call(date_brush.extent([d,e]));
-            dispatch.datesChanged(sel, date_brush.extent());
-        });
-
         // done
         s.classed('loading', false);
-        redraw(true /* do not animate, since there is no continuity between projects */);
+        redraw();
     });
 }
 

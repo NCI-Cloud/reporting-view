@@ -72,14 +72,15 @@
 <div class="row">
   <div class="twelve column historical">
     <h4>Historical usage</h4>
-    <p class="instructions">Select a project to view its historical resource usage. The blue plot shows number of non-deleted instances. Click on a label on the horizontal axis, or click and drag on the chart itself, to filter by a date range.</p>
+    <p class="instructions">Select a project to view its historical resource usage. <span class="hide">The blue plot shows number of non-deleted instances. Click on a label on the horizontal axis, or click and drag on the chart itself, to filter by a date range.</span></p>
     <p>
         <select class="project"></select>
         <select class="option"></select>
-        Total usage over selected time period: <span class="integral"></span>
+        <span class="hide">Total usage over selected time period:</span>
+        <span class="integral hide"></span>
     </p>
-    <div class="chart">{# this is a better way than ".insert('svg', ':nth-child(fragile)')" #}</div>
-    <table class="display"></table>
+    <div class="chart hide"></div>
+    <div class="hide"><table class="display"></table></div>
   </div>
 </div>
 </section>
