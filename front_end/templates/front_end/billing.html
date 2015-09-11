@@ -1,0 +1,98 @@
+{% load staticfiles %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Billing</title>
+  <script src="//cdn.jsdelivr.net/humanize/0.0.9/humanize.min.js"></script>
+  <script src="//cdn.jsdelivr.net/jquery/2.1.4/jquery.min.js"></script>
+  <script src="//cdn.jsdelivr.net/d3js/3.5.6/d3.min.js"></script>
+  <script src="{% static 'front_end/config.js' %}"></script>
+  <script src="{% static 'front_end/util.js' %}"></script>
+  <script src="{% static 'front_end/fetcher.js' %}"></script>
+  <script src="{% static 'front_end/formatters.js' %}"></script>
+  <script src="{% static 'front_end/polyfill.js' %}"></script>
+  <script src="{% static 'front_end/billing.js' %}"></script>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link href="//fonts.googleapis.com/css?family=Raleway:400,300,600" rel="stylesheet" type="text/css">
+  <link rel="stylesheet" href="{% static 'front_end/css/normalize.css' %}">
+  <link rel="stylesheet" href="{% static 'front_end/css/skeleton.css' %}">
+  <link rel="stylesheet" href="{% static 'front_end/css/base.css' %}">
+  <link rel="stylesheet" href="{% static 'front_end/css/billing.css' %}">
+</head>
+<body>
+
+<div class="container">
+<nav><select></select><ul></ul></nav>
+
+<section class="title">
+<h2>Billing</h2>
+<div class="row" style="text-align:left">
+  <div class="four columns">
+    <label for="pid">Project</label>
+    <select id="pid" class="u-full-width">
+      <option value="" disabled selected style="display:none">select...</option>
+      <option value="abc">admin</option>
+      <option value="def">z00</option>
+      <option value="ghi">etc...</option>
+    </select>
+  </div>
+  <div class="four columns">
+    <label for="start">Start date</label>
+    <input id="start" class="u-full-width" type="date"><!-- TODO will have to use custom date picker, since html5 input[type=date] support is bad -->
+  </div>
+  <div class="four columns">
+    <label for="end">End date</label>
+    <input id="end" class="u-full-width" type="date">
+  </div>
+</div>
+<dl class="u-full-width">
+  <div>
+    <dt>Total SU</dt>
+    <dd>1337</dd>
+  </div>
+  <div>
+    <dt>Core hours</dt>
+    <dd>322</dd>
+  </div>
+  <div>
+    <dt>Quota</dt>
+    <dd>2000</dd>
+  </div>
+</dl>
+<table class="u-full-width">
+  <thead>
+    <tr>
+      <th>Instance name</th>
+      <th>User</th>
+      <th>vcpu hours</th>
+      <th>memory hours</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>veno</td>
+      <td>mdg900</td>
+      <td>569</td>
+      <td>140</td>
+    </tr>
+    <tr>
+      <td>lion</td>
+      <td>mdg900</td>
+      <td>768</td>
+      <td>183</td>
+    </tr>
+  </tbody>
+</table>
+</section>
+
+<footer>
+<p>disclaimers go here</p>
+</footer>
+</div>{# /container #}
+
+<script>
+Billing.init();
+</script>
+</body>
+</html>
