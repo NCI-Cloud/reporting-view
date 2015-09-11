@@ -4,6 +4,7 @@ var Util = {};
         var s = d3.select(sel);
         return {
             start : function() {
+                d3.select(sel).classed('error', false);
                 s.classed('loading', true);
             },
             success : function(data) {
