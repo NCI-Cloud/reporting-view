@@ -376,11 +376,13 @@ function report_resources(sel, g) {
         .text(function(d) { return d.title; })
     var project_sel = s.select('select.project')
         .on('change', function() { dispatch.projectChanged(sel, this.value); });
-    project_sel.selectAll('option')
-        .data(g.project)
-      .enter().append('option')
+    project_sel.select("option[value='']").remove(); // avoid creating duplicate 'All projects' options
+    var psopt = project_sel.selectAll('option').data(g.project);
+    psopt.enter().append('option');
+    psopt
         .attr('value', function(d) { return d.id; })
         .text(function(d) { return d.display_name; });
+    psopt.exit().remove();
     project_sel.insert('option', 'option')
         .attr('value', '')
         .attr('selected', '')
@@ -463,14 +465,16 @@ function report_historical(sel, g) {
         .attr('value', function(d) { return d.key })
         .text(function(d) { return d.title });
 
-    s.select('select.project')
-        .on('change', function() { dispatch.projectChanged(sel, this.value); })
-      .selectAll('option')
-        .data(g.project)
-      .enter().append('option')
+    var ps = s.select('select.project')
+        .on('change', function() { dispatch.projectChanged(sel, this.value); });
+    ps.selectAll('option[disabled]').remove(); // avoid creating extra placeholder options every time data changes
+    var psopt = ps.selectAll('option').data(g.project);
+    psopt.enter().append('option');
+    psopt
         .attr('value', function(d) { return d.id; })
         .text(function(d) { return d.display_name; });
-    s.select('select.project').insert('option', 'option') // placeholder
+    psopt.exit().remove();
+    ps.insert('option', 'option') // placeholder
         .attr('value', '')
         .attr('disabled', '')
         .attr('selected', '')
