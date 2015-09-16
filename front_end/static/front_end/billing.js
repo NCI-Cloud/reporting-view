@@ -2,7 +2,7 @@ var Billing = {};
 (function() {
 
 /// event broadcasting
-var dispatch = d3.dispatch('projectChanged', 'datesChanged');
+var dispatch = d3.dispatch('register', 'projectChanged', 'datesChanged');
 
 // TODO refactor to avoid duplicating this code between reports
 Billing.init = function() {
@@ -10,23 +10,78 @@ Billing.init = function() {
     Util.fillNav(fetch);
     Util.qdeps(fetch, [
         {
+            sel : '.controls',
+            dep : [],
+            fun : controls,
+        },
+        {
             sel : '#pid',
             dep : ['project'],
-            fun : report_project,
+            fun : projects,
         },
         {
             sel : '.perproject',
-            dep : ['instance', 'user'],
-            fun : report_pp,
+            dep : ['instance', 'user', 'flavour'],
+            fun : pp,
         },
     ]);
     var ep_name = Config.defaultEndpoint;
     fetch(ep_name);
 }
 
-var report_project = function(sel, g) {
+var controls = function(sel) {
+    if(!controls.startPicker) {
+        // controls have not been initialised
+        var startSelected = function(date) {
+            controls.endPicker.setMinDate(date);
+            dispatch.datesChanged(sel, [date.getTime(), controls.endPicker.getDate().getTime()]);
+        };
+        controls.endSelected = function(date) {
+            controls.startPicker.setMaxDate(date);
+            // date range for integration is semi-open interval [start, end)
+            // so to include endPicker's date in the interval, take 00:00 on the subsequent day as the endpoint
+            var nextDay = new Date(date.getFullYear(), date.getMonth(), date.getDate()+1);
+            dispatch.datesChanged(sel, [controls.startPicker.getDate().getTime(), nextDay.getTime()]);
+        };
+        var today = new Date();
+        var firstOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+        var lastOfMonth  = new Date(today.getFullYear(), today.getMonth()+1, 0);
+        controls.startPicker = new Pikaday({
+            field : document.getElementById('start'),
+            defaultDate : firstOfMonth,
+            setDefaultDate : true,
+            onSelect : startSelected,
+        });
+        controls.endPicker = new Pikaday({
+            field : document.getElementById('end'),
+            defaultDate : lastOfMonth,
+            setDefaultDate : true,
+            onSelect : controls.endSelected,
+        });
+
+        // manually trigger onSelect function, to make sure dispatch.datesChanged gets called with initial date range
+        controls.endSelected(controls.endPicker.getDate());
+    }
+    var startPicker = controls.startPicker;
+    var endPicker = controls.endPicker;
+
+    dispatch.on('datesChanged.'+sel, function(sender, extent) {
+        if(sender === sel) return; // avoid infinite loop
+        // TODO set dates
+        // (take day previous to extent[1] for endPicker's display date)
+        console.log('set bounds on date pickers');
+    });
+    dispatch.on('register.'+sel, function(sender, data) {
+        if(sender === sel) return; // don't talk to myself
+        // somebody is requesting initialisation data
+        controls.endSelected(controls.endPicker.getDate()); // trigger dispatch.datesChanged
+    });
+    dispatch.register(sel);
+};
+
+var projects = function(sel, g) {
     var slct = d3.select(sel);
-    slct.on('change', function() { dispatch.projectChanged(this.value) });
+    slct.on('change', function() { dispatch.projectChanged(sel, this.value) });
 
     // remove any old placeholders before doing data join
     // (so report_project can be called multiple times without spamming <option>s)
@@ -46,16 +101,18 @@ var report_project = function(sel, g) {
         .style('display', 'none')
         .text('Select project...');
 
-    // select no project
-    dispatch.projectChanged(null);
-
-    dispatch.on('projectChanged', function(pid) {
+    dispatch.on('projectChanged', function(sender, pid) {
         // setting value to empty string (rather than null) shows "Select project..." option
         slct.property('value', pid || '');
     });
+    dispatch.on('register.'+sel, function(sender) {
+        if(sender === sel) return;
+        dispatch.projectChanged(sel, slct.property('value'));
+    });
+    dispatch.register(sel);
 };
 
-var report_pp = function(sel, g) {
+var pp = function(sel, g) {
     var s = d3.select(sel);
     var dl = s.select('dl');
     var tbl = s.select('table');
@@ -63,8 +120,8 @@ var report_pp = function(sel, g) {
     // hide this selection by default, since by default no project has been picked so "per-project" is meaningless
     s.style('display', 'none');
 
-    // integration region is extent[0] <= time <= extent[1]
-    var extent = [-Infinity, Infinity];
+    // integration region is extent[0] <= time < extent[1]
+    var extent = null;
 
     // currently selected project id
     var pid = null;
@@ -98,23 +155,56 @@ var report_pp = function(sel, g) {
             fn    : function(d) { return d.name },
         },
         {
-            title : 'User',
-            fn    : function(d) { return d.created_by }, // TODO look up in g.user
+            title : 'Creator',
+            desc  : 'User id; need to get details from LDAP...',
+            fn    : function(d) { return d.created_by }, // TODO look up in g.user or ldap
+        },
+        {
+            title : 'Flavour',
+            fn    : function(d) { return d.flavour }, // TODO look up in g.flavour
+        },
+        {
+            title : 'VCPU hours',
+            fn    : function(d) { return d._meta.vcpu },
+        },
+        {
+            title : 'SU',
+            desc  : '#define SU ???',
+            fn    : function(d) { return d._meta.su },
         },
     ]);
 
     /// perform calculations over extent for project pid
     var integrate = function() {
-        // trust that this function is only called when it makes sense to do so, so we can un-hide data
+        if(!extent || !pid) {
+            // some input/s missing
+            s.style('display', 'none');
+            return;
+        }
+        // all inputs specified, so results can be displayed
         s.style('display', null);
 
         // find working set (all instances of current project in current time window)
         var ws = g.instance.filter(function(i) {
-            return i.project_id === pid && i._meta.created <= extent[1] && i._meta.deleted >= extent[0];
+            return i.project_id === pid && i._meta.created < extent[1] && i._meta.deleted >= extent[0];
+        });
+
+        // calculate instances' usage over time window
+        ws.forEach(function(i) {
+            var f = g.flavour.find(function(f) { return f.id == i.flavour });
+            if(!f) { console.log('unknown flavour for instance %o', i) }
+            var t0 = Math.max(extent[0], i._meta.created); // lower bound of instance uptime window
+            var t1 = Math.min(extent[1], i._meta.deleted); // upper bound
+            // TODO calculate stuff
+            i._meta.vcpu = 12;
+            i._meta.su = 3;
         });
 
         // perform integration
-        console.log('++++');
+        console.log('integrating for project %o over dates:', pid)
+        console.log(new Date(extent[0]));
+        console.log(new Date(extent[1]));
+
 
         // update table
         tbl.datum(ws).call(t);
@@ -129,27 +219,28 @@ var report_pp = function(sel, g) {
         div.exit().remove();
     };
 
-    dispatch.on('projectChanged', function(pid_) {
-        if(!pid_) {
-            return s.style('display', 'none'); // no project selected => hide per-project data
-        }
+    dispatch.on('projectChanged', function(sender, pid_) {
         pid = pid_;
-
         integrate();
     });
 
-    dispatch.on('datesChanged', function(extent_) {
-        if(!extent_) {
-            // TODO what does a null date range even mean
-            return s.style('display', 'none'); // no date range => hide per-project data
-        }
+    dispatch.on('datesChanged', function(sender, extent_) {
         extent = extent_;
         integrate();
     });
+
+    dispatch.register(sel);
 }
 
 function Table() {
     /// array of {title:string, fn:function taking datum outputting string}
+    /**
+     * array of {
+     *  title : string to put in <th>
+     *  fn    : function, to put fn(datum) in <td>
+     *  desc  : string, to put as title attribute of <th> (optional)
+     * }
+     */
     var cols = [];
 
     /// index into cols, for ordering data
@@ -168,7 +259,7 @@ function Table() {
 
             // set up <thead> and <tbody>
             var thead = tbl.selectAll('thead').data([data]);
-            var theadtrEnter = thead.enter().append('thead').append('tr');
+            thead.enter().append('thead').append('tr');
             var th = thead.select('tr').selectAll('th').data(cols);
             th.enter().append('th')
                 .on('click', function(d, i) {
@@ -180,6 +271,7 @@ function Table() {
                     }
                     makeTable(tbl, dataUnsorted); // redraw table
                 })
+                .attr('title', function(d) { return d.desc })
                 .html(function(d) { return d.title });
             th.attr('class', function(d, i) { return i === sortIdx ? (sortOrder === d3.descending ? 'descending' : 'ascending') : null });
             var tbody = tbl.selectAll('tbody').data([data]);
@@ -188,7 +280,6 @@ function Table() {
             // make rows
             var row = tbody.selectAll('tr').data(data);
             row.enter().append('tr');
-            row.append('td').html('.');
             row.exit().remove();
 
             // make cells
