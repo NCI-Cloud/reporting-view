@@ -340,7 +340,11 @@ var Charts = {};
             pointClass = _;
             return zoom;
         };
-        // TODO etc...
+        zoom.yZoom = function(_) {
+            if(!arguments.length) return yZoomFn;
+            yZoomFn = _;
+            return zoom;
+        };
         zoom.dispatch = dispatch;
 
         return zoom;

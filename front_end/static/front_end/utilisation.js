@@ -651,6 +651,7 @@ function report_historical(sel, g) {
         if(agg) {
             data_key = dk;
             slct.property('value', data_key);
+            chart.yZoom(function(d) { return d[data_key] });
             //TODO update chart instead of: zoom_y.domain(d3.extent(ts_data, function(d) { return d[data_key] }));
         }
         redraw();
