@@ -114,7 +114,6 @@ var projects = function(sel, g) {
 
 var pp = function(sel, g) {
     var s = d3.select(sel);
-    var dl = s.select('dl');
     var tbl = s.select('table');
 
     // hide this selection by default, since by default no project has been picked so "per-project" is meaningless
@@ -133,46 +132,63 @@ var pp = function(sel, g) {
         if(isNaN(ins._meta.deleted)) ins._meta.deleted = Infinity; // to make integration and filtering easier
     });
 
-    // what gets shown in <dl>
-    var dlData = [
+    // Each resource will get a column in the Table.
+    // For each instance, resource values are scaled by the time window
+    // (i.e. (deleted-created) time, clamped by the selected date range),
+    // so every resource has units of "something * hours".
+    // Each resource has "agg" and "fn" fields defined (below) to sum the resource over all instances.
+    // TODO add class to resources <td> to prevent line breaks on whitespace
+    var round = d3.format('.1f'); // matches Formatters.si_bytes precision
+    var resources = [
         {
-            title : 'Total SU',
-            fn    : function() {
-                return Math.round(Math.random()*100);
-            },
+            title  : 'VCPU',
+            desc   : 'VCPU hours',
+            calc   : function(instance, hours) { return instance.vcpus * hours },
+            format : function(vcpu) { return round(vcpu)+' h' },
         },
         {
-            title : 'Core hours',
-            fn    : function(instances, extent) {
-                return Math.round(Math.random()*50);
-            },
+            title  : 'Memory',
+            desc   : 'Memory hours',
+            calc   : function(instance, hours) { return instance.memory * hours },
+            format : function(mb) { return Formatters.si_bytes(mb*1024*1024)+' h' },
+        },
+        {
+            title  : 'SU',
+            desc   : '#define SU ???',
+            calc   : function(instance, hours) { return 1 * hours },
+            format : function(su) { return round(su) },
         },
     ];
+    var total = function(accessor) {
+        // add up accessor(d) for d in data
+        return function(data) {
+            return data.reduce(function(val, ins) { return val + accessor(ins) }, 0);
+        };
+    };
+    resources.forEach(function(res, i) {
+        res.fn  = function(instance) { return instance._meta.resources[i] };
+        res.agg = total(res.fn);
+    });
 
+    // define some columns for the table, then append columns for resources
     var t = Table().cols([
         {
-            title : 'Instance',
-            fn    : function(d) { return d.name },
+            title  : 'Instance',
+            fn     : function(instance) { return instance.name },
+            agg    : function() { return 'Total:' }, // put sum label in first column of <tfoot>
         },
         {
-            title : 'Creator',
-            desc  : 'User id; need to get details from LDAP...',
-            fn    : function(d) { return d.created_by }, // TODO look up in g.user or ldap
+            title  : 'Creator',
+            desc   : 'User id; in some cases need to get details from LDAP...',
+            fn     : function(instance) { return instance.created_by }, // TODO look up in g.user or ldap
         },
         {
-            title : 'Flavour',
-            fn    : function(d) { return d.flavour }, // TODO look up in g.flavour
+            title  : 'Flavour',
+            desc   : 'Flavour id; will clean up later...',
+            fn     : function(instance) { return instance.flavour },
+            format : Formatters.flavourDisplay(g.flavour),
         },
-        {
-            title : 'VCPU hours',
-            fn    : function(d) { return d._meta.vcpu },
-        },
-        {
-            title : 'SU',
-            desc  : '#define SU ???',
-            fn    : function(d) { return d._meta.su },
-        },
-    ]);
+    ].concat(resources));
 
     /// perform calculations over extent for project pid
     var integrate = function() {
@@ -190,33 +206,18 @@ var pp = function(sel, g) {
         });
 
         // calculate instances' usage over time window
+        var now = Date.now(); // upper bound on time window, to prevent extrapolation
         ws.forEach(function(i) {
-            var f = g.flavour.find(function(f) { return f.id == i.flavour });
-            if(!f) { console.log('unknown flavour for instance %o', i) }
             var t0 = Math.max(extent[0], i._meta.created); // lower bound of instance uptime window
-            var t1 = Math.min(extent[1], i._meta.deleted); // upper bound
-            // TODO calculate stuff
-            i._meta.vcpu = 12;
-            i._meta.su = 3;
+            var t1 = Math.min(extent[1], i._meta.deleted, now); // upper bound (don't extrapolate)
+            var hours = (t1-t0)/3600000;
+            i._meta.resources = resources.map(function(r) {
+                return r.calc(i, hours);
+            });
         });
-
-        // perform integration
-        console.log('integrating for project %o over dates:', pid)
-        console.log(new Date(extent[0]));
-        console.log(new Date(extent[1]));
-
 
         // update table
         tbl.datum(ws).call(t);
-
-        // update dl
-        var div = dl.selectAll('div').data(dlData);
-        var divEnter = div.enter().append('div');
-        divEnter.append('dt');
-        divEnter.append('dd');
-        div.select('dt').html(function(d) { return d.title });
-        div.select('dd').html(function(d) { return d.fn() }); // TODO will need to pass some integrated data
-        div.exit().remove();
     };
 
     dispatch.on('projectChanged', function(sender, pid_) {
@@ -257,7 +258,7 @@ function Table() {
                 .map(function(d) { return d })
                 .sort(function(a, b) { return sortOrder(cols[sortIdx].fn(a), cols[sortIdx].fn(b)) });
 
-            // set up <thead> and <tbody>
+            // set up <thead>
             var thead = tbl.selectAll('thead').data([data]);
             thead.enter().append('thead').append('tr');
             var th = thead.select('tr').selectAll('th').data(cols);
@@ -274,10 +275,19 @@ function Table() {
                 .attr('title', function(d) { return d.desc })
                 .html(function(d) { return d.title });
             th.attr('class', function(d, i) { return i === sortIdx ? (sortOrder === d3.descending ? 'descending' : 'ascending') : null });
+
+            // <tfoot>
+            var tfoot = tbl.selectAll('tfoot').data([data]);
+            tfoot.enter().append('tfoot').append('tr');
+            var tf = tfoot.select('tr').selectAll('td').data(cols);
+            tf.enter().append('td')
+                .html(function(d) { return d.agg ? (d.format || String)(d.agg(data)) : null });
+
+            // <tbody>
             var tbody = tbl.selectAll('tbody').data([data]);
             tbody.enter().append('tbody');
 
-            // make rows
+            // <tr>
             var row = tbody.selectAll('tr').data(data);
             row.enter().append('tr');
             row.exit().remove();
@@ -286,7 +296,10 @@ function Table() {
             var td = row.selectAll('td').data(function(ins) {
                 // map instance to array, where each element corresponds to one in cols
                 return cols.map(function(column) {
-                    return {title:column.title, html:column.fn(ins)}; // TODO make this generic, not key-dependent
+                    return { // TODO make this generic, not key-dependent
+                        title : column.title,
+                        html  : (column.format || String)(column.fn(ins))
+                    };
                 });
             });
             td.enter().append('td');

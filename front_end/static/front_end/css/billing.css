@@ -16,9 +16,6 @@ dd {
     text-align: left;
     padding-left: 0.5rem; /* to match dt padding-right */
 }
-tr {
-    border-bottom: 1px solid crimson;
-}
 th {
     cursor: pointer;
 }
@@ -26,9 +23,13 @@ th::after {
     margin-left: 1rem;
     font-size: 80%;
 }
-th.descending::after {
+th.descending::after { /* TODO make some blank placeholder for th with no arrow, so column widths don't change when .descending/.ascending are applied */
     content: '\0025BC';
 }
 th.ascending::after {
     content: '\0025B2';
+}
+tfoot td {
+    border-bottom: 0;
+    font-weight: bold;
 }
