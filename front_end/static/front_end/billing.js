@@ -154,8 +154,8 @@ var pp = function(sel, g) {
         },
         {
             title  : 'SU',
-            desc   : '#define SU ???',
-            calc   : function(instance, hours) { return 1 * hours },
+            desc   : 'SU \u223C 1 vcpu \u00B7 4 GiB',  // \u223C is &sim; (similar to ~); \u00B7 is &middot;
+            calc   : function(instance, hours) { return Math.max(instance.vcpus, Math.ceil(instance.memory/1024/4)) * hours },
             format : function(su) { return round(su) },
         },
     ];
