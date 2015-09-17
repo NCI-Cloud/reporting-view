@@ -156,6 +156,7 @@ var Charts = {};
             dispatch   = d3.dispatch('brushend'),
             pointClass = null,
             dispatch   = d3.dispatch('zoom', 'highlight'),
+            domain     = null, /// for zoom chart x axis; null means full extent
             tip        = d3.tip()
                              .attr('class', 'd3-tip')
                              .offset([-10,0])
@@ -169,9 +170,10 @@ var Charts = {};
                 var xAxisDate = d3.svg.axis().scale(xDate).orient('bottom');
                 var yAxisDate = d3.svg.axis().scale(yDate).orient('left').ticks(0); // no ticks because the y scale is meant to be qualitative
                 var brushDate = d3.svg.brush().x(xDate).on('brushend', function() { dispatch.zoom(brushDate.empty() ? null : brushDate.extent()) });
+                if(domain) brushDate.extent(domain);
 
                 // zoom chart elements (could be optimised similarly to as described above)
-                var xZoom = d3.time.scale().range([0, width]).domain(d3.extent(data, xFn));
+                var xZoom = d3.time.scale().range([0, width]).domain(domain ? domain : d3.extent(data, xFn));
                 var yZoom = d3.scale.linear().range([heightZoom, 0]).domain(d3.extent(data, yZoomFn));
                 var xAxisZoom = d3.svg.axis().scale(xZoom).orient('bottom');
                 var yAxisZoom = d3.svg.axis().scale(yZoom).orient('left').tickFormat(tickFormat);
@@ -304,6 +306,9 @@ var Charts = {};
                     circ.transition()
                         .attr('cx', function(d) { return xZoom(xFn(d)) })
                         .attr('cy', function(d) { return yZoom(yZoomFn(d)) });
+
+                    // store zoomed domain to remember it when redrawing
+                    domain = extent;
                 };
 
                 // highlight all data points whose pointClass matches given className
