@@ -63,11 +63,11 @@ var Charts = {};
                 // make pie slices
                 var path = g.selectAll('path').data(layout);
                 path.enter().append('path')
-                    .attr('class', typeof pathClass === 'function' ? function(d) { return pathClass(d.data) } : pathClass )
                     .attr('fill', function(d, i) { return color(i) })
                     .on('click', function(d, i) { dispatch.click(d.data, i) })
                     .each(function(d) { this._current = d }); // store initial angles
                 path
+                    .attr('class', typeof pathClass === 'function' ? function(d) { return pathClass(d.data) } : pathClass )
                     .on('mouseover', function(d, i) { tip.show(d, hand[0][i]) }) // ensure that if tipFn is updated, the new version gets re-bound here
                     .on('mouseout', tip.hide);
                 path.transition()
