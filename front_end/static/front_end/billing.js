@@ -137,7 +137,6 @@ var pp = function(sel, g) {
     // (i.e. (deleted-created) time, clamped by the selected date range),
     // so every resource has units of "something * hours".
     // Each resource has "agg" and "fn" fields defined (below) to sum the resource over all instances.
-    // TODO add class to resources <td> to prevent line breaks on whitespace
     var round = d3.format('.1f'); // matches Formatters.si_bytes precision
     var resources = [
         {
@@ -168,6 +167,7 @@ var pp = function(sel, g) {
     resources.forEach(function(res, i) {
         res.fn  = function(instance) { return instance._meta.resources[i] };
         res.agg = total(res.fn);
+        res.cl  = 'resource';
     });
 
     // define some columns for the table, then append columns for resources
@@ -298,12 +298,14 @@ function Table() {
                 return cols.map(function(column) {
                     return { // TODO make this generic, not key-dependent
                         title : column.title,
-                        html  : (column.format || String)(column.fn(ins))
+                        html  : (column.format || String)(column.fn(ins)),
+                        cl    : column.cl || null,
                     };
                 });
             });
             td.enter().append('td');
             td.html(function(d) { return d.html });
+            td.attr('class', function(d) { return d.cl });
             td.exit().remove();
         };
 
