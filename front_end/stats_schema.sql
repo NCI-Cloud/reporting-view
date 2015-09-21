@@ -349,6 +349,10 @@ insert into metadata (table_name, last_update) values ('instance', null);
 end if;
 select ifnull(last_update,from_unixtime(0)) into ts from metadata where table_name = 'instance';
 if date_sub(now(), interval 600 second) > ts then
+ALTER TABLE instance DISABLE KEYS;
+SET FOREIGN_KEY_CHECKS = 0;
+SET UNIQUE_CHECKS = 0;
+SET AUTOCOMMIT = 0;
 replace into instance
 select
         uuid as id,
@@ -372,6 +376,10 @@ from
         nova.instances;
 insert into metadata (table_name, last_update) values ('instance', null)
 on duplicate key update last_update = null;
+SET UNIQUE_CHECKS = 1;
+SET FOREIGN_KEY_CHECKS = 1;
+COMMIT;
+ALTER TABLE instance ENABLE KEYS;
 end if;
 end;
 //
