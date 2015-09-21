@@ -76,9 +76,10 @@ function pie_tip_y(r, d) {
     return  r * Math.sin(-0.5*Math.PI - 0.5*(d.startAngle+d.endAngle));
 }
 
-var instance_by_puuid = {};
+var instance_by_puuid;
 /// rearrange instance data so we can efficiently group by project
 function preprocess_instance(_, g) {
+    instance_by_puuid = {}; // make sure this function can be called multiple times (e.g. with different endpoints) without littering the global
     g.instance.forEach(function(ins) {
         if(! (ins.project_id in instance_by_puuid)) {
             instance_by_puuid[ins.project_id] = [];
