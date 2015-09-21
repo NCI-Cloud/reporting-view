@@ -312,8 +312,8 @@ call flavour_update();
 
 -- instances depend on projects and flavours
 create table instance (
-        project_id varchar(36) comment "Project UUID that owns this instance",
         id varchar(36) comment "Instance UUID",
+        project_id varchar(36) comment "Project UUID that owns this instance",
         name varchar(64) comment "Instance name",
         vcpus int comment "Allocated number of vCPUs",
         memory int comment "Allocated memory in MB",
@@ -330,6 +330,7 @@ create table instance (
         hypervisor varchar(255) comment "Hypervisor the instance is running on",
         availability_zone varchar(255) comment "Availability zone the instance is running in",
         primary key (id),
+        key instance_name_key (name),
         key instance_project_id_key (project_id),
         key instance_hypervisor_key (hypervisor),
         key instance_az_key (availability_zone)
@@ -350,8 +351,8 @@ select ifnull(ts,from_unixtime(0)) into ts from metadata where table_name = 'ins
 if date_sub(now(), interval 600 second) > ts then
 replace into instance
 select
-        project_id,
         uuid as id,
+        project_id,
         display_name as name,
         vcpus,
         memory_mb as memory,
