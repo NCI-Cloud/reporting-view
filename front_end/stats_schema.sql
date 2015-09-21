@@ -49,7 +49,7 @@ select count(*) into r from metadata where table_name = 'hypervisor';
 if r = 0 then
 insert into metadata (table_name, last_update) values ('hypervisor', null);
 end if;
-select ifnull(ts,from_unixtime(0)) into ts from metadata where table_name = 'hypervisor';
+select ifnull(last_update,from_unixtime(0)) into ts from metadata where table_name = 'hypervisor';
 if date_sub(now(), interval 600 second) > ts then
 replace into hypervisor
 select
@@ -99,7 +99,7 @@ select count(*) into r from metadata where table_name = 'project';
 if r = 0 then
 insert into metadata (table_name, last_update) values ('project', null);
 end if;
-select ifnull(ts,from_unixtime(0)) into ts from metadata where table_name = 'project';
+select ifnull(last_update,from_unixtime(0)) into ts from metadata where table_name = 'project';
 if date_sub(now(), interval 600 second) > ts then
 replace into project
 select
@@ -186,7 +186,7 @@ select count(*) into r from metadata where table_name = 'user';
 if r = 0 then
 insert into metadata (table_name, last_update) values ('user', null);
 end if;
-select ifnull(ts,from_unixtime(0)) into ts from metadata where table_name = 'user';
+select ifnull(last_update,from_unixtime(0)) into ts from metadata where table_name = 'user';
 if date_sub(now(), interval 600 second) > ts then
 replace into user
 select
@@ -229,7 +229,7 @@ select count(*) into r from metadata where table_name = 'role';
 if r = 0 then
 insert into metadata (table_name, last_update) values ('role', null);
 end if;
-select ifnull(ts,from_unixtime(0)) into ts from metadata where table_name = 'role';
+select ifnull(last_update,from_unixtime(0)) into ts from metadata where table_name = 'role';
 if date_sub(now(), interval 600 second) > ts then
 replace into role
 select
@@ -284,7 +284,7 @@ select count(*) into r from metadata where table_name = 'flavour';
 if r = 0 then
 insert into metadata (table_name, last_update) values ('flavour', null);
 end if;
-select ifnull(ts,from_unixtime(0)) into ts from metadata where table_name = 'flavour';
+select ifnull(last_update,from_unixtime(0)) into ts from metadata where table_name = 'flavour';
 if date_sub(now(), interval 600 second) > ts then
 replace into flavour
 select
@@ -347,7 +347,7 @@ select count(*) into r from metadata where table_name = 'instance';
 if r = 0 then
 insert into metadata (table_name, last_update) values ('instance', null);
 end if;
-select ifnull(ts,from_unixtime(0)) into ts from metadata where table_name = 'instance';
+select ifnull(last_update,from_unixtime(0)) into ts from metadata where table_name = 'instance';
 if date_sub(now(), interval 600 second) > ts then
 replace into instance
 select
@@ -411,7 +411,7 @@ select count(*) into r from metadata where table_name = 'volume';
 if r = 0 then
 insert into metadata (table_name, last_update) values ('volume', null);
 end if;
-select ifnull(ts,from_unixtime(0)) into ts from metadata where table_name = 'volume';
+select ifnull(last_update,from_unixtime(0)) into ts from metadata where table_name = 'volume';
 if date_sub(now(), interval 600 second) > ts then
 replace into volume
 select
@@ -463,7 +463,7 @@ select count(*) into r from metadata where table_name = 'image';
 if r = 0 then
 insert into metadata (table_name, last_update) values ('image', null);
 end if;
-select ifnull(ts,from_unixtime(0)) into ts from metadata where table_name = 'image';
+select ifnull(last_update,from_unixtime(0)) into ts from metadata where table_name = 'image';
 if date_sub(now(), interval 600 second) > ts then
 replace into image
 select
