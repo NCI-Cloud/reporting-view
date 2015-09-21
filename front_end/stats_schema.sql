@@ -35,8 +35,8 @@ create table hypervisor (
         memory int(11) comment "Total installed memory in MB",
         local_storage int(11) comment "Total local disk in GB",
         primary key (id),
-        key hypervisor_hostname (hostname),
-        key hypervisor_ip (ip_address)
+        key hypervisor_hostname_key (hostname),
+        key hypervisor_ip_key (ip_address)
 ) comment "Compute nodes";
 
 delimiter //
