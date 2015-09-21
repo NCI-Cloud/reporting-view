@@ -271,11 +271,11 @@ var Charts = {};
                 gZoom.select('path.line').datum(data).attr('d', lineZoom);
                 var circ = gZoom.select('g.handles').selectAll('circle').data(data);
                 circ.enter().append('circle')
+                    .attr('class', pointClass)
                     .attr('r', 2) // little data point helps to find tooltips (step function is not very intuitive)
-                    .on('mouseover', function(d, i) { tip.show(data[i], this); })
                     .on('mouseout', tip.hide);
                 circ
-                    .attr('class', pointClass)
+                    .on('mouseover', function(d, i) { tip.show(data[i], this); })
                     .attr('cx', function(d) { return xZoom(xFn(d)) })
                     .attr('cy', function(d) { return yZoom(yZoomFn(d)) });
                 circ.exit().remove();
