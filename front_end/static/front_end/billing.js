@@ -87,7 +87,12 @@ var projects = function(sel, g) {
     // (so report_project can be called multiple times without spamming <option>s)
     slct.selectAll('option[disabled]').remove();
 
-    var opt = slct.selectAll('option').data(g.project);
+    // make shallow copy of data, for sorting without altering original
+    var project = g.project
+        .map(function(d) { return {id:d.id, display_name:d.display_name} })
+        .sort(function(a, b) { return d3.ascending(a.display_name.toLowerCase(), b.display_name.toLowerCase()) });
+
+    var opt = slct.selectAll('option').data(project);
     opt.enter().append('option');
     opt.attr('value', function(d) { return d.id });
     opt.html(function(d) { return d.display_name });
