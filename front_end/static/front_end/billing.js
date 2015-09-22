@@ -190,7 +190,7 @@ var pp = function(sel, g) {
         },
     ].concat(resources));
 
-    /// perform calculations over extent for project pid
+    // perform calculations over extent for project pid
     var integrate = function() {
         if(!extent || !pid) {
             // some input/s missing
@@ -262,7 +262,8 @@ function Table() {
             var thead = tbl.selectAll('thead').data([data]);
             thead.enter().append('thead').append('tr');
             var th = thead.select('tr').selectAll('th').data(cols);
-            th.enter().append('th')
+            th.enter().append('th');
+            th
                 .on('click', function(d, i) {
                     if(sortIdx === i) {
                         // toggle order
@@ -271,16 +272,17 @@ function Table() {
                         sortIdx = i;
                     }
                     makeTable(tbl, dataUnsorted); // redraw table
-                })
+                 })
                 .attr('title', function(d) { return d.desc })
+                .attr('class', function(d, i) { return i === sortIdx ? (sortOrder === d3.descending ? 'descending' : 'ascending') : null })
                 .html(function(d) { return d.title });
-            th.attr('class', function(d, i) { return i === sortIdx ? (sortOrder === d3.descending ? 'descending' : 'ascending') : null });
 
             // <tfoot>
             var tfoot = tbl.selectAll('tfoot').data([data]);
             tfoot.enter().append('tfoot').append('tr');
             var tf = tfoot.select('tr').selectAll('td').data(cols);
-            tf.enter().append('td')
+            tf.enter().append('td');
+            tf
                 .html(function(d) { return d.agg ? (d.format || String)(d.agg(data)) : null });
 
             // <tbody>
