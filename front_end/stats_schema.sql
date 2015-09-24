@@ -5,7 +5,7 @@ use reporting;
 
 -- some user definitions
 grant select on *.* to 'reporting-update'@'localhost'  identified by 'needs to be set';
-grant select,update,insert,delete on reporting.* to 'reporting-update'@'localhost' identified by 'needs to be set';
+grant select,update,insert,delete,alter on reporting.* to 'reporting-update'@'localhost' identified by 'needs to be set';
 grant select on reporting.* to 'reporting-query'@'%' identified by 'also needs to be set';
 
 -- metadata - note that this part of the design may change
