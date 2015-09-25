@@ -35,11 +35,8 @@ var res = [
     },
 ];
 
-// TODO refactor to avoid duplicating this code between reports
 Report.init = function() {
-    var fetch = Fetcher(Config.endpoints);
-    Util.fillNav(fetch);
-    Util.qdeps(fetch, [
+    Util.initReport([
         {
             sel : '.flavs',
             dep : ['flavour'],
@@ -61,9 +58,7 @@ Report.init = function() {
             fun : report_footer,
         },
     ]);
-    var ep_name = Config.defaultEndpoint;
-    fetch(ep_name);
-}
+};
 
 function report_flavs(sel, g) {
     var s = d3.select(sel);

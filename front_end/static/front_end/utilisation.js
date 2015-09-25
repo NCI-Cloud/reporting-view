@@ -4,11 +4,8 @@ var Report = {};
 /// event broadcasting
 var dispatch = d3.dispatch('optionChanged', 'projectChanged', 'datesChanged');
 
-// TODO refactor to avoid duplicating this code between reports
 Report.init = function() {
-    var fetch = Fetcher(Config.endpoints);
-    Util.fillNav(fetch);
-    Util.qdeps(fetch, [
+    Util.initReport([
         {
             sel : null,
             dep : ['instance'],
@@ -40,9 +37,7 @@ Report.init = function() {
             fun : report_footer,
         },
     ]);
-    var ep_name = Config.defaultEndpoint;
-    fetch(ep_name);
-}
+};
 
 function arcTween(arc) {
     return function(pie_d) { // return a tween from current datum (._current) to final datum pie_d

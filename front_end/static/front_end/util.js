@@ -45,7 +45,7 @@ var Util = {};
         });
     };
 
-    Util.fillNav = function(fetch) {
+    var fillNav = function(fetch) {
         var nav = d3.select('nav');
 
         // make endpoints dropdown

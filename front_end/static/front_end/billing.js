@@ -4,11 +4,8 @@ var Billing = {};
 /// event broadcasting
 var dispatch = d3.dispatch('register', 'projectChanged', 'datesChanged');
 
-// TODO refactor to avoid duplicating this code between reports
 Billing.init = function() {
-    var fetch = Fetcher(Config.endpoints);
-    Util.fillNav(fetch);
-    Util.qdeps(fetch, [
+    Util.initReport([
         {
             sel : '.controls',
             dep : [],
@@ -25,9 +22,7 @@ Billing.init = function() {
             fun : pp,
         },
     ]);
-    var ep_name = Config.defaultEndpoint;
-    fetch(ep_name);
-}
+};
 
 var controls = function(sel) {
     if(!controls.startPicker) {
