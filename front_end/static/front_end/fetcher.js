@@ -1,6 +1,6 @@
 /*
  * Example usage:
- *    var f = Fetcher([{name:'endpoint1',url:'whatever'}, {name:'endpoint2',url:'something'}])
+ *    var f = Fetcher([{name:'endpoint1',url:'whatever'}, {name:'endpoint2',url:'something'}], token)
  *      .q({ // we need key1 and key2 data to perform some_fn
  *          qks     : ['key1', 'key2'],
  *          success : some_fn,
@@ -16,7 +16,7 @@
  *    f('endpoint1'); // re-fetch data
  *    f('endpoint2'); // get data from another node; keeps data from first endpoint, and does not update it
  */
-function Fetcher(eps) {
+function Fetcher(eps, token) {
     var endpoints = eps; // list of objects with keys: name, url
     var queue = []; // list of objects with keys: qks, success, error
     var data = endpoints.map(function(e) { return {} }); // for all i: data[i] fetched from endpoints[i]
@@ -116,7 +116,8 @@ function Fetcher(eps) {
         jQuery.ajax({
             url : url,
             headers : {
-                'accept' : 'application/json',
+                'accept'       : 'application/json',
+                'x-auth-token' : token, // TODO handle token expiration gracefully
             },
             success : success,
             error : error != undefined ? error : function(data) {
