@@ -20,20 +20,22 @@ footer a {
     cursor: pointer;
 }
 .loading,.error {
-    background-repeat: no-repeat;
-    background-position: center;
     min-height: 20px;
     min-width: 20px;
     color: rgba(0,0,0,0.5);
 }
 .loading {
+    background-repeat: no-repeat;
+    background-position: center;
     background-image: url(../img/loading.gif); /* From https://commons.wikimedia.org/wiki/File:Loading.gif (CC-BY-SA-2.5) */
 }
 .error {
-    background-image: url(../img/error.png);
     background-color: rgba(255,0,0,0.1);
     border: 2px dashed crimson;
     border-radius: 1rem;
+}
+.error .message {
+    color: crimson;
 }
 nav {
     text-transform: uppercase;
