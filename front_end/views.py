@@ -10,3 +10,10 @@ def report(request, report):
         return render(request, report)
     except template.TemplateDoesNotExist:
         raise Http404('oops')
+
+def login(request):
+    print(request.POST)
+    context = {}
+    if 'some key identifying the returned keystone token' in request.POST:
+        context['token'] = 'something\'s <fro>m request.POST'
+    return render(request, 'front_end/login.html', context)

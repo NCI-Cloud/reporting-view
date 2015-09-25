@@ -18,7 +18,22 @@ var Util = {};
         };
     };
 
-    Util.qdeps = function(fetch, deps) {
+    Util.initReport = function(deps) {
+        if(!Util.storageAvailable('sessionStorage')) {
+            console.log('need web storage api');
+            return; // TODO handle fatal error
+        }
+        var token = sessionStorage.getItem('token');
+        if(!token) {
+            location.replace(Config.baseURL);
+        }
+        var fetch = Fetcher(Config.endpoints, token);
+        fillNav(fetch);
+        qdeps(fetch, deps);
+        fetch(Config.defaultEndpoint);
+    }
+
+    var qdeps = function(fetch, deps) {
         deps.forEach(function(dep) {
             var on = callbacks(dep.sel, dep.fun);
             fetch.q({
@@ -46,9 +61,24 @@ var Util = {};
         var ul = nav.select('ul');
         var li = ul.selectAll('li').data(Config.reports);
         li.enter().append('li')
-            .attr('class', function(d) { return d.url === location.pathname ? 'current' : '' })
+            .attr('class', function(d) { return location.pathname.endsWith(d.url) ? 'current' : '' })
           .append('a')
-            .attr('href', function(d) { return d.url })
+            .attr('href', function(d) { return Config.baseURL + d.url })
             .html(function(d) { return d.name });
+    };
+
+    /// check if browser supports localStorage
+    /// courtesy of https://developer.mozilla.org/en-US/docs/Web/API/Web_Storage_API/Using_the_Web_Storage_API
+    Util.storageAvailable = function(type) {
+        try {
+            var storage = window[type],
+                x = '__storage_test__';
+            storage.setItem(x, x);
+            storage.removeItem(x);
+            return true;
+        }
+        catch(e) {
+            return false;
+        }
     };
 })();

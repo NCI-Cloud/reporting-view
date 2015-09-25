@@ -1,0 +1,99 @@
+{% load staticfiles %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Authenticate</title>
+  <script src="//cdn.jsdelivr.net/jquery/2.1.4/jquery.min.js"></script>
+  <script src="{% static 'front_end/js-openstackclient.min.js' %}"></script>
+  <script src="{% static 'front_end/config.js' %}"></script>
+  <script src="{% static 'front_end/util.js' %}"></script>
+  <script src="{% static 'front_end/login.js' %}"></script>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link href="//fonts.googleapis.com/css?family=Raleway:400,300,600" rel="stylesheet" type="text/css">
+  <link rel="stylesheet" href="{% static 'front_end/css/normalize.css' %}">
+  <link rel="stylesheet" href="{% static 'front_end/css/skeleton.css' %}">
+  <link rel="stylesheet" href="{% static 'front_end/css/base.css' %}">
+</head>
+<body>
+<script>
+if(!Util.storageAvailable('sessionStorage')) {
+    // TODO handle fatal error
+    console.log('need web storage api');
+} else if(sessionStorage.getItem('token')) {
+    // token already set; not sure if it's better here to re-authenticate or just assume the token's good
+    location.replace(Config.baseURL + Config.reports[0].url);
+}
+$(function() {
+    $('form').attr('action', 'https://accounts.rc.nectar.org.au/rcshibboleth?return-path='+encodeURIComponent(Config.baseURL));
+});
+</script>
+{% if token %}{# context['token'] gets set when a token is POSTed to login page; then we want to put it in local storage #}
+<script>
+var token = '{{ token|escapejs }}';
+console.log(token);
+sessionStorage.setItem('token', token);
+location.replace(Config.baseURL + Config.reports[0].url);
+</script>
+{% endif %}
+
+<div class="container">
+
+<section class="title">
+<h2>Authenticate</h2>
+<div class="row">
+  <div class="full columns">
+    <p>Obtain a Keystone token one of two ways below:</p>
+  </div>
+</div>
+<div class="row">
+  <div class="full columns">
+    <form method="post">
+      <input type="hidden" name="csrfmiddlewaretoken" value="redundant">
+      <input type="submit" class="button-primary" value="via AAF">
+    </form>
+  </div>
+</div>
+<div class="row">
+  <div class="full columns">
+    <p>or</p>
+  </div>
+</div>
+<div class="manual">
+<div class="row" style="text-align:left">
+  <div class="three columns">
+    <label for="username">Username</label>
+    <input id="username" class="u-full-width" type="text" value="admin">{# TODO tmp #}
+    </select>
+  </div>
+  <div class="three columns">
+    <label for="password">Password</label>
+    <input id="password" class="u-full-width" type="password">
+  </div>
+  <div class="four columns">
+    <label for="url" title="Keystone base URL, e.g. http://example.com:5000">URL</label>
+    <input id="url" class="u-full-width" type="text" value="http://testjin.nci.org.au:5000">{# TODO get this from config.js or something #}
+  </div>
+  <div class="two columns">
+    <label><!-- ugly hack for consistent spacing -->&nbsp;</label>
+    <button>Manually</button>
+  </div>
+</div>
+<div class="row">
+  <div class="full columns">
+    <p class="message"></p>
+  </div>
+</div>
+</div>
+</section>
+
+<footer>
+<p>
+  The source of Keystone token affects the availability of reporting API endpoints.
+  Most of the time most users would want to authenticate via AAF.
+  End the browser session to deauthenticate.
+</p>
+</footer>
+</div>{# /container #}
+</body>
+</html>
