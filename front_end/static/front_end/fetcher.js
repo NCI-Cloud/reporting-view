@@ -16,10 +16,9 @@
  *    f('endpoint1'); // re-fetch data
  *    f('endpoint2'); // get data from another node; keeps data from first endpoint, and does not update it
  */
-function Fetcher(eps, token, on401) {
+function Fetcher(eps, token, on401) { // "unauthorised" gets special mention because it is a status we always handle the same way (namely, asking user to re-authenticate, assuming token has expired)
     var endpoints = eps; // list of objects with keys: name, url
     var queue = []; // list of objects with keys: qks, success, error
-    var on401 = on401; // "unauthorised" gets special mention because it is a status we always handle the same way (namely, asking user to re-authenticate, assuming token has expired)
     var data = endpoints.map(function(e) { return {} }); // for all i: data[i] fetched from endpoints[i]
 
     /// fetch data from endpoint with given name
@@ -63,15 +62,15 @@ function Fetcher(eps, token, on401) {
                         }
                     });
                 },
-                function(jqXHR) {
-                    console.log('Error (%i %s) for query "%s"', jqXHR.status, jqXHR.statusText, qk);
+                function(error) {
+                    if(error.status === 401) on401();
+                    console.log('Error (%i %s) for query "%s"', error.status, error.statusText, qk);
                     queue.forEach(function(q) {
                         if(q.qks.some(function(q_qk) { return q_qk === qk })) {
                             q.error();
                         }
                     });
-                },
-                on401
+                }
             );
         });
     };
@@ -98,7 +97,7 @@ function Fetcher(eps, token, on401) {
     }
 
     /// retrieve json data
-    var sqldump = function(epIdx, qk, success, error, on401) {
+    var sqldump = function(epIdx, qk, success, error) {
         if(qk === 'live_instance') {
             // TODO want to make a live_instances view and a separate report, so this hackery becomes unnecessary
             qk = 'instance';
@@ -117,18 +116,11 @@ function Fetcher(eps, token, on401) {
 
         var url = endpoints[epIdx].url + (endpoints[epIdx].name === 'sqldump' ? '/q/' : '/v1/reports/') + qk; // fragile
 
-        jQuery.ajax({
-            url : url,
-            headers : {
-                'accept'       : 'application/json',
-                'x-auth-token' : token, // TODO handle token expiration gracefully
-            },
-            success : success,
-            error : error,
-            statusCode : {
-                400 : on401,
-            },
-        });
+        d3.json(url)
+            .header('x-auth-token', token)
+            .on('load', success)
+            .on('error', error)
+            .get();
     };
 
     return fetcher;
