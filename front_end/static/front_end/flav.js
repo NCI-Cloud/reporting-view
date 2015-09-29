@@ -48,11 +48,6 @@ Report.init = function() {
             fun : report_list,
         },
         {
-            sel : '.historical',
-            dep : ['instance'],
-            fun : report_historical,
-        },
-        {
             sel : '.footer',
             dep : ['last_updated'],
             fun : report_footer,
@@ -219,13 +214,6 @@ function report_list(sel, g) {
             row.selectAll('.capacity').html('');
             d3.select('.sum').html('');
         }
-    });
-}
-
-function report_historical(sel, g) {
-    var s = d3.select(sel);
-    dispatch.on('flavChanged.'+sel, function(_, f) {
-        console.log('draw chart for flav %o', f);
     });
 }
 
