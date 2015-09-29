@@ -16,13 +16,11 @@
     };
 
     var getTokenTenjin = function() {
-        console.log('getTokenTenjin');
         keystone = new osclient.Keystone({
             authURL       : $('#url').val(),
             domainName    : 'default',
             username      : $('#username').val(),
             password      : $('#password').val(),
-            error         : function() { console.log('OOPS') },
         });
         keystone.defaultParams.error = function(jqxhr, status, err) {
             $('.manual').addClass('error');

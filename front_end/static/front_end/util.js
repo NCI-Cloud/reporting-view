@@ -26,6 +26,7 @@ var Util = {};
         var token = sessionStorage.getItem('token');
         if(!token) {
             location.replace(Config.baseURL);
+            return;
         }
         var fetch = Fetcher(Config.endpoints, token);
         fillNav(fetch);
@@ -67,7 +68,7 @@ var Util = {};
             .html(function(d) { return d.name });
     };
 
-    /// check if browser supports localStorage
+    /// check if browser supports web storage api
     /// courtesy of https://developer.mozilla.org/en-US/docs/Web/API/Web_Storage_API/Using_the_Web_Storage_API
     Util.storageAvailable = function(type) {
         try {

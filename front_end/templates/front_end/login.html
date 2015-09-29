@@ -31,7 +31,6 @@ $(function() {
 {% if token %}{# context['token'] gets set when a token is POSTed to login page; then we want to put it in local storage #}
 <script>
 var token = '{{ token|escapejs }}';
-console.log(token);
 sessionStorage.setItem('token', token);
 location.replace(Config.baseURL + Config.reports[0].url);
 </script>
@@ -63,7 +62,7 @@ location.replace(Config.baseURL + Config.reports[0].url);
 <div class="row" style="text-align:left">
   <div class="three columns">
     <label for="username">Username</label>
-    <input id="username" class="u-full-width" type="text" value="admin">{# TODO tmp #}
+    <input id="username" class="u-full-width" type="text">
     </select>
   </div>
   <div class="three columns">
@@ -72,7 +71,7 @@ location.replace(Config.baseURL + Config.reports[0].url);
   </div>
   <div class="four columns">
     <label for="url" title="Keystone base URL, e.g. http://example.com:5000">URL</label>
-    <input id="url" class="u-full-width" type="text" value="http://testjin.nci.org.au:5000">{# TODO get this from config.js or something #}
+    <input id="url" class="u-full-width" type="text">
   </div>
   <div class="two columns">
     <label><!-- ugly hack for consistent spacing -->&nbsp;</label>

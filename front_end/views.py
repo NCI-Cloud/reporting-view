@@ -14,6 +14,7 @@ def report(request, report):
 def login(request):
     print(request.POST)
     context = {}
-    if 'some key identifying the returned keystone token' in request.POST:
-        context['token'] = 'something\'s <fro>m request.POST'
+    k = 'some key identifying the returned keystone token' # TODO find out what this is once rcshibboleth return-path works
+    if k in request.POST:
+        context['token'] = request.POST[k]
     return render(request, 'front_end/login.html', context)
