@@ -4,12 +4,17 @@
         console.log('need web storage api');
     } else if(sessionStorage.getItem(Config.tokenKey)) {
         // token already set; not sure if it's better here to re-authenticate or just assume the token's good
-        location.replace(Config.baseURL + Config.reports[0].url); // TODO DRY
+        location.replace(Config.baseURL + Config.reports[0].url);
     }
 
     $(function() {
         $('form.aaf').attr('action', 'https://accounts.rc.nectar.org.au/rcshibboleth?return-path='+encodeURIComponent(Config.baseURL));
         $('form.manual').on('submit', function() { getTokenTenjin(); return false; });
+        var message = sessionStorage.getItem(Config.flashKey);
+        if(message) {
+            $('.instructions').prepend('<p>'+message+'</p>');
+        }
+        sessionStorage.removeItem(Config.flashKey);
     });
 
     var keystone;
@@ -19,7 +24,7 @@
         $('.manual').removeClass('error');
         $('.manual p.message').html('');
 
-        // save token and redirect TODO DRY
+        // save token and redirect
         sessionStorage.setItem(Config.tokenKey, keystone.getToken());
         location.replace(Config.baseURL + Config.reports[0].url);
     };

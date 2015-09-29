@@ -3,6 +3,7 @@
 var Config = {
     baseURL : 'http://example.com/',
     tokenKey : 'token', // key in sessionStorage for keystone token
+    flashKey : 'flash', // key in sessionStorage for temporary message storage
     endpoints : [
         {
             name : 'Testjin',

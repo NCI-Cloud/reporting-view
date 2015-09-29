@@ -28,7 +28,12 @@ var Util = {};
             location.replace(Config.baseURL);
             return;
         }
-        var fetch = Fetcher(Config.endpoints, token);
+        var on401 = function() {
+            sessionStorage.removeItem(Config.tokenKey); // credentials no longer good, so don't keep
+            sessionStorage.setItem(Config.flashKey, 'Your session has expired. Please reauthenticate.');
+            location.replace(Config.baseURL);
+        };
+        var fetch = Fetcher(Config.endpoints, token, on401);
         fillNav(fetch);
         qdeps(fetch, deps);
         fetch(Config.defaultEndpoint);

@@ -16,9 +16,10 @@
  *    f('endpoint1'); // re-fetch data
  *    f('endpoint2'); // get data from another node; keeps data from first endpoint, and does not update it
  */
-function Fetcher(eps, token) {
+function Fetcher(eps, token, on401) {
     var endpoints = eps; // list of objects with keys: name, url
     var queue = []; // list of objects with keys: qks, success, error
+    var on401 = on401; // "unauthorised" gets special mention because it is a status we always handle the same way (namely, asking user to re-authenticate, assuming token has expired)
     var data = endpoints.map(function(e) { return {} }); // for all i: data[i] fetched from endpoints[i]
 
     /// fetch data from endpoint with given name
@@ -44,7 +45,9 @@ function Fetcher(eps, token) {
         var qks = queue.reduce(function(val, q) { return val.concat(q.qks) }, []);
         qks = qks.filter(function(qk, i) { return qks.indexOf(qk) === i });
         qks.forEach(function(qk, i) {
-            sqldump(epIdx, qk,
+            sqldump(
+                epIdx,
+                qk,
                 function(qk_data) {
                     data[epIdx][qk] = qk_data;
 
@@ -60,14 +63,15 @@ function Fetcher(eps, token) {
                         }
                     });
                 },
-                function(err) {
-                    console.log('error (%i %s) for query "%s"', err.status, err.statusText, qk);
+                function(jqXHR) {
+                    console.log('Error (%i %s) for query "%s"', jqXHR.status, jqXHR.statusText, qk);
                     queue.forEach(function(q) {
                         if(q.qks.some(function(q_qk) { return q_qk === qk })) {
                             q.error();
                         }
                     });
-                }
+                },
+                on401
             );
         });
     };
@@ -94,7 +98,7 @@ function Fetcher(eps, token) {
     }
 
     /// retrieve json data
-    var sqldump = function(epIdx, qk, success, error) {
+    var sqldump = function(epIdx, qk, success, error, on401) {
         if(qk === 'live_instance') {
             // TODO want to make a live_instances view and a separate report, so this hackery becomes unnecessary
             qk = 'instance';
@@ -120,8 +124,9 @@ function Fetcher(eps, token) {
                 'x-auth-token' : token, // TODO handle token expiration gracefully
             },
             success : success,
-            error : error != undefined ? error : function(data) {
-                console.log("Couldn't get sqldump for key '"+qk+"'");
+            error : error,
+            statusCode : {
+                400 : on401,
             },
         });
     };
