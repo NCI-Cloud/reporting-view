@@ -2,7 +2,7 @@
     if(!Util.storageAvailable('sessionStorage')) {
         // TODO handle fatal error
         console.log('need web storage api');
-    } else if(sessionStorage.getItem('token')) {
+    } else if(sessionStorage.getItem(Config.tokenKey)) {
         // token already set; not sure if it's better here to re-authenticate or just assume the token's good
         location.replace(Config.baseURL + Config.reports[0].url); // TODO DRY
     }
@@ -20,7 +20,7 @@
         $('.manual p.message').html('');
 
         // save token and redirect TODO DRY
-        sessionStorage.setItem('token', keystone.getToken());
+        sessionStorage.setItem(Config.tokenKey, keystone.getToken());
         location.replace(Config.baseURL + Config.reports[0].url);
     };
 

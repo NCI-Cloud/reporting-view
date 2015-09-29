@@ -23,7 +23,7 @@ var Util = {};
             console.log('need web storage api');
             return; // TODO handle fatal error
         }
-        var token = sessionStorage.getItem('token');
+        var token = sessionStorage.getItem(Config.tokenKey);
         if(!token) {
             location.replace(Config.baseURL);
             return;

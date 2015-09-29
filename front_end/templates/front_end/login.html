@@ -19,7 +19,7 @@
 {% if token %}{# context['token'] gets set when a token is POSTed to login page; then we want to put it in local storage #}
 <script>
 var token = '{{ token|escapejs }}';
-sessionStorage.setItem('token', token);
+sessionStorage.setItem(Config.tokenKey, token);
 location.replace(Config.baseURL + Config.reports[0].url);
 </script>
 {% endif %}
