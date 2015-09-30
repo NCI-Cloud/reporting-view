@@ -50,7 +50,7 @@ if r = 0 then
 insert into metadata (table_name, last_update) values ('hypervisor', null);
 end if;
 select ifnull(last_update,from_unixtime(0)) into ts from metadata where table_name = 'hypervisor';
-if date_sub(now(), interval 600 second) > ts then
+if r = 0 or date_sub(now(), interval 600 second) > ts then
 replace into hypervisor
 select
         id,
@@ -100,7 +100,7 @@ if r = 0 then
 insert into metadata (table_name, last_update) values ('project', null);
 end if;
 select ifnull(last_update,from_unixtime(0)) into ts from metadata where table_name = 'project';
-if date_sub(now(), interval 600 second) > ts then
+if r = 0 or date_sub(now(), interval 600 second) > ts then
 replace into project
 select
         distinct kp.id as id,
@@ -187,7 +187,7 @@ if r = 0 then
 insert into metadata (table_name, last_update) values ('user', null);
 end if;
 select ifnull(last_update,from_unixtime(0)) into ts from metadata where table_name = 'user';
-if date_sub(now(), interval 600 second) > ts then
+if r = 0 or date_sub(now(), interval 600 second) > ts then
 replace into user
 select
         id,
@@ -230,7 +230,7 @@ if r = 0 then
 insert into metadata (table_name, last_update) values ('role', null);
 end if;
 select ifnull(last_update,from_unixtime(0)) into ts from metadata where table_name = 'role';
-if date_sub(now(), interval 600 second) > ts then
+if r = 0 or date_sub(now(), interval 600 second) > ts then
 replace into role
 select
         kr.name as role,
@@ -285,7 +285,7 @@ if r = 0 then
 insert into metadata (table_name, last_update) values ('flavour', null);
 end if;
 select ifnull(last_update,from_unixtime(0)) into ts from metadata where table_name = 'flavour';
-if date_sub(now(), interval 600 second) > ts then
+if r = 0 or date_sub(now(), interval 600 second) > ts then
 replace into flavour
 select
         id,
@@ -348,7 +348,7 @@ if r = 0 then
 insert into metadata (table_name, last_update) values ('instance', null);
 end if;
 select ifnull(last_update,from_unixtime(0)) into ts from metadata where table_name = 'instance';
-if date_sub(now(), interval 600 second) > ts then
+if r = 0 or date_sub(now(), interval 600 second) > ts then
 ALTER TABLE instance DISABLE KEYS;
 SET FOREIGN_KEY_CHECKS = 0;
 SET UNIQUE_CHECKS = 0;
@@ -420,7 +420,7 @@ if r = 0 then
 insert into metadata (table_name, last_update) values ('volume', null);
 end if;
 select ifnull(last_update,from_unixtime(0)) into ts from metadata where table_name = 'volume';
-if date_sub(now(), interval 600 second) > ts then
+if r = 0 or date_sub(now(), interval 600 second) > ts then
 replace into volume
 select
         id,
@@ -472,7 +472,7 @@ if r = 0 then
 insert into metadata (table_name, last_update) values ('image', null);
 end if;
 select ifnull(last_update,from_unixtime(0)) into ts from metadata where table_name = 'image';
-if date_sub(now(), interval 600 second) > ts then
+if r = 0 or date_sub(now(), interval 600 second) > ts then
 replace into image
 select
         id,
