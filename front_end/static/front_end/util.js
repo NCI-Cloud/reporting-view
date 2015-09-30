@@ -18,7 +18,23 @@ var Util = {};
         };
     };
 
-    Util.initReport = function(deps) {
+    /**
+     * Boilerplate for initialising a page of reports:
+     *   - ensure sessionStorage is available
+     *   - ensure auth token is set
+     *   - fetch data for reports described by deps, which is a list of
+     *        {
+     *          sel : css selector for container of report,
+     *          dep : list of reports (to be requested from reporting-api) required for this section,
+     *          fun : function called back after dep reports are all loaded,
+     *                called as fun(sel, data) where data.x = reporting-api results for report x (for all x in dep)
+     *        }
+     *   - if "done" argument is specified (should be an object "f" with f.sel, f.dep and f.fun defined),
+     *     set f.dep = union of f.dep, and x.dep for all x in deps
+     *     and append this to deps (so done.fun will be called after everything else has been loaded)
+     *     (N.B. this modifies the "deps" argument)
+     */
+    Util.initReport = function(deps, done) {
         if(!Util.storageAvailable('sessionStorage')) {
             console.log('need web storage api');
             return; // TODO handle fatal error
@@ -28,6 +44,18 @@ var Util = {};
             location.replace(Config.baseURL);
             return;
         }
+
+        if(done) {
+            // concat
+            done.dep = deps.reduce(function(val, x) { return val.concat(x.dep) }, done.dep);
+
+            // remove duplicates
+            done.dep = done.dep.filter(function(x, i) { return done.dep.indexOf(x) === i });
+
+            // append to deps
+            deps.push(done);
+        }
+
         var on401 = function() {
             sessionStorage.removeItem(Config.tokenKey); // credentials no longer good, so don't keep
             sessionStorage.setItem(Config.flashKey, 'Your session has expired. Please reauthenticate.');
