@@ -402,6 +402,7 @@ create table volume (
         attached boolean comment "Volume attached or not",
         instance_uuid varchar(36) comment "Instance the volume is attached to",
         availability_zone varchar(255) comment "Availability zone the volume exists in",
+        active boolean comment "True if the volume is not deleted",
         primary key (id),
         key volume_project_id_key (project_id),
         key volume_instance_uuid_key (instance_uuid),
@@ -431,7 +432,8 @@ select
         deleted_at as deleted,
         if(attach_status='attached',true,false) as attached,
         instance_uuid,
-        availability_zone
+        availability_zone,
+        !deleted as active
 from
         cinder.volumes;
 insert into metadata (table_name, last_update) values ('volume', null)
