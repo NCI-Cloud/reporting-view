@@ -330,6 +330,7 @@ create table instance (
         hypervisor varchar(255) comment "Hypervisor the instance is running on",
         availability_zone varchar(255) comment "Availability zone the instance is running in",
         primary key (id),
+        key instance_active_key (active),
         key instance_name_key (name),
         key instance_project_id_key (project_id),
         key instance_hypervisor_key (hypervisor),
@@ -404,6 +405,7 @@ create table volume (
         availability_zone varchar(255) comment "Availability zone the volume exists in",
         active boolean comment "True if the volume is not deleted",
         primary key (id),
+        key volume_active_key (active),
         key volume_project_id_key (project_id),
         key volume_instance_uuid_key (instance_uuid),
         key volume_az_key (availability_zone)
