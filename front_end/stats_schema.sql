@@ -396,7 +396,7 @@ create table volume (
         id varchar(36) comment "Volume UUID",
         project_id varchar(36) comment "Project ID that owns this volume",
         display_name varchar(64) comment "Volume display name",
-        size int(11) comment "Size in MB",
+        size int(11) comment "Size in GB",
         created datetime comment "Volume created at",
         deleted datetime comment "Volume deleted at",
         attached boolean comment "Volume attached or not",
