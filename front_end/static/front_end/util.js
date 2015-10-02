@@ -27,7 +27,8 @@ var Util = {};
      *          sel : css selector for container of report,
      *          dep : list of reports (to be requested from reporting-api) required for this section,
      *          fun : function called back after dep reports are all loaded,
-     *                called as fun(sel, data) where data.x = reporting-api results for report x (for all x in dep)
+     *                called as fun(sel, data) where data.x = reporting-api results for report x (for all x in dep);
+     *                this function is called every time an endpoint is queried for data
      *        }
      *   - if "done" argument is specified (should be an object "f" with f.sel, f.dep and f.fun defined),
      *     set f.dep = union of f.dep, and x.dep for all x in deps

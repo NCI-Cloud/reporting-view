@@ -5,16 +5,14 @@ section, nav {
     border-bottom: 1px solid #ccc;
 }
 section {
-    padding: 7rem 0;
-}
-section > h3 {
-    display: none;
+    padding: 7rem 0 4.5rem 0; /* padding bottom different by -2.5rem to match p margin-bottom in skeleton.css */
 }
 footer {
     text-align: center;
     font-size: 1rem;
     color: gray;
     font-style: italic;
+    margin-top: 1rem;
 }
 footer a {
     cursor: pointer;
@@ -43,7 +41,7 @@ nav {
 }
 nav select {
     float: right;
-    margin-top: 1rem; /* or whatever */
+    margin-top: 1rem; /* nav height is approx 6rem; select height is approx 4rem; this makes it approx centred */
 }
 nav ul {
     list-style-type: none;

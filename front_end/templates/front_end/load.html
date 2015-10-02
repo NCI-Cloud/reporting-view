@@ -1,0 +1,62 @@
+{% load staticfiles %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Load</title>
+  <script src="//cdn.jsdelivr.net/humanize/0.0.9/humanize.min.js"></script>{# required (footer "Last updated") #}
+  <script src="//cdn.jsdelivr.net/d3js/3.5.6/d3.min.js"></script>{# required #}
+  <script src="{% static 'front_end/nv.d3.min.js' %}"></script>{# required #}
+  <script src="{% static 'front_end/polyfill.js' %}"></script>{# required #}
+  <script src="{% static 'front_end/config.js' %}"></script>{# required #}
+  <script src="{% static 'front_end/util.js' %}"></script>{# required #}
+  <script src="{% static 'front_end/formatters.js' %}"></script>
+  <script src="{% static 'front_end/fetcher.js' %}"></script>{# required #}
+  <script src="{% static 'front_end/load.js' %}"></script>{# report-specific code #}
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link href="//fonts.googleapis.com/css?family=Raleway:400,300,600" rel="stylesheet" type="text/css">
+  <link rel="stylesheet" href="{% static 'front_end/css/nv.d3.css' %}">
+  <link rel="stylesheet" href="{% static 'front_end/css/normalize.css' %}">{# required #}
+  <link rel="stylesheet" href="{% static 'front_end/css/skeleton.css' %}">{# required #}
+  <link rel="stylesheet" href="{% static 'front_end/css/base.css' %}">
+  <link rel="stylesheet" href="{% static 'front_end/css/load.css' %}">{# report-specific style #}
+</head>
+<body>
+
+<div class="container">
+<nav><select></select><ul></ul></nav>
+
+<section class="title">
+<h4>Recurrent Work Load Utilisation by Node</h4>
+<div class="row">
+  <div class="full columns">
+    <p>The pie chart shows the current resource use on the selected node. Below is a chart of historical data.</p>
+  </div>
+</div>
+</section>
+
+<section class="live">
+<div class="row">
+  <div class="full column"><select class="resource" title="Resource to plot."></select><select class="mode" title="Plot actual resource use, or project quotas."><option>in use</option><option>quota</option></select><svg/></div>
+</div>
+</section>
+
+<section>
+<h5>Historical data</h5>
+<div class="row historical">
+  <div class="full column">
+    <p>chart coming Soon&#8482;</p>
+  </div>
+</div>
+</section>
+
+<footer>
+<p>Last update: <span class="date">?</span></p>
+</footer>
+</div>{# /container #}
+
+<script>
+Load.init();
+</script>
+</body>
+</html>

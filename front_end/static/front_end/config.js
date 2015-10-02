@@ -17,6 +17,10 @@ var Config = {
     defaultEndpoint : 'Tenjin',
     reports : [
         {
+            name : 'Load',
+            url  : '/load/',
+        },
+        {
             name : 'Utilisation',
             url  : '/utilisation/',
         },
