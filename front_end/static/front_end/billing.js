@@ -137,7 +137,8 @@ var pp = function(sel, g) {
     // (i.e. (deleted-created) time, clamped by the selected date range),
     // so every resource has units of "something * hours".
     // Each resource has "agg" and "fn" fields defined (below) to sum the resource over all instances.
-    var round = d3.format('.1f'); // matches Formatters.si_bytes precision
+    var decimals = 1;
+    var round = d3.format('.'+decimals+'f');
     var resources = [
         {
             title  : 'VCPU',
@@ -149,7 +150,7 @@ var pp = function(sel, g) {
             title  : 'Memory',
             desc   : 'Memory hours',
             calc   : function(instance, hours) { return instance.memory * hours },
-            format : function(mb) { return Formatters.si_bytes(mb*1024*1024)+' h' },
+            format : function(mb) { return Formatters.si_bytes(mb*1024*1024, decimals)+' h' },
         },
         {
             title  : 'SU',

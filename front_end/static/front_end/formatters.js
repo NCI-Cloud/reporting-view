@@ -26,11 +26,12 @@ var Formatters = {};
                +'</span>';
     };
 
-    Formatters.si_bytes = function(bytes) {
+    Formatters.si_bytes = function(bytes, decimals) {
+        var d = decimals || 0;
         return humanize.intword(
             bytes, ['bytes', 'KiB', 'MiB', 'GiB', 'TiB', 'PiB'],
             1024, // using binary units
-            0,    // show one decimal place
+            d,    // decimal places
             '.',  // decimal point
             '',   // no thousands sep
             ' '   // suffix sep
