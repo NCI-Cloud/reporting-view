@@ -450,6 +450,72 @@ grant execute on procedure reporting.volume_update to 'reporting-query'@'%';
 
 call volume_update();
 
+-- historical usage depends on instance and volume data
+create table historical_usage (
+        day date comment "One record should be added at midnight every day",
+        vcpus int comment "Allocated number of vCPUs",
+        memory int comment "Allocated memory in MB",
+        local_storage int comment "Allocated local storage (root+ephemeral) in GB",
+        primary key (day)
+) comment "Daily snapshots of resource usage";
+
+delimiter //
+
+create definer = 'reporting-update'@'localhost' procedure historical_usage_create()
+deterministic
+begin
+
+-- for d in earliest created date in instance table .. today
+--   insert into historical_usage (day, vcpus, memory, local_storage) values (d, 0, 0, 0, 0)
+-- end for
+-- for i in instance
+--   update historical_usage
+--     set vcpus          = vcpus          + i.vcpus
+--       , memory         = memory         + i.memory
+--       , local_storage  = local_storage  + i.local_storage
+--     where day between i.created and i.deleted;
+-- end for
+
+declare d date;
+declare i_vcpus, i_memory, i_local_storage int;
+declare i_created, i_deleted datetime;
+declare done int default false;
+declare curs cursor for select vcpus, memory, root+ephemeral, created, deleted from instance;
+declare continue handler for not found set done = true;
+
+-- we're setting data incrementally so have to start from scratch
+delete from historical_usage;
+
+-- initialise rows
+select date(min(created)) from instance into d;
+while d <= curdate() do
+        insert into historical_usage (day, vcpus, memory, local_storage) values (d, 0, 0, 0);
+        set d = d + interval 1 day;
+end while;
+
+-- iterate over instances, updating historical_usage table
+open curs;
+read_loop : loop
+        fetch curs into i_vcpus, i_memory, i_local_storage, i_created, i_deleted;
+        if done then
+                leave read_loop;
+        end if;
+        update historical_usage
+            set vcpus          = vcpus          + i_vcpus
+              , memory         = memory         + i_memory
+              , local_storage  = local_storage  + i_local_storage
+            where day between i_created and i_deleted;
+end loop;
+close curs;
+
+end;
+//
+delimiter ;
+
+grant execute on procedure reporting.historical_usage_create to 'reporting-update'@'localhost';
+--call historical_usage_create();
+
+
 create table image (
         id varchar(36) comment "Image UUID",
         project_id varchar(36) comment "Project ID that owns this image",
