@@ -349,4 +349,110 @@ var Charts = {};
 
         return zoom;
     }
+
+    Charts.table = function() {
+        /// array of {title:string, fn:function taking datum outputting string}
+        /**
+         * array of {
+         *  title : string to put in <th>
+         *  fn    : function, to put fn(datum) in <td>
+         *  desc  : string, to put as title attribute of <th> (optional)
+         * }
+         */
+        var cols = [];
+
+        /// index into cols, for ordering data
+        var sortIdx = 0;
+
+        /// d3.ascending or d3.desending
+        var sortOrder = d3.descending;
+
+        function table(selection) {
+            // wrap this in a function it can be called recursively, allowing the table to update itself
+            var makeTable = function(tbl, dataUnsorted) {
+                // make shallow copy of data, for sorting without altering original
+                var data = dataUnsorted
+                    .map(function(d) { return d })
+                    .sort(function(a, b) { return sortOrder(cols[sortIdx].fn(a), cols[sortIdx].fn(b)) });
+
+                // set up <thead>
+                var thead = tbl.selectAll('thead').data([data]);
+                thead.enter().append('thead').append('tr');
+                var th = thead.select('tr').selectAll('th').data(cols);
+                th.enter().append('th');
+                th
+                    .on('click', function(d, i) {
+                        if(sortIdx === i) {
+                            // toggle order
+                            sortOrder = sortOrder === d3.descending ? d3.ascending : d3.descending;
+                        } else {
+                            sortIdx = i;
+                        }
+                        makeTable(tbl, dataUnsorted); // redraw table
+                     })
+                    .attr('title', function(d) { return d.desc })
+                    .attr('class', function(d, i) { return i === sortIdx ? (sortOrder === d3.descending ? 'descending' : 'ascending') : null })
+                    .html(function(d) { return d.title });
+
+                // <tfoot>
+                var tfoot = tbl.selectAll('tfoot').data([data]);
+                tfoot.enter().append('tfoot').append('tr');
+                var tf = tfoot.select('tr').selectAll('td').data(cols);
+                tf.enter().append('td');
+                tf
+                    .html(function(d) { return d.agg ? (d.format || String)(d.agg(data)) : null });
+
+                // <tbody>
+                var tbody = tbl.selectAll('tbody').data([data]);
+                tbody.enter().append('tbody');
+
+                // <tr>
+                var row = tbody.selectAll('tr').data(data);
+                row.enter().append('tr');
+                row.exit().remove();
+
+                // make cells
+                var td = row.selectAll('td').data(function(ins) {
+                    // map instance to array, where each element corresponds to one in cols
+                    return cols.map(function(column) {
+                        return { // TODO make this generic, not key-dependent
+                            title : column.title,
+                            html  : (column.format || String)(column.fn(ins)),
+                            cl    : column.cl || null,
+                        };
+                    });
+                });
+                td.enter().append('td');
+                td.html(function(d) { return d.html });
+                td.attr('class', function(d) { return d.cl });
+                td.exit().remove();
+            };
+
+            selection.each(function(data) { makeTable(d3.select(this), data) });
+        };
+
+        table.cols = function(_) {
+            if(!arguments.length) return cols;
+            cols = _;
+            return table;
+        };
+        table.sortIdx = function(_) {
+            if(!arguments.length) return sortIdx;
+            sortIdx = _;
+            return table;
+        };
+        table.sortOrder = function(_) {
+            if(!arguments.length) return sortOrder;
+            sortOrder = _;
+            return table;
+        };
+        /// convenience setter function combining sortIdx and sortOrder
+        table.sort = function(idx, order) {
+            table.sortIdx(idx);
+            table.sortOrder(order);
+            return table;
+        };
+
+        return table;
+    }
 })();
