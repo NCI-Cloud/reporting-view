@@ -10,9 +10,9 @@ Load.init = function() {
             .margin({top:0, right:0, bottom:0, left:0})
             .donut(true)
             .donutRatio(0.35)
-            .showLegend(true)
-            .showLabels(false);
-        nv.utils.windowResize(pieChart.update);
+            .showLegend(true) // draw (interactive) keys above the chart
+            .showLabels(false); // do not draw keys on the chart
+        nv.utils.windowResize(function() { pieChart.update() });
         return pieChart;
     });
     nv.addGraph(function() {
@@ -36,7 +36,7 @@ Load.init = function() {
                 .tickFormat(function(d) { return d3.time.format(ms < msCutoff ? '%e %b' : '%b %y')(new Date(d)) });
         });
 
-        nv.utils.windowResize(lineChart.update);
+        nv.utils.windowResize(function() { lineChart.update() });
         return lineChart;
     });
 
