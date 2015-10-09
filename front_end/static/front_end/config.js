@@ -21,6 +21,10 @@ var Config = {
             url  : '/load/',
         },
         {
+            name : 'Project',
+            url  : '/project/',
+        },
+        {
             name : 'Utilisation',
             url  : '/utilisation/',
         },

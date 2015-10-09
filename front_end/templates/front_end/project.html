@@ -1,0 +1,69 @@
+{% load staticfiles %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Project Summary</title>
+  <script src="//cdn.jsdelivr.net/humanize/0.0.9/humanize.min.js"></script>{# required (footer "Last updated") #}
+  <script src="//cdn.jsdelivr.net/d3js/3.5.6/d3.min.js"></script>{# required #}
+  <script src="{% static 'front_end/nv.d3.min.js' %}"></script>{# required #}
+  <script src="{% static 'front_end/polyfill.js' %}"></script>{# required #}
+  <script src="{% static 'front_end/config.js' %}"></script>{# required #}
+  <script src="{% static 'front_end/util.js' %}"></script>{# required #}
+  <script src="{% static 'front_end/formatters.js' %}"></script>
+  <script src="{% static 'front_end/fetcher.js' %}"></script>{# required #}
+  <script src="{% static 'front_end/project.js' %}"></script>{# report-specific code #}
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link href="//fonts.googleapis.com/css?family=Raleway:400,300,600" rel="stylesheet" type="text/css">
+  <link rel="stylesheet" href="{% static 'front_end/css/nv.d3.css' %}">
+  <link rel="stylesheet" href="{% static 'front_end/css/normalize.css' %}">{# required #}
+  <link rel="stylesheet" href="{% static 'front_end/css/skeleton.css' %}">{# required #}
+  <link rel="stylesheet" href="{% static 'front_end/css/base.css' %}">
+  <link rel="stylesheet" href="{% static 'front_end/css/project.css' %}">{# report-specific style #}
+</head>
+<body>
+
+<div class="container">
+<nav><select></select><ul></ul></nav>
+
+<section class="title">
+<h4>Project Utilisation</h4>
+<div class="row">
+  <div class="full columns">
+    <p>Either select a single project, or view combined data for all projects associated with an institution.</p>
+  </div>
+</div>
+</section>
+
+<section class="report">
+<div class="row">
+  <div class="one-half column controls">
+    <div><label for="project"><input type="radio">Project</label><select id="project"></select></div>
+    <div><label for="institution"><input type="radio">Institution</label><select id="institution"></select></div>
+    <div><label for="resource">Resource</label><select id="resource"></select></div>
+    <p>The pie chart shows how much of the selected resource is being used by the selected project/s. The &quot;Unused&quot; segment, where shown, is the difference from the resource quota.</p>
+  </div>
+  <div class="one-half column pie">
+    <div class="square"><svg/></div>
+  </div>
+</div>
+<div class="row">
+  <div class="full column chart">
+    <svg/>
+  </div>
+  <div class="full column table">
+    <svg/>
+  </div>
+</div>
+</section>
+
+<footer>
+<p>disclaimers go here</p>
+</footer>
+</div>{# /container #}
+
+<script>
+Project.init();
+</script>
+</body>
+</html>

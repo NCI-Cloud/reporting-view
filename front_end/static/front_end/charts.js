@@ -345,6 +345,11 @@ var Charts = {};
             yZoomFn = _;
             return zoom;
         };
+        zoom.yDateFn = function(_) {
+            if(!arguments.length) return yDateFn;
+            yDateFn = _;
+            return zoom;
+        };
         zoom.dispatch = dispatch;
 
         return zoom;

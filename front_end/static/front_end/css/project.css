@@ -1,0 +1,39 @@
+label {
+    display: inline;
+    font-weight: normal;
+    margin-right: 0.5rem;
+}
+input[type=radio] {
+    margin-right: 1.0rem;
+}
+div.controls p {
+    text-align: justify;
+}
+div.square { /* http://www.mademyday.de/css-height-equals-width-with-pure-css.html */
+    position: relative;
+    width: 100%;
+}
+div.square:before {
+    content: "";
+    display: block;
+    padding-top: 100%;
+}
+div.pie svg {
+    position: absolute;
+    top:0;
+    left:0;
+    right:0;
+    bottom:0;
+}
+.controls div {
+    display: table;
+    width: 100%;
+}
+.controls label {
+    display: table-cell;
+    width: 13rem;
+}
+.controls select {
+    display: table-cell;
+    width: 100%;
+}
