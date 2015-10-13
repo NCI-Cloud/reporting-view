@@ -1,6 +1,11 @@
 var Billing = {};
 (function() {
 
+/// scale SU by an amount based on host aggregate of instance's host (if an instance is in more than one aggregate, scale by max)
+var aggregateScale = {
+    'hpc' : 2,
+};
+
 /// event broadcasting
 var dispatch = d3.dispatch('register', 'projectChanged', 'datesChanged');
 
@@ -18,8 +23,13 @@ Billing.init = function() {
         },
         {
             sel : '.perproject',
-            dep : ['instance', 'user', 'flavour'],
+            dep : ['instance', 'user', 'flavour', 'aggregate_host'],
             fun : pp,
+        },
+        {
+            sel : '.ha',
+            dep : [], // this section gets data from global "aggretateScale" ewww
+            fun : ha,
         },
     ]);
 };
@@ -130,6 +140,12 @@ var pp = function(sel, g) {
         ins._meta = {created : Date.parse(ins.created), deleted : Date.parse(ins.deleted)};
         if(isNaN(ins._meta.created)) ins._meta.created = -Infinity;
         if(isNaN(ins._meta.deleted)) ins._meta.deleted = Infinity; // to make integration and filtering easier
+        ins._meta.hostAggregates = [];
+        g.aggregate_host.forEach(function(ah) {
+            if(ah.host === ins.hypervisor) {
+                ins._meta.hostAggregates.push(ah.aggregate);
+            }
+        });
     });
 
     // Each resource will get a column in the table.
@@ -155,7 +171,10 @@ var pp = function(sel, g) {
         {
             title  : 'SU',
             desc   : 'SU \u223C 1 vcpu \u00B7 4 GiB',  // \u223C is &sim; (similar to ~); \u00B7 is &middot;
-            calc   : function(instance, hours) { return Math.max(instance.vcpus, Math.ceil(instance.memory/1024/4)) * hours },
+            calc   : function(instance, hours) {
+                var aggScale = d3.max(instance._meta.hostAggregates, function(agg) { return aggregateScale[agg] }) || 1;
+                return aggScale * Math.max(instance.vcpus, Math.ceil(instance.memory/1024/4)) * hours;
+            },
             format : function(su) { return round(su) },
         },
     ];
@@ -185,9 +204,14 @@ var pp = function(sel, g) {
         },
         {
             title  : 'Flavour',
-            desc   : 'Flavour id; will clean up later...',
+            desc   : 'Flavour name',
             fn     : function(instance) { return instance.flavour },
             format : Formatters.flavourDisplay(g.flavour),
+        },
+        {
+            title  : 'AZ',
+            desc   : 'Host aggregates [sic]',
+            fn     : function(instance) { return instance._meta.hostAggregates.join(' ') },
         },
     ].concat(resources));
 
@@ -233,6 +257,16 @@ var pp = function(sel, g) {
 
     dispatch.register(sel);
 }
+
+var ha = function(sel) {
+    var s = d3.select(sel);
+    if(!Object.keys(aggregateScale).length) return s.style('display', 'none');
+    var d = Object.keys(aggregateScale).map(function(agg) { return {name : agg, scale : aggregateScale[agg]} });
+    var li = s.select('ul').selectAll('li').data(d);
+    li.enter().append('li');
+    li.html(function(d) { return '<strong>'+d.name+'</strong> &times;'+d.scale });
+    li.exit().remove();
+};
 
 
 })();
