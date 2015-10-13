@@ -73,6 +73,47 @@ grant execute on procedure reporting.hypervisor_update to 'reporting-query'@'%';
 
 call hypervisor_update();
 
+-- host aggregate mapping has no dependencies
+create table aggregate_host (
+        id int(11),
+        host varchar(255) comment "Host name, same as first part of hypervisor.hostname",
+        aggregate varchar(255) comment "Name of aggregate",
+        primary key (id)
+) comment "Active (non-deleted) mappings between aggregates and hosts";
+
+delimiter //
+create definer = 'reporting-update'@'localhost' procedure aggregate_host_update()
+deterministic
+begin
+declare ts datetime;
+declare r int(1);
+select count(*) into r from metadata where table_name = 'aggregate_host';
+if r = 0 then
+insert into metadata (table_name, last_update) values ('aggregate_host', null);
+end if;
+select ifnull(last_update,from_unixtime(0)) into ts from metadata where table_name = 'aggregate_host';
+if r = 0 or date_sub(now(), interval 600 second) > ts then
+replace into aggregate_host
+select
+        aggregate_hosts.id as id,
+        aggregate_hosts.host as host,
+        aggregates.name as aggregate
+from
+        nova.aggregate_hosts join nova.aggregates on aggregate_hosts.aggregate_id = aggregates.id
+where
+        aggregate_hosts.deleted = 0;
+insert into metadata (table_name, last_update) values ('aggregate_host', null)
+on duplicate key update last_update = null;
+end if;
+end;
+//
+delimiter ;
+
+grant execute on procedure reporting.aggregate_host_update to 'reporting-update'@'localhost';
+grant execute on procedure reporting.aggregate_host_update to 'reporting-query'@'%';
+
+call aggregate_host_update();
+
 -- Projects (otherwise known as tenants) group both users and resources such as instances.
 -- Projects are also the finest-grained entity which has resource quotas.
 create table project (
@@ -513,7 +554,7 @@ end;
 delimiter ;
 
 grant execute on procedure reporting.historical_usage_create to 'reporting-update'@'localhost';
---call historical_usage_create();
+-- call historical_usage_create();
 
 
 create table image (
