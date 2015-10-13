@@ -20,8 +20,9 @@ var Util = {};
 
     /**
      * Boilerplate for initialising a page of reports:
-     *   - ensure sessionStorage is available
+     *   - ensure web storage is available
      *   - ensure auth token is set
+     *   - ensure endpoint url is set
      *   - fetch data for reports described by deps, which is a list of
      *        {
      *          sel : css selector for container of report,
@@ -36,7 +37,7 @@ var Util = {};
      *     (N.B. this modifies the "deps" argument)
      */
     Util.initReport = function(deps, done) {
-        if(!Util.storageAvailable('sessionStorage')) {
+        if(!Util.storageAvailable('sessionStorage') || !Util.storageAvailable('localStorage')) {
             console.log('need web storage api');
             return; // TODO handle fatal error
         }
@@ -44,6 +45,11 @@ var Util = {};
         if(!token) {
             location.replace(Config.baseURL);
             return;
+        }
+        var url = localStorage.getItem(Config.endpointKey);
+        if(!url || !Config.endpoints.find(function(e) { return e.url === url })) {
+            // if no valid endpoint is specified, assume the user just didn't change the dropdown
+            localStorage.setItem(Config.endpointKey, Config.endpoints[0].url);
         }
 
         if(done) {
@@ -65,7 +71,7 @@ var Util = {};
         var fetch = Fetcher(Config.endpoints, token, on401);
         fillNav(fetch);
         qdeps(fetch, deps);
-        fetch(Config.defaultEndpoint);
+        fetch(localStorage.getItem(Config.endpointKey));
     }
 
     var qdeps = function(fetch, deps) {
@@ -85,12 +91,12 @@ var Util = {};
 
         // make endpoints dropdown
         var slct = nav.select('select')
-            .on('change', function() { fetch(this.value) });
+            .on('change', function() { localStorage.setItem(Config.endpointKey, this.value); fetch(this.value) });
         var opts = slct.selectAll('option').data(Config.endpoints);
         opts.enter().append('option')
-            .attr('value', function(d) { return d.name })
+            .attr('value', function(d) { return d.url })
             .html(function(d) { return d.name });
-        slct.property('value', Config.endpoints.find(function(e) { return e.name === Config.defaultEndpoint }).name);
+        slct.property('value', Config.endpoints.find(function(e) { return e.url === localStorage.getItem(Config.endpointKey) }).url);
 
         // make nav links
         var ul = nav.select('ul');

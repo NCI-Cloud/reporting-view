@@ -21,11 +21,11 @@ function Fetcher(eps, token, on401) { // "unauthorised" gets special mention bec
     var queue = []; // list of objects with keys: qks, success, error
     var data = endpoints.map(function(e) { return {} }); // for all i: data[i] fetched from endpoints[i]
 
-    /// fetch data from endpoint with given name
-    function fetcher(ep_name) {
-        var epIdx = endpoints.findIndex(function(e) { return e.name === ep_name });
+    /// fetch data from endpoint with given url
+    function fetcher(url) {
+        var epIdx = endpoints.findIndex(function(e) { return e.url === url });
         if(epIdx === -1) {
-            console.log('no endpoint ' + ep_name);
+            console.log('no endpoint with url ' + url);
             queue.forEach(function(q) { q.error() });
             return;
         }

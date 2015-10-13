@@ -4,6 +4,7 @@ var Config = {
     baseURL : 'http://example.com/',
     tokenKey : 'token', // key in sessionStorage for keystone token
     flashKey : 'flash', // key in sessionStorage for temporary message storage
+    endpointKey : 'endpoint', // key in localStorage for which endpoint to use (identified by url)
     endpoints : [
         {
             name : 'Testjin',
@@ -14,7 +15,6 @@ var Config = {
             url  : 'http://130.56.247.245:9494',
         },
     ],
-    defaultEndpoint : 'Tenjin',
     reports : [
         {
             name : 'Load',

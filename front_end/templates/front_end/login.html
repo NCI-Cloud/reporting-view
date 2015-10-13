@@ -5,6 +5,7 @@
   <meta charset="utf-8">
   <title>Authenticate</title>
   <script src="//cdn.jsdelivr.net/jquery/2.1.4/jquery.min.js"></script>
+  <script src="{% static 'front_end/polyfill.js' %}"></script>
   <script src="{% static 'front_end/js-openstackclient.min.js' %}"></script>
   <script src="{% static 'front_end/config.js' %}"></script>
   <script src="{% static 'front_end/util.js' %}"></script>
@@ -28,9 +29,9 @@ location.replace(Config.baseURL + Config.reports[0].url);
 
 <section class="title">
 <h2>Authenticate</h2>
-<div class="row">
+<div class="row instructions-row">
   <div class="full columns instructions">
-    <p>Obtain a Keystone token one of two ways below:</p>
+    <p>Request data from <select></select> using credentials obtained one of two ways below:</p>
   </div>
 </div>
 <div class="row">

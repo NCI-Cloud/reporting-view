@@ -15,6 +15,20 @@
             $('.instructions').prepend('<p>'+message+'</p>');
         }
         sessionStorage.removeItem(Config.flashKey);
+
+        var s = $('select');
+        Config.endpoints.forEach(function(ep) {
+            s.append($('<option/>').val(ep.url).text(ep.name));
+        });
+        var eurl = localStorage.getItem(Config.endpointKey); // get saved endpoint url
+        if(eurl && Config.endpoints.find(function(ep) { return ep.url === eurl })) {
+            // valid endpoint url specified, so select it by default
+            s.val(localStorage.getItem(Config.endpointKey));
+        }
+        s.change(function(e) {
+            // update local storage whenever selected option changes
+            localStorage.setItem(Config.endpointKey, this.value);
+        });
     });
 
     var keystone;
@@ -24,9 +38,16 @@
         $('.manual').removeClass('error');
         $('.manual p.message').html('');
 
-        // save token and redirect
+        // save token
         sessionStorage.setItem(Config.tokenKey, keystone.getToken());
-        location.replace(Config.baseURL + Config.reports[0].url);
+
+        // if no endpoint has been selected, assume the user just didn't change the dropdown
+        if(!localStorage.getItem(Config.endpointKey)) {
+            // TODO should really check that endpoint key is valid, not just that it exists...
+            localStorage.setItem(Config.endpointKey, Config.endpoints[0].url);
+        }
+
+        redirect();
     };
 
     var getTokenTenjin = function() {
@@ -41,5 +62,9 @@
             $('.manual p.message').html(err);
         };
         keystone.authenticate().done(onAuthenticated);
+    };
+
+    var redirect = function() {
+        location.replace(Config.baseURL + Config.reports[0].url);
     };
 })(jQuery);
