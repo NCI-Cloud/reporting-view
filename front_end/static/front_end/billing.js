@@ -200,7 +200,15 @@ var pp = function(sel, g) {
         {
             title  : 'Creator',
             desc   : 'User id; in some cases need to get details from LDAP...',
-            fn     : function(instance) { return instance.created_by }, // TODO look up in g.user or ldap
+            fn     : function(instance) {
+                var u = g.user.find(function(u) { return u.id === instance.created_by });
+                if(u) {
+                    // user exists in nova database
+                    return u.name;
+                }
+                // TODO look up in ldap
+                return instance.created_by
+            },
         },
         {
             title  : 'Flavour',
