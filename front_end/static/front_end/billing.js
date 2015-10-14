@@ -202,6 +202,7 @@ var pp = function(sel, g) {
                 return z(Math.floor(hours))+':'+z(Math.floor(mins))+':'+z(Math.floor(secs));
             },
             agg    : function(data) { return d3.sum(data, function(instance) { return instance._meta.hours }) },
+            cl     : 'number',
         },
         {
             title  : 'SU',
@@ -211,6 +212,7 @@ var pp = function(sel, g) {
                 return aggScale * Math.max(instance.vcpus, Math.ceil(instance.memory/1024/4)) * instance._meta.hours;
             },
             format : function(su) { return round(su) },
+            cl     : 'number',
         },
     ];
 

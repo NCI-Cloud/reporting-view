@@ -39,6 +39,9 @@ tfoot td {
 td.resource, tfoot td {
     white-space: nowrap;
 }
+th.number,td.number {
+    text-align: right;
+}
 .print {
     display: auto;
 }
