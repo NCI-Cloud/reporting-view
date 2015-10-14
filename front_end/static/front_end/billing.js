@@ -111,7 +111,7 @@ var projects = function(sel, g) {
         .style('display', 'none')
         .text('Select project...');
 
-    dispatch.on('projectChanged', function(sender, pid) {
+    dispatch.on('projectChanged.'+sel, function(sender, pid) {
         // setting value to empty string (rather than null) shows "Select project..." option
         slct.property('value', pid || '');
     });
@@ -239,12 +239,12 @@ var pp = function(sel, g) {
         tbl.datum(ws).call(t);
     };
 
-    dispatch.on('projectChanged', function(sender, pid_) {
+    dispatch.on('projectChanged.'+sel, function(sender, pid_) {
         pid = pid_;
         updateTable();
     });
 
-    dispatch.on('datesChanged', function(sender, extent_) {
+    dispatch.on('datesChanged.'+sel, function(sender, extent_) {
         extent = extent_;
         updateTable();
     });
