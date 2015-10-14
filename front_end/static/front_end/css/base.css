@@ -68,3 +68,14 @@ nav li.current a {
     font-weight: bold;
     border-bottom: 2px solid steelblue;
 }
+
+@media print {
+    nav { display : none }
+    body { color : black }
+    input, select { height: auto !important; border : 0 !important; -webkit-appearance: none; -moz-appearance: none; appearance: none; margin: 0 !important; padding: 0 !important }
+    abbr { border: 0 !important }
+    td { border-bottom: 1px solid #F1F1F1 !important }
+    .column,.columns { margin-left: 0 !important }
+    .container { width:100% }
+    html { font-size: 50% !important }
+}

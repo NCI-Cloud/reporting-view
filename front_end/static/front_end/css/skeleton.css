@@ -48,8 +48,8 @@
     padding: 0; }
 }
 
-/* For devices larger than 550px */
-@media (min-width: 550px) {
+/* For devices larger than 500px (changed from skeleton.css default 550px so that A4 has space for two columns) */
+@media (min-width: 500px) {
   .container {
     width: 80%; }
   .column,
