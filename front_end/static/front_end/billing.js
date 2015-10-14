@@ -138,8 +138,8 @@ var pp = function(sel, g) {
     // pollute data to avoid re-parsing dates every time
     g.instance.forEach(function(ins) {
         ins._meta = {created : Date.parse(ins.created), deleted : Date.parse(ins.deleted)};
-        if(isNaN(ins._meta.created)) ins._meta.created = -Infinity;
-        if(isNaN(ins._meta.deleted)) ins._meta.deleted = Infinity; // to make integration and filtering easier
+        if(isNaN(ins._meta.created)) ins._meta.created = -Infinity; // so everything can be treated uniformly,
+        if(isNaN(ins._meta.deleted)) ins._meta.deleted = Infinity;  // making filtering easier
         ins._meta.hostAggregates = [];
         g.aggregate_host.forEach(function(ah) {
             if(ah.host === ins.hypervisor) {
@@ -148,50 +148,12 @@ var pp = function(sel, g) {
         });
     });
 
-    // Each resource will get a column in the table.
-    // For each instance, resource values are scaled by the time window
-    // (i.e. (deleted-created) time, clamped by the selected date range),
-    // so every resource has units of "something * hours".
-    // Each resource has "agg" and "fn" fields defined (below) to sum the resource over all instances.
-    var decimals = 1;
-    var round = d3.format('.'+decimals+'f');
-    var resources = [
-        {
-            title  : 'VCPU',
-            desc   : 'VCPU hours',
-            calc   : function(instance, hours) { return instance.vcpus * hours },
-            format : function(vcpu) { return round(vcpu)+' h' },
-        },
-        {
-            title  : 'Memory',
-            desc   : 'Memory hours',
-            calc   : function(instance, hours) { return instance.memory * hours },
-            format : function(mb) { return Formatters.si_bytes(mb*1024*1024, decimals)+' h' },
-        },
-        {
-            title  : 'SU',
-            desc   : 'SU \u223C 1 vcpu \u00B7 4 GiB',  // \u223C is &sim; (similar to ~); \u00B7 is &middot;
-            calc   : function(instance, hours) {
-                var aggScale = d3.max(instance._meta.hostAggregates, function(agg) { return aggregateScale[agg] }) || 1;
-                return aggScale * Math.max(instance.vcpus, Math.ceil(instance.memory/1024/4)) * hours;
-            },
-            format : function(su) { return round(su) },
-        },
-    ];
-    var total = function(accessor) {
-        // add up accessor(d) for d in data
-        return function(data) {
-            return data.reduce(function(val, ins) { return val + accessor(ins) }, 0);
-        };
-    };
-    resources.forEach(function(res, i) {
-        res.fn  = function(instance) { return instance._meta.resources[i] };
-        res.agg = total(res.fn);
-        res.cl  = 'resource';
-    });
+    // for formatting
+    var round = d3.format('.1f');
+    var time = d3.time.format('%Y-%m-%d %H:%M:%S');
 
     // define some columns for the table, then append columns for resources
-    var t = Charts.table().cols([
+    var cols = [
         {
             title  : 'Instance',
             fn     : function(instance) { return instance.name },
@@ -203,7 +165,7 @@ var pp = function(sel, g) {
             fn     : function(instance) {
                 var u = g.user.find(function(u) { return u.id === instance.created_by });
                 if(u) {
-                    // user exists in nova database
+                    // user exists in keystone
                     return u.name;
                 }
                 // TODO look up in ldap
@@ -221,10 +183,47 @@ var pp = function(sel, g) {
             desc   : 'Host aggregates [sic]',
             fn     : function(instance) { return instance._meta.hostAggregates.join(' ') },
         },
-    ].concat(resources));
+        {
+            title  : 'Started',
+            fn     : function(instance) { return instance.created ? time(new Date(instance.created)) : '' },
+        },
+        {
+            title  : 'Terminated',
+            fn     : function(instance) { return instance.deleted ? time(new Date(instance.deleted)) : '' },
+        },
+        {
+            title  : 'Walltime',
+            desc   : 'Hours : minutes : seconds',
+            fn     : function(instance) { return instance._meta.hours },
+            format : function(hours) {
+                var mins = (hours - Math.floor(hours))*60;
+                var secs = (mins - Math.floor(mins))*60;
+                return Math.floor(hours)+':'+Math.floor(mins)+':'+Math.floor(secs);
+            },
+            agg    : function(data) { return d3.sum(data, function(instance) { return instance._meta.hours }) },
+        },
+        {
+            title  : 'SU',
+            desc   : '1 SU \u223C 1 vcpu \u00B7 4 GiB',  // \u223C is &sim; (similar to ~); \u00B7 is &middot;
+            fn     : function(instance) {
+                var aggScale = d3.max(instance._meta.hostAggregates, function(agg) { return aggregateScale[agg] }) || 1;
+                return aggScale * Math.max(instance.vcpus, Math.ceil(instance.memory/1024/4)) * instance._meta.hours;
+            },
+            format : function(su) { return round(su) },
+        },
+    ];
 
-    // perform calculations over extent for project pid
-    var integrate = function() {
+    // SU is a special resource that we want to show in several places on the report, so let's save its index in the array for easier access
+    var suIdx = cols.findIndex(function(c) { return c.title === 'SU' });
+
+    // defining agg property will cause a total to be shown in the table
+    cols[suIdx].agg = function(data) { return d3.sum(data, cols[suIdx].fn) };
+
+    // set up table
+    var t = Charts.table().cols(cols);
+
+    // if project and date range are specified, update the table
+    var updateTable = function() {
         if(!extent || !pid) {
             // some input/s missing
             s.style('display', 'none');
@@ -233,21 +232,8 @@ var pp = function(sel, g) {
         // all inputs specified, so results can be displayed
         s.style('display', null);
 
-        // find working set (all instances of current project in current time window)
-        var ws = g.instance.filter(function(i) {
-            return i.project_id === pid && i._meta.created < extent[1] && i._meta.deleted >= extent[0];
-        });
-
-        // calculate instances' usage over time window
-        var now = Date.now(); // upper bound on time window, to prevent extrapolation
-        ws.forEach(function(i) {
-            var t0 = Math.max(extent[0], i._meta.created); // lower bound of instance uptime window
-            var t1 = Math.min(extent[1], i._meta.deleted, now); // upper bound (don't extrapolate)
-            var hours = (t1-t0)/3600000;
-            i._meta.resources = resources.map(function(r) {
-                return r.calc(i, hours);
-            });
-        });
+        // find instances to be included in bill for this period for this project
+        var ws = countHours(g.instance, pid, extent);
 
         // update table
         tbl.datum(ws).call(t);
@@ -255,12 +241,12 @@ var pp = function(sel, g) {
 
     dispatch.on('projectChanged', function(sender, pid_) {
         pid = pid_;
-        integrate();
+        updateTable();
     });
 
     dispatch.on('datesChanged', function(sender, extent_) {
         extent = extent_;
-        integrate();
+        updateTable();
     });
 
     dispatch.register(sel);
@@ -276,5 +262,34 @@ var ha = function(sel) {
     li.exit().remove();
 };
 
+/**
+ * Extract and return subset of instances to be included in billing over given time period.
+ * 'instance' array by defining instance[*]._meta.hours, computing how many hours
+ * each instance has been allocated during extent.
+ * @param
+ *    instance   array of all instances
+ *    pid        id of project being billed
+ *    extent     billing period: extent[0] <= time < extent[1] (units of milliseconds)
+ * @return
+ *    filtered copy of input array corresponding to instances included in integration,
+ *    each element annotated with ._meta.hours, giving how many hours each instance has
+ *    been allocated during extent.
+ */
+var countHours = function(instance, pid, extent) {
+    // find working set (all instances of current project in current time window)
+    var ws = instance.filter(function(i) {
+        return i.project_id === pid && i._meta.created < extent[1] && i._meta.deleted >= extent[0];
+    });
+
+    // calculate instances' usage over time window
+    var now = Date.now(); // upper bound on time window, to prevent extrapolation
+    ws.forEach(function(i) {
+        var t0 = Math.max(extent[0], i._meta.created); // lower bound of instance uptime window
+        var t1 = Math.min(extent[1], i._meta.deleted, now); // upper bound (don't extrapolate)
+        i._meta.hours = (t1-t0)/3600000;
+    });
+
+    return ws;
+};
 
 })();
