@@ -196,9 +196,10 @@ var pp = function(sel, g) {
             desc   : 'Hours : minutes : seconds',
             fn     : function(instance) { return instance._meta.hours },
             format : function(hours) {
+                var z = d3.format('02d');
                 var mins = (hours - Math.floor(hours))*60;
                 var secs = (mins - Math.floor(mins))*60;
-                return Math.floor(hours)+':'+Math.floor(mins)+':'+Math.floor(secs);
+                return z(Math.floor(hours))+':'+z(Math.floor(mins))+':'+z(Math.floor(secs));
             },
             agg    : function(data) { return d3.sum(data, function(instance) { return instance._meta.hours }) },
         },
