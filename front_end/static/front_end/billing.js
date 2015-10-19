@@ -123,7 +123,7 @@ var projects = function(sel, g) {
 };
 
 var pp = function(sel, g) {
-    var s = d3.select(sel);
+    var s = d3.selectAll(sel);
     var tbl = s.select('table');
 
     // hide this selection by default, since by default no project has been picked so "per-project" is meaningless
@@ -204,23 +204,23 @@ var pp = function(sel, g) {
             agg    : function(data) { return d3.sum(data, function(instance) { return instance._meta.hours }) },
             cl     : 'number',
         },
-        {
-            title  : 'SU',
-            desc   : '1 SU \u223C 1 vcpu \u00B7 4 GiB',  // \u223C is &sim; (similar to ~); \u00B7 is &middot;
-            fn     : function(instance) {
-                var aggScale = d3.max(instance._meta.hostAggregates, function(agg) { return aggregateScale[agg] }) || 1;
-                return aggScale * Math.max(instance.vcpus, Math.ceil(instance.memory/1024/4)) * instance._meta.hours;
-            },
-            format : function(su) { return round(su) },
-            cl     : 'number',
-        },
     ];
 
-    // SU is a special resource that we want to show in several places on the report, so let's save its index in the array for easier access
-    var suIdx = cols.findIndex(function(c) { return c.title === 'SU' });
+    // SU is a special resource that we want to show in several places on the report, so let's save it for easier access
+    var su = {
+        title  : 'SU',
+        desc   : '1 SU \u223C 1 vcpu \u00B7 4 GiB',  // \u223C is &sim; (similar to ~); \u00B7 is &middot;
+        fn     : function(instance) {
+            var aggScale = d3.max(instance._meta.hostAggregates, function(agg) { return aggregateScale[agg] }) || 1;
+            return aggScale * Math.max(instance.vcpus, Math.ceil(instance.memory/1024/4)) * instance._meta.hours;
+        },
+        format : function(su) { return round(su) },
+        cl     : 'number',
+    };
+    cols.push(su);
 
     // defining agg property will cause a total to be shown in the table
-    cols[suIdx].agg = function(data) { return d3.sum(data, cols[suIdx].fn) };
+    su.agg = function(data) { return d3.sum(data, su.fn) };
 
     // set up table
     var t = Charts.table().cols(cols);
@@ -234,6 +234,36 @@ var pp = function(sel, g) {
         }
         // all inputs specified, so results can be displayed
         s.style('display', null);
+
+        // calculate su for months prior to extent, and plot as horizontal bar chart
+        // TODO don't show further back in the past than data exist
+        var nMonths = 6;
+        var d0 = new Date(extent[0]);
+        var d = new Date(d0.getFullYear(), d0.getMonth() - nMonths, 1);
+        var data = [];
+        for(var i=0; i<nMonths; i++) {
+            var e = new Date(d.getFullYear(), d.getMonth()+1, d.getDate()); // end one month after start
+            var ws = countHours(g.instance, pid, [d.getTime(), e.getTime()]);
+            data.push({month:d.getMonth(), su:su.agg(ws)});
+            d = e;
+        }
+        var monthFormat = d3.time.format('%b');
+        var x = d3.scale.linear()
+            .domain([0, d3.max(data, function(d) { return d.su })])
+            .range([0, 100]);
+        var chart = s.select('.chart');
+        var ChartTblEnter = chart.selectAll('div').data([0]).enter().append('div').attr('class', 'tbl');
+        var chartTbl = chart.select('.tbl');
+        var row = chartTbl.selectAll('.crow').data(data);
+        var rowEnter = row.enter().append('div').attr('class', 'crow');
+        rowEnter.append('span');
+        rowEnter.append('div').append('div').attr('class','bar');
+        row.select('span').html(function(d) { var mon = new Date(); mon.setMonth(d.month); return monthFormat(mon); });
+        row.select('.bar')
+            .html(function(d) { return Math.round(d.su) })
+            .style('width', function(d) { return x(d.su) + '%' });
+        row.exit().remove();
+
 
         // find instances to be included in bill for this period for this project
         var ws = countHours(g.instance, pid, extent);
@@ -256,6 +286,7 @@ var pp = function(sel, g) {
 }
 
 var ha = function(sel) {
+    // TODO only show aggregateScale that actually are shown on report (unfortunately this introduces messy inter-function dependencies)
     var s = d3.select(sel);
     if(!Object.keys(aggregateScale).length) return s.style('display', 'none');
     var d = Object.keys(aggregateScale).map(function(agg) { return {name : agg, scale : aggregateScale[agg]} });

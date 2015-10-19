@@ -28,29 +28,30 @@
 <nav><select></select><ul></ul></nav>
 
 <section class="title">
-<h2>Billing</h2>
+<h2>Cloud Computing Invoice</h2>
 <div class="row controls" style="text-align:left">
-  <div class="four columns">
+  <div class="one-half column">
     <label for="pid">Project</label>
-    <select id="pid" class="u-full-width">
-    </select>
-  </div>
-  <div class="four columns">
+    <select id="pid" class="u-full-width"></select>
     <label for="start">Start date</label>
     <input id="start" class="u-full-width" type="text">
-  </div>
-  <div class="four columns">
     <label for="end">End date</label>
     <input id="end" class="u-full-width" type="text">
   </div>
-</div>
-<div class="perproject">
-  <table class="u-full-width"></table>
+  <div class="one-half column perproject">
+    <label>Invoice history</label>{# oh it's a horrible hack for consistent formatting #}
+    <div class="golden"><div class="chart"></div></div>
+  </div>
 </div>
 </section>
-
-<section class="ha">
+<section class="perproject">
 <div class="row">
+  <div class="full column">
+    <h5>Instance details</h5>
+    <table class="u-full-width"></table>
+  </div>
+</div>
+<div class="row ha">
   <div class="full column">
     <p>Non-unitary host aggregate SU scaling factors:</p>
     <ul></ul>
