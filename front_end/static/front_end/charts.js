@@ -396,7 +396,7 @@ var Charts = {};
                         makeTable(tbl, dataUnsorted); // redraw table
                      })
                     .attr('title', function(d) { return d.desc })
-                    .attr('class', function(d, i) { return i === sortIdx ? (sortOrder === d3.descending ? 'descending' : 'ascending') : null })
+                    .attr('class', function(d, i) { return (i === sortIdx ? (sortOrder === d3.descending ? 'descending' : 'ascending') : '') + (d.cl ? ' '+d.cl : '') })
                     .html(function(d) { return d.title });
 
                 // <tfoot>
@@ -405,6 +405,7 @@ var Charts = {};
                 var tf = tfoot.select('tr').selectAll('td').data(cols);
                 tf.enter().append('td');
                 tf
+                    .attr('class', function(d) { return d.cl })
                     .html(function(d) { return d.agg ? (d.format || String)(d.agg(data)) : null });
 
                 // <tbody>
