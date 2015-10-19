@@ -205,6 +205,7 @@ var pp = function(sel, g) {
             cl     : 'number',
         },
     ];
+    var sortIdx = 4; // index into above array; sorry for ugly hard-coded value
 
     // SU is a special resource that we want to show in several places on the report, so let's save it for easier access
     var su = {
@@ -223,7 +224,9 @@ var pp = function(sel, g) {
     su.agg = function(data) { return d3.sum(data, su.fn) };
 
     // set up table
-    var t = Charts.table().cols(cols);
+    var t = Charts.table()
+        .cols(cols)
+        .sortIdx(sortIdx);
 
     // if project and date range are specified, update the table
     var updateTable = function() {

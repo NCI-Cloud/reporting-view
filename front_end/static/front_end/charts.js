@@ -356,7 +356,6 @@ var Charts = {};
     }
 
     Charts.table = function() {
-        /// array of {title:string, fn:function taking datum outputting string}
         /**
          * array of {
          *  title : string to put in <th>
@@ -370,7 +369,7 @@ var Charts = {};
         var sortIdx = 0;
 
         /// d3.ascending or d3.desending
-        var sortOrder = d3.descending;
+        var sortOrder = d3.ascending;
 
         function table(selection) {
             // wrap this in a function it can be called recursively, allowing the table to update itself
