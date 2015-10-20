@@ -47,7 +47,6 @@ th.number,td.number {
 }
 @media print {
     th::after { content: none !important }
-    .print { display: block }
 }
 div.golden { /* http://www.mademyday.de/css-height-equals-width-with-pure-css.html */
     position: relative;
@@ -90,4 +89,15 @@ div.golden > div {
     display: block;
     height: 50%;
     background: steelblue;
+}
+address {
+    text-align: left;
+    font-style: normal;
+}
+.title .row.print {
+    margin-bottom: 5rem; /* separate print header from rest of document */
+    font-size: 1.2rem;
+}
+.title .row.print address {
+    padding-left: 5rem; /* some browsers squeeze out padding when printing, which makes address look cramped */
 }
