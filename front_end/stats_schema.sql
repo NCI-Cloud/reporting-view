@@ -30,10 +30,10 @@ create table metadata (
 create table hypervisor (
         id int(11) comment "Compute node unique identifier",
         hostname varchar(255) comment "Compute node hostname",
-        ip_address varchar(39) comment "Compute node IP address",
-        cpus int(11) comment "Number of installed CPU cores",
-        memory int(11) comment "Total installed memory in MB",
-        local_storage int(11) comment "Total local disk in GB",
+        ipv4_address varchar(39) comment "Compute node IP address",
+        cores int(11) comment "Number of installed CPU cores",
+        memory_mb int(11) comment "Total installed memory in MB",
+        local_storage_gb int(11) comment "Total local disk in GB",
         primary key (id),
         key hypervisor_hostname_key (hostname),
         key hypervisor_ip_key (ip_address)
@@ -55,10 +55,10 @@ replace into hypervisor
 select
         id,
         hypervisor_hostname as hostname,
-        host_ip as ip_address,
-        vcpus as cpus,
-        memory_mb as memory,
-        local_gb as local_storage
+        host_ip as ipv4_address,
+        vcpus as cores,
+        memory_mb as memory_mb,
+        local_gb as local_storage_gb
 from
         nova.compute_nodes;
 insert into metadata (table_name, last_update) values ('hypervisor', null)
@@ -118,13 +118,13 @@ call aggregate_host_update();
 -- Projects are also the finest-grained entity which has resource quotas.
 create table project (
         id varchar(36) comment "Unique identifier",
-        display_name varchar(64) comment "Human-readable display name",
+        name varchar(64) comment "Human-readable display name",
         enabled boolean comment "If false, the project is not usable by users",
         quota_instances int comment "Maximum concurrent instances",
-        quota_vcpus int comment "Maximum concurrent virtual processor cores",
-        quota_memory int comment "Maximum memory concurrently allocated in MB",
-        quota_volume_total int comment "Maximum total size of storage volumes in GB",
-        quota_snapshot int comment "Maximum number of volume snapshots",
+        quota_cores int comment "Maximum concurrent virtual processor cores",
+        quota_memory_mb int comment "Maximum memory concurrently allocated in MB",
+        quota_volume_gb int comment "Maximum total size of storage volumes in GB",
+        quota_snapshot_count int comment "Maximum number of volume snapshots",
         quota_volume_count int comment "Maximum number of concurrently allocated volumes",
         primary key (id)
 ) comment "Project resource quotas";
@@ -145,14 +145,14 @@ if r = 0 or date_sub(now(), interval 600 second) > ts then
 replace into project
 select
         distinct kp.id as id,
-        kp.name as display_name,
+        kp.name as name,
         kp.enabled as enabled,
-        i.hard_limit as instances,
-        c.hard_limit as cores,
-        r.hard_limit as ram,
-        g.total_limit as gigabytes,
-        v.total_limit as volumes,
-        s.total_limit as snapshots
+        i.hard_limit as quota_instances,
+        c.hard_limit as quota_cores,
+        r.hard_limit as quota_memory_mb,
+        g.total_limit as quota_volume_gb,
+        s.total_limit as quota_snapshot_count,
+        v.total_limit as quota_volume_count
 from
         keystone.project as kp left outer join
         (
@@ -253,11 +253,11 @@ call user_update();
 -- user roles in projects. Note that this is a many to many relationship:
 -- a user can have roles in many projects, and a project may have many users.
 create table `role` (
-        role varchar(255) comment "Role name",
-        user varchar(64) comment "User ID this role is assigned to",
-        project varchar(36) comment "Project ID the user is assigned this role in",
-        foreign key role_user_fkey (user) references user(id),
-        foreign key role_project_fkey (project) references project(id)
+        role_name varchar(255) comment "Role name",
+        user_id varchar(64) comment "User ID this role is assigned to",
+        project_id varchar(36) comment "Project ID the user is assigned this role in",
+        foreign key role_user_fkey (user_id) references user(id),
+        foreign key role_project_fkey (project_id) references project(id)
 ) comment "User membership of projects, with roles";
 
 delimiter //
@@ -274,9 +274,9 @@ select ifnull(last_update,from_unixtime(0)) into ts from metadata where table_na
 if r = 0 or date_sub(now(), interval 600 second) > ts then
 replace into role
 select
-        kr.name as role,
-        ka.actor_id as user,
-        ka.target_id as project
+        kr.name as role_name,
+        ka.actor_id as user_id,
+        ka.target_id as project_id
 from
         keystone.assignment as ka join keystone.role as kr
         on ka.role_id = kr.id
@@ -306,10 +306,10 @@ create table flavour (
         id int(11) comment "Flavour ID",
         uuid varchar(36) comment "Flavour UUID - not unique",
         name varchar(255) comment "Flavour name",
-        vcpus int comment "Number of vCPUs",
-        memory int comment "Memory in MB",
-        root int comment "Size of root disk in GB",
-        ephemeral int comment "Size of ephemeral disk in GB",
+        vcores int comment "Number of virtual CPU cores",
+        memory_mb int comment "Memory in MB",
+        root_gb int comment "Size of root disk in GB",
+        ephemeral_gb int comment "Size of ephemeral disk in GB",
         public boolean comment "Is this flavour publically available",
         primary key (id),
         key flavour_uuid_key (uuid)
@@ -332,10 +332,10 @@ select
         id,
         flavorid as uuid,
         name,
-        vcpus,
-        memory_mb as memory,
-        root_gb as root,
-        ephemeral_gb as ephemeral,
+        vcpus as vcores,
+        memory_mb,
+        root_gb,
+        ephemeral_gb,
         is_public as public
 from
         nova.instance_types;
@@ -356,16 +356,14 @@ create table instance (
         id varchar(36) comment "Instance UUID",
         project_id varchar(36) comment "Project UUID that owns this instance",
         name varchar(64) comment "Instance name",
-        vcpus int comment "Allocated number of vCPUs",
-        memory int comment "Allocated memory in MB",
-        root int comment "Size of root disk in GB",
-        ephemeral int comment "Size of ephemeral disk in GB",
-        flavour int(11) comment "Flavour id used to create instance",
-        created_by varchar(36) comment "id of user who created this instance",
-        created datetime comment "Time instance was created",
-        deleted datetime comment "Time instance was deleted",
-        allocation_time int comment "Number of seconds instance has existed",
-        wall_time int comment "Number of seconds instance has been in active state",
+        vcores int comment "Allocated number of virtual CPU cores",
+        memory_mb int comment "Allocated memory in MB",
+        root_gb int comment "Size of root disk in GB",
+        ephemeral_gb int comment "Size of ephemeral disk in GB",
+        flavour_id int(11) comment "Flavour id used to create instance",
+        created_user_id varchar(36) comment "id of user who created this instance",
+        create_time datetime comment "Time instance was created",
+        delete_time datetime comment "Time instance was deleted",
         cpu_time int comment "Number of seconds instance has been using CPU",
         active boolean comment "True if the instance is currently active",
         hypervisor varchar(255) comment "Hypervisor the instance is running on",
@@ -400,16 +398,14 @@ select
         uuid as id,
         project_id,
         display_name as name,
-        vcpus,
-        memory_mb as memory,
-        root_gb as root,
-        ephemeral_gb as ephemeral,
-        instance_type_id as flavour,
-        user_id as created_by,
-        created_at as created,
-        deleted_at as deleted,
-        unix_timestamp(ifnull(deleted_at,now()))-unix_timestamp(created_at) as allocation_time,
-        0 as wall_time,
+        vcores,
+        memory_mb,
+        root_gb,
+        ephemeral_gb,
+        instance_type_id as flavour_id,
+        user_id as created_user_id,
+        created_at as create_time,
+        deleted_at as delete_time,
         0 as cpu_time,
         if(deleted<>0,false,true) as active,
         host as hypervisor,
@@ -437,18 +433,18 @@ call instance_update();
 create table volume (
         id varchar(36) comment "Volume UUID",
         project_id varchar(36) comment "Project ID that owns this volume",
-        display_name varchar(64) comment "Volume display name",
-        size int(11) comment "Size in GB",
-        created datetime comment "Volume created at",
-        deleted datetime comment "Volume deleted at",
+        name varchar(64) comment "Volume display name",
+        size_gb int(11) comment "Volume size in GB",
+        create_time datetime comment "Volume created at",
+        delete_time datetime comment "Volume deleted at",
         attached boolean comment "Volume attached or not",
-        instance_uuid varchar(36) comment "Instance the volume is attached to",
+        instance_id varchar(36) comment "Instance the volume is attached to",
         availability_zone varchar(255) comment "Availability zone the volume exists in",
         active boolean comment "True if the volume is not deleted",
         primary key (id),
         key volume_active_key (active),
         key volume_project_id_key (project_id),
-        key volume_instance_uuid_key (instance_uuid),
+        key volume_instance_id_key (instance_id),
         key volume_az_key (availability_zone)
 ) comment "External storage volumes";
 
@@ -469,12 +465,12 @@ replace into volume
 select
         id,
         project_id,
-        display_name,
-        size,
-        created_at as created,
-        deleted_at as deleted,
-        if(attach_status='attached',true,false) as attached,
-        instance_uuid,
+        name,
+        size_gb,
+        create_time as created,
+        delete_time as deleted,
+        (attach_status='attached') as attached,
+        instance_id,
         availability_zone,
         !deleted as active
 from
@@ -494,9 +490,9 @@ call volume_update();
 -- historical usage depends on instance and volume data
 create table historical_usage (
         day date comment "One record should be added at midnight every day",
-        vcpus int comment "Allocated number of vCPUs",
-        memory int comment "Allocated memory in MB",
-        local_storage int comment "Allocated local storage (root+ephemeral) in GB",
+        vcores int comment "Allocated number of virtual CPU cores",
+        memory_mb int comment "Allocated memory in MB",
+        local_storage_gb int comment "Allocated local storage (root+ephemeral) in GB",
         primary key (day)
 ) comment "Daily snapshots of resource usage";
 
@@ -561,12 +557,12 @@ create table image (
         id varchar(36) comment "Image UUID",
         project_id varchar(36) comment "Project ID that owns this image",
         name varchar(255) comment "Image display name",
-        size int comment "Size of image in MB",
+        size_mb int comment "Size of image in MB",
         -- TODO: It would be nice if status were an enum, and if the view layer could somehow see that.
         status varchar(30) comment "Current status of image",
         public boolean comment "Is this image publically available",
-        created datetime comment "Time image was created",
-        deleted datetime comment "Time image was deleted",
+        create_time datetime comment "Time image was created",
+        delete_time datetime comment "Time image was deleted",
         primary key (id),
         key image_project_id_key (project_id)
 ) comment "Operating system images";
@@ -589,11 +585,11 @@ select
         id,
         owner as project_id,
         name,
-        size,
+        size as size_mb,
         status,
         is_public as public,
-        created_at as created,
-        deleted_at as deleted
+        created_at as create_time,
+        deleted_at as delete_time
 from
         glance.images;
 insert into metadata (table_name, last_update) values ('image', null)
