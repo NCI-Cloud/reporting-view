@@ -73,7 +73,7 @@ nav li.current a {
     display: none;
 }
 @media print {
-    .print { display: initial } /* not supported in IE, but printing from IE is untested anyway so it's okay not to support it yet */
+    .print { display: block } /* for now we only ever apply print class to div elements; using "initial" or "unset" makes it display inline which is no good */
     .noprint { display: none }
     nav { display : none }
     body { color : black }
@@ -83,5 +83,4 @@ nav li.current a {
     .column,.columns { margin-left: 0 !important }
     .container { width:100% }
     html { font-size: 50% !important }
-    h2 { text-align: left; font-size: 2.5rem; font-weight: bold }
 }
