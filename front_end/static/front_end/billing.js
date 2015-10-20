@@ -267,12 +267,22 @@ var pp = function(sel, g) {
             .style('width', function(d) { return x(d.su) + '%' });
         row.exit().remove();
 
-
         // find instances to be included in bill for this period for this project
         var ws = countHours(g.instance, pid, extent);
 
         // update table
         tbl.datum(ws).call(t);
+
+        // update summary
+        var round = d3.format(',.2f'); // hiding another variable
+        var suCount = su.agg(ws);
+        d3.select('#su').attr('value', round(suCount));
+        var updateTotal = function() {
+            var factor = +d3.select('#factor').property('value');
+            d3.select('#total').attr('value', '$\u2009'+round(factor * suCount));
+        };
+        d3.select('#factor').on('keyup', updateTotal);
+        updateTotal();
     };
 
     dispatch.on('projectChanged.'+sel, function(sender, pid_) {
