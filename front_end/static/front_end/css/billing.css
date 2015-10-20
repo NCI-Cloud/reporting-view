@@ -47,6 +47,7 @@ th.number,td.number {
 }
 @media print {
     th::after { content: none !important }
+    input, select { margin-left: 1rem !important; margin-bottom: 1rem !important; }
 }
 div.golden { /* http://www.mademyday.de/css-height-equals-width-with-pure-css.html */
     position: relative;
