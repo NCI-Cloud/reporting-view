@@ -3,7 +3,7 @@ var Billing = {};
 
 /// scale SU by an amount based on host aggregate of instance's host (if an instance is in more than one aggregate, scale by max)
 var aggregateScale = {
-    'hpc' : 2,
+    'default' : 0.5,
 };
 
 /// event broadcasting
@@ -25,11 +25,6 @@ Billing.init = function() {
             sel : '.perproject',
             dep : ['instance', 'user', 'flavour', 'aggregate_host'],
             fun : pp,
-        },
-        {
-            sel : '.ha',
-            dep : [], // this section gets data from global "aggretateScale" ewww
-            fun : ha,
         },
     ]);
 };
@@ -283,6 +278,11 @@ var pp = function(sel, g) {
         };
         d3.select('#factor').on('keyup', updateTotal);
         updateTotal();
+
+        // update SU scaling factors
+        var usedAggregates = ws.reduce(function(val, ins) { return val.concat(ins._meta.hostAggregates) }, []);
+        usedAggregates = usedAggregates.filter(function(ha, i) { return usedAggregates.indexOf(ha) === i }); // filter unique
+        updateScalingFactors(usedAggregates);
     };
 
     dispatch.on('projectChanged.'+sel, function(sender, pid_) {
@@ -298,14 +298,21 @@ var pp = function(sel, g) {
     dispatch.register(sel);
 }
 
-var ha = function(sel) {
-    // TODO only show aggregateScale that actually are shown on report (unfortunately this introduces messy inter-function dependencies)
-    var s = d3.select(sel);
-    if(!Object.keys(aggregateScale).length) return s.style('display', 'none');
-    var d = Object.keys(aggregateScale).map(function(agg) { return {name : agg, scale : aggregateScale[agg]} });
-    var li = s.select('ul').selectAll('li').data(d);
+/// populate "SU scaling factors" section with values from global "aggregateScale" with specified keys
+var updateScalingFactors = function(keys) {
+    var s = d3.select('.scale');
+    if(keys.length === 0) return s.style('display', 'none');
+    s.style('display', null);
+
+    var format = d3.format('.2f');
+
+    var li = s.select('ul').selectAll('li').data(keys);
     li.enter().append('li');
-    li.html(function(d) { return '<strong>'+d.name+'</strong> &times;'+d.scale });
+    li.html(function(key) {
+        var f = aggregateScale[key] || 1;
+        return '<strong>'+key+'</strong> scaled by <strong>'+format(f)+'</strong>'
+              + (f < 1 && f > 0 ? ' (overcommit factor '+format(1/f)+')' : '');
+    });
     li.exit().remove();
 };
 
