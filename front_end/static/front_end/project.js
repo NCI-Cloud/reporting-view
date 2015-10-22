@@ -276,6 +276,7 @@ var report = function(sel, data) {
                 chart.xFn(function(d) { return d.x });
                 chart.yDateFn(function(d) { return d.y });
                 chart.yZoom(function(d) { return d.y });
+                chart.tickFormat(resources[idx].format);
                 s.select('.chart').datum(data[idx].values).call(chart);
             };
             resSelect.on('change.line', function() { updateLine() });

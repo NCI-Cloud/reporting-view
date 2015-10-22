@@ -355,6 +355,11 @@ var Charts = {};
             xFn = _;
             return zoom;
         };
+        zoom.tickFormat = function(_) {
+            if(!arguments.length) return tickFormat;
+            tickFormat = _;
+            return zoom;
+        };
         zoom.dispatch = dispatch;
 
         return zoom;
