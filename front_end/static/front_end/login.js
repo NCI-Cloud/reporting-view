@@ -40,13 +40,6 @@
 
         // save token
         sessionStorage.setItem(Config.tokenKey, keystone.getToken());
-
-        // if no endpoint has been selected, assume the user just didn't change the dropdown
-        if(!localStorage.getItem(Config.endpointKey)) {
-            // TODO should really check that endpoint key is valid, not just that it exists...
-            localStorage.setItem(Config.endpointKey, Config.endpoints[0].url);
-        }
-
         redirect();
     };
 
