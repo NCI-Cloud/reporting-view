@@ -1,7 +1,7 @@
 var Project = {};
 (function() {
 
-var pieChart, lineChart, table;
+var pieChart, table;
 
 Project.init = function() {
     // set up NVD3 charts
@@ -12,30 +12,6 @@ Project.init = function() {
             .showLabels(false); // do not draw keys on the chart
         nv.utils.windowResize(function() { pieChart.update() });
         return pieChart;
-    });
-    nv.addGraph(function() {
-        lineChart = nv.models.lineWithFocusChart();
-        lineChart.x2Axis
-            .tickFormat(function(d) { return d3.time.format('%b %y')(new Date(d)) });
-
-        // set radioButtonMode, so only one series can be selected at a time
-        // when the chart is actually called, the first series will be manually selected
-        // (couldn't find a less hacky way of doing that)
-        lineChart.legend.radioButtonMode(true);
-        lineChart.legend.dispatch.on('legendClick', function(d, i) {
-            lineChart.yAxis.tickFormat(resources[i].format);
-        });
-
-        // when extent changes, change scale to suit (note that data points are recorded one per day)
-        lineChart.dispatch.on('brush.update', function(b) {
-            var ms = b.extent[1] - b.extent[0];
-            var msCutoff = 3600*24*30*1000*3; // cutoff between "day/month" and "month/year" tick formats
-            lineChart.xAxis
-                .tickFormat(function(d) { return d3.time.format(ms < msCutoff ? '%e %b' : '%b %y')(new Date(d)) });
-        });
-
-        nv.utils.windowResize(lineChart.update);
-        return lineChart;
     });
 
     // fetch data for report
@@ -125,7 +101,7 @@ var report = function(sel, data) {
     radio.property('checked', function(d, i) { return i===0 });
     radio.on('change', picked);
     s.selectAll('label').on('click', picked);
-    s.selectAll('select').on('change', picked); // this sets select#resources on change too, but that gets overridden later
+    s.selectAll('#project,#institution').on('change', picked);
 
     // generate resource <select>
     var resSelect = s.select('select#resource');
@@ -141,6 +117,13 @@ var report = function(sel, data) {
     var ep = d3.select('nav select');
     ep.on('change.project', update); // ep.on('change') is set in util.js; setting here without namespace would override
 
+    var chart = Charts.zoom();
+    chart.pointClass(function(d) { return 'instance-'+d.key });
+    chart.tip().html(function(d) { return d.label });
+    chart.xFn(function(d) { return d.x });
+    chart.yDateFn(function(d) { return d.y });
+    chart.yZoom(function(d) { return d.y });
+
     var update = function() {
         // create list of projects whose data should be fetched
         var pids = [];
@@ -153,7 +136,7 @@ var report = function(sel, data) {
         }
 
         // don't need to re-fetch data when changing displayed resource; jump straight to fetchedAll
-        resSelect.on('change', function() { updatePie() });
+        resSelect.on('change.pie', function() { updatePie() });
 
         // fetch and combine all data for given projects
         var on401 = function() {
@@ -178,6 +161,7 @@ var report = function(sel, data) {
         var n = 0; // count of how many projects have had data received
         var fetched = function(pid, data) { // called after fetching individual project's data;
             // combine all fetched data
+            // TODO use concat instead of this??! what was i smoking
             data['project?id='+pid].forEach(function(d) { project.push(d) });
             data['instance?project_id='+pid].forEach(function(d) { instance.push(d) });
             data['volume?project_id='+pid].forEach(function(d) { volume.push(d) });
@@ -228,8 +212,75 @@ var report = function(sel, data) {
             });
             activeResources.unshift(unused);
 
+            // fill data, array of {
+            //  key    : resource.label
+            //  values : [{x, y, label}]
+            // }
+            // i.e. the format expected by nvd3 lineWithFocusChart,
+            // even though we're not using lineWithFocusChart
+            // (because it doesn't let you zoom/pan arbitrarily, making it not possible
+            // in general to view monthly/quarterly/etc. usage)
+            var data = resources.map(function(r) { return {key : r.label, values : []} });
+
+            // compile list of all instance/volume creation/deletion events
+            var events = [];
+            instance.forEach(function(i) {
+                var ct = Date.parse(i.created),
+                    dt = Date.parse(i.deleted);
+                if(!isNaN(ct)) events.push({time:ct, mult:+1, instance:i});
+                if(!isNaN(dt)) events.push({time:dt, mult:-1, instance:i});
+            });
+            volume.forEach(function(v) {
+                var ct = Date.parse(v.created),
+                    dt = Date.parse(v.deleted);
+                if(!isNaN(ct)) events.push({time:ct, mult:+1, volume:v});
+                if(!isNaN(dt)) events.push({time:dt, mult:-1, volume:v});
+            });
+            events.sort(function(e1, e2) { return e1.time - e2.time });
+
+            // precompute indices into data/resources arrays of resources with instance/volume accessors
+            var insIdx = resources.filter(function(r) { return r.instance }).map(function(r) { return data.findIndex(function(d) { return d.key === r.label }) });
+            var volIdx = resources.filter(function(r) { return r.volume }).map(function(r) { return data.findIndex(function(d) { return d.key === r.label }) });
+
+            var verb = {}; verb[+1] = 'created'; verb[-1] = 'deleted';
+            events.forEach(function(e) {
+                // n.b. if a resource is defined with both instance and volume accessors,
+                // then this will add two data points with same x value
+                if(e.instance) {
+                    insIdx.forEach(function(i) {
+                        var yOld = data[i].values.length ? data[i].values[data[i].values.length-1].y : 0;
+                        data[i].values.push({
+                            x     : e.time,
+                            y     : yOld+e.mult*resources[i].instance(e.instance),
+                            label : verb[e.mult]+' '+e.instance.name,
+                        });
+                    });
+                }
+                if(e.volume) {
+                    volIdx.forEach(function(i) {
+                        var yOld = data[i].values.length ? data[i].values[data[i].values.length-1].y : 0;
+                        data[i].values.push({
+                            x     : e.time,
+                            y     : yOld+e.mult*resources[i].volume(e.volume),
+                            label : verb[e.mult]+' '+e.volume.display_name,
+                        });
+                    });
+                }
+            });
+            // TODO maybe append "now" data point
+
             // data now ready for plotting
+            var updateLine = function() {
+                var idx = resSelect.property('selectedIndex');
+                console.log('updateLine', idx);
+                chart.xFn(function(d) { return d.x });
+                chart.yDateFn(function(d) { return d.y });
+                chart.yZoom(function(d) { return d.y });
+                s.select('.chart').datum(data[idx].values).call(chart);
+            };
+            resSelect.on('change.line', function() { updateLine() });
             updatePie();
+            updateLine();
         };
         var updatePie = function() {
             var key = resSelect.property('value');
@@ -240,18 +291,7 @@ var report = function(sel, data) {
                 .valueFormatter(resources.find(function(r) { return r.key === key }).format);
             var svg = s.select('svg');
             var div = d3.select(svg.node().parentNode);
-            /*
-            pieChart
-                .width(parseInt(div.style('width')))
-                .height(parseInt(div.style('height')));
-                */
             s.select('svg')
-                /*
-                .attr('width', pieChart.width())
-                .attr('height', pieChart.height())
-                .attr('viewBox', '0 0 '+pieChart.width()+' '+pieChart.height()) // scale svg to fit viewport
-                .attr('preserveAspectRatio', 'xMinYMin meet')                   // and keep 
-                */
                 .datum(activeResources)
                 .call(pieChart);
         };

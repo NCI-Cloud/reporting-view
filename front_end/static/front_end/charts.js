@@ -146,7 +146,7 @@ var Charts = {};
 
     Charts.zoom = function() {
         var margin     = {t:30, r:60, b:30, l:60, s:30}, /// top, right, bottom, left, separation between zoomed/finder charts
-            width      = 870, /// both charts have same width; margins are extra
+            width      = 840, /// both charts have same width; margins are extra
             heightZoom = 300, /// "zoom" chart shows a subset of domain
             heightDate = 60,  /// "date" charts shows complete domain
             xFn        = function(d) { return d.time }, /// accessor for horizontal domain
@@ -348,6 +348,11 @@ var Charts = {};
         zoom.yDateFn = function(_) {
             if(!arguments.length) return yDateFn;
             yDateFn = _;
+            return zoom;
+        };
+        zoom.xFn = function(_) {
+            if(!arguments.length) return xFn;
+            xFn = _;
             return zoom;
         };
         zoom.dispatch = dispatch;

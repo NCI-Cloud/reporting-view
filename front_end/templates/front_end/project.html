@@ -12,6 +12,8 @@
   <script src="{% static 'front_end/util.js' %}"></script>{# required #}
   <script src="{% static 'front_end/formatters.js' %}"></script>
   <script src="{% static 'front_end/fetcher.js' %}"></script>{# required #}
+  <script src="{% static 'front_end/d3-tip.min.js' %}"></script>
+  <script src="{% static 'front_end/charts.js' %}"></script>
   <script src="{% static 'front_end/project.js' %}"></script>{# report-specific code #}
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link href='//fonts.googleapis.com/css?family=Open+Sans' rel='stylesheet' type='text/css'>
@@ -19,6 +21,7 @@
   <link rel="stylesheet" href="{% static 'front_end/css/normalize.css' %}">{# required #}
   <link rel="stylesheet" href="{% static 'front_end/css/skeleton.css' %}">{# required #}
   <link rel="stylesheet" href="{% static 'front_end/css/base.css' %}">
+  <link rel="stylesheet" href="{% static 'front_end/css/d3-tip.css' %}">
   <link rel="stylesheet" href="{% static 'front_end/css/project.css' %}">{# report-specific style #}
 </head>
 <body>
@@ -30,7 +33,7 @@
 <h4>Project Utilisation</h4>
 <div class="row">
   <div class="full columns">
-    <p>Either select a single project, or view combined data for all projects associated with an institution.</p>
+    <p>View data either for a single project, or combined over all projects associated with an institution.</p>
   </div>
 </div>
 </section>
@@ -48,11 +51,8 @@
   </div>
 </div>
 <div class="row">
-  <div class="full column chart">
-    <svg/>
-  </div>
+  <div class="full column historical"><div class="chart"></div></div>
   <div class="full column table">
-    <svg/>
   </div>
 </div>
 </section>
