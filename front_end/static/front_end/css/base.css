@@ -17,6 +17,18 @@ footer {
 footer a {
     cursor: pointer;
 }
+.warning {
+    background: url('/static/front_end/img/warning.svg');
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-color: whitesmoke;
+    background-position: center;
+    padding: 2.5rem;
+    padding-bottom: 0; /* because p already has margin-bottom: 2.5rem */
+    border: 2px solid orange;
+    border-radius: 1rem;
+    box-sizing: border-box;
+}
 .loading,.error {
     min-height: 20px;
     min-width: 20px;

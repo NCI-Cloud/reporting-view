@@ -62,6 +62,7 @@ var resources = [
 var report = function(sel, data) {
     // relabel for convenience
     var s = d3.select(sel);
+    var warn = s.select('.warning');
 
     // make shallow copy of data, for sorting without altering original
     var project = data.project
@@ -193,6 +194,7 @@ var report = function(sel, data) {
 
             // prepend "Unused" element
             var unused = {pid:null, label:'Unused'};
+            var warnings = []; // also keep track of any quotas exceeded
             resources.forEach(function(r, i) {
                 unused[r.key] = null; // chart breaks if keys are missing, but works with null values
                 if(r.quota) { // if quota function is defined for this resource, sum over all projects
@@ -204,13 +206,20 @@ var report = function(sel, data) {
                     var used = d3.sum(activeResources, function(ar) { return ar[r.key] });
                     if(used > quota) {
                         // some project has gone over quota...
-                        console.log(r.key,'quota exceeded for some project',pids);
+                        warnings.push('Quota exceeded for '+r.key+' ('+pids.map(function(pid) { return project.find(function(p) { return p.id === pid }).display_name }).join(', ')+').');
                     } else {
                         unused[r.key] = quota - used;
                     }
                 }
             });
             activeResources.unshift(unused);
+
+            // display any quota warnings
+            warn.style('display', warnings.length > 0 ? null : 'none');
+            var w = warn.selectAll('p').data(warnings);
+            w.enter().append('p');
+            w.html(String);
+            w.exit().remove();
 
             // fill data, array of {
             //  key    : resource.label
