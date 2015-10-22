@@ -283,15 +283,22 @@ var Charts = {};
                 // change domain of zoom chart to extent (show full domain for null extent)
                 // redraws as necessary
                 var zoomTo = function(extent) {
+                    var ws; // working set, data with x values in extent
                     if(extent) {
+                        ws = data.filter(function(d) { var x = xFn(d); return extent[0] <= x && x < extent[1] });
                         brushDate.extent(extent); // keep brushes in sync
                         xZoom.domain(extent);
-                        // TODO yZoom.domain(something here)
                         gBrushDate.transition().call(brushDate);
                     } else {
+                        ws = data;
                         brushDate.clear();
                         gBrushDate.call(brushDate); // no transition when clearing (moves to x=0, looks silly)
                         xZoom.domain(xDate.domain());
+                    }
+                    var yExtent = d3.extent(ws, yZoomFn);
+                    if(yExtent[0] !== undefined && yExtent[1] !== undefined) {
+                        // don't try to show [undefined, undefined] extent when no data points are selected
+                        yZoom.domain(d3.extent(ws, yZoomFn));
                     }
 
                     // never show brush on zoom chart, since it would always be 100% selected
@@ -301,7 +308,7 @@ var Charts = {};
                     // transition update for zoom chart (axes, line, and handles)
                     // there is a bug causing the path to disappear when the extent becomes very small (think it's a browser svg rendering bug because firefox fails differently from chromium)
                     gZoom.select('.x.axis').transition().call(xAxisZoom);
-                    gZoom.select('.y.axis').transition().call(yAxisZoom); // jk it doesn't actually change yet
+                    gZoom.select('.y.axis').transition().call(yAxisZoom);
                     gZoom.select('path.line').transition().attr('d', lineZoom);
                     circ.transition()
                         .attr('cx', function(d) { return xZoom(xFn(d)) })
