@@ -44,15 +44,14 @@ Report.init = function() {
         },
         {
             sel : '.hypervisors',
-            dep : ['hypervisor', 'live_instance', 'flavour'],
+            dep : ['hypervisor', 'instance?active=1', 'flavour'],
             fun : report_list,
         },
-        {
-            sel : '.footer',
-            dep : ['last_updated'],
-            fun : report_footer,
-        },
-    ]);
+    ], {
+        sel : 'footer',
+        dep : ['metadata'],
+        fun : footer,
+    });
 };
 
 function report_flavs(sel, g) {
@@ -96,7 +95,7 @@ function report_flavs(sel, g) {
 function report_list(sel, g) {
     var s = d3.select(sel);
 
-    // TODO join hypervisors and live_instances
+    // TODO join hypervisors and active instances
     var data = g.hypervisor.map(function(ins) { // shallow copy of g.hypervisor
         var ret = {};
         for(var k in ins) {
@@ -108,7 +107,7 @@ function report_list(sel, g) {
 
     resMax = res.map(function(r) { return d3.max(g.hypervisor, r.accessor.hypervisor); });
 
-    g.live_instance.forEach(function(ins) {
+    g['instance?active=1'].forEach(function(ins) {
         // assume that instance.hypervisor matches substr of hypervisor.hostname from start to before '.'
         var hyp = data.find(function(h) {
             var dIdx = h.hostname.indexOf('.');
@@ -217,13 +216,16 @@ function report_list(sel, g) {
     });
 }
 
-function report_footer(sel, g) {
-    if(g.last_updated.length == 0) {
-        // panic
-        d3.select(sel).classed('error', true);
-        return;
-    }
-    d3.select(sel).select('.date').html(humanize.relativeTime(g.last_updated[0].timestamp));
-}
+var footer = function(sel, data) {
+    // we only care about updates of tables listed in "data", not all tables in the database
+    var tables = Object.keys(data);
+    var md = data.metadata.filter(function(m) { return tables.indexOf(m.table_name) >= 0 });
+
+    // convert oldest timestamp from milliseconds to seconds
+    var t = d3.min(md, function(m) { return Date.parse(m.last_update) }) * 0.001;
+
+    // pretty print
+    var s = d3.select(sel).select('.date').text(humanize.relativeTime(t));
+};
 
 })();

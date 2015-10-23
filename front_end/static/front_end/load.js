@@ -199,7 +199,7 @@ var footer = function(sel, data) {
     var t = d3.min(md, function(m) { return Date.parse(m.last_update) }) * 0.001;
 
     // pretty print
-    var s = d3.select(sel).select('.date').html(humanize.relativeTime(t));
+    var s = d3.select(sel).select('.date').text(humanize.relativeTime(t));
 };
 
 })();

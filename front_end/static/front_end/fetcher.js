@@ -98,24 +98,7 @@ function Fetcher(eps, token, on401) { // "unauthorised" gets special mention bec
 
     /// retrieve json data
     var sqldump = function(epIdx, qk, success, error) {
-        if(qk === 'live_instance') {
-            // TODO want to make a live_instances view and a separate report, so this hackery becomes unnecessary
-            qk = 'instance';
-            var success_o = success;
-            success = function(all_instances) {
-                success_o(all_instances.filter(function(ins) { return ins.deleted === (endpoints[epIdx].name==='sqldump'?'None':null)}));
-            };
-        } else if(qk === 'last_updated') {
-            // TODO this will be more cleanly done in the report code, not here (but keeping it here for now to avoid breaking older code)
-            qk = 'metadata';
-            var success_o = success;
-            success = function(metadata) {
-                success_o([{timestamp : d3.min(metadata, function(m) { return Date.parse(m.last_update)*0.001 /* because normally we expect seconds, not ms */ })}]);
-            };
-        }
-
         var url = endpoints[epIdx].url + (endpoints[epIdx].name === 'sqldump' ? '/q/' : '/v1/reports/') + qk; // fragile
-
         d3.json(url)
             .header('x-auth-token', token)
             .on('load', success)

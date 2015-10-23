@@ -25,10 +25,6 @@ var Config = {
             url  : '/project/',
         },
         {
-            name : 'Utilisation',
-            url  : '/utilisation/',
-        },
-        {
             name : 'Flavours',
             url  : '/flav/',
         },
