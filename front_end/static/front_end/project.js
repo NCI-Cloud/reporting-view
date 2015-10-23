@@ -125,6 +125,9 @@ var report = function(sel, data) {
     chart.yDateFn(function(d) { return d.y });
     chart.yZoom(function(d) { return d.y });
 
+    var progress = Charts.progress();
+    var progressContainer = s.select('.progress');
+
     var update = function() {
         // create list of projects whose data should be fetched
         var pids = [];
@@ -144,13 +147,9 @@ var report = function(sel, data) {
             // TODO handle unexpected unauthorised
             console.log('session (probably) expired');
         };
-        var callbacks = function(pid, callback) { // TODO enhance these to show pretty progress/error indicators
+        var callbacks = function(pid, callback) { // TODO show pretty error indicator
             return {
-                start : function() {
-                    console.log('fetching',pid);
-                },
                 success : function(data) {
-                    console.log('fetched',pid);
                     callback(pid, data);
                 },
                 error : function() {
@@ -167,9 +166,12 @@ var report = function(sel, data) {
             data['instance?project_id='+pid].forEach(function(d) { instance.push(d) });
             data['volume?project_id='+pid].forEach(function(d) { volume.push(d) });
 
-            // check if we're finished
-            n += 1;
-            if(n === pids.length) fetchedAll();
+            // show progress and check if we're finished
+            progressContainer.call(progress.val(++n));
+            if(n === pids.length) {
+                progressContainer.style('display', 'none');
+                fetchedAll();
+            }
         };
         var fetchedAll = function() { // called after fetching all projects' data, aggregated in project and instance
             // fill activeResources, array of {
@@ -305,8 +307,13 @@ var report = function(sel, data) {
                 .datum(activeResources)
                 .call(pieChart);
         };
+        progress
+            .max(pids.length)
+            .val(0);
+        progressContainer
+            .style('display', null)
+            .call(progress);
         pids.forEach(function(pid) { // enqueue all data to be fetched
-            console.log('===',pid);
             var fetch = Fetcher(Config.endpoints, sessionStorage.getItem(Config.tokenKey), on401);
             var on = callbacks(pid, fetched);
             fetch.q({

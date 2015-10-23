@@ -78,3 +78,25 @@ div.pie svg {
 .historical circle.highlight {
     stroke-opacity: 0.5;
 }
+.progress {
+    font-size: 1.1rem;
+    font-weight: bold;
+    border: 2px solid steelblue;
+    height: 2rem;
+    margin-bottom: 2.5rem;
+    box-sizing: border-box;
+}
+.progress .bar {
+    display: block;
+    height: inherit;
+    box-sizing: border-box;
+    background: lightsteelblue;
+    text-align: right;
+}
+.progress .bar span {
+    color: steelblue;
+    display: inline-block;
+    height: inherit;
+    padding-right: 0.2rem;
+    white-space: nowrap;
+}

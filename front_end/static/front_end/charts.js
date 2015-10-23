@@ -144,6 +144,49 @@ var Charts = {};
         return pie;
     }
 
+    Charts.progress = function() {
+        var min = 0, /// actually not customisable, because progress is displayed as "val/max" which is confusing if min != 0
+            max = 1,
+            val = 0;
+
+        function progress(selection) {
+            selection.each(function(data) {
+                var container = d3.select(this);
+
+                var x = d3.scale.linear().range(['0%', '100%']).domain([min, max]);
+
+                // make sure DOM is set up
+                var bar = container.selectAll('div.bar').data([val]);
+                var barEnter = bar.enter().append('div').attr('class', 'bar').style('width','0px');
+                barEnter.append('span');
+                var span = bar.select('span');
+
+                // update slider
+                bar.transition().styleTween('width', function() {
+                    // transition().style uses pixels, so tries to interpolate e.g. "460px -> 0%" which doesn't work
+                    // so get the percentage-based width from the node and interpolate using that explicitly
+                    return d3.interpolate(bar.node().style.width, x(val));
+                });
+
+                // update text (yeah this should probably be customisable)
+                span.html(val === min ? 'Loading data...' : (val === max ? 'Data loaded.' : 'Loaded '+val+'/'+max));
+            });
+        }
+
+        progress.max = function(_) {
+            if(!arguments.length) return max;
+            max = _;
+            return progress;
+        };
+        progress.val = function(_) {
+            if(!arguments.length) return val;
+            val = _;
+            return progress;
+        };
+
+        return progress;
+    };
+
     Charts.zoom = function() {
         var margin     = {t:30, r:60, b:30, l:60, s:30}, /// top, right, bottom, left, separation between zoomed/finder charts
             width      = 840, /// both charts have same width; margins are extra
