@@ -19,6 +19,19 @@ var Util = {};
     };
 
     /**
+     * Handle 401 (from reporting-api) by assuming token has expired, and
+     * prompting user to re-authenticate.
+     *
+     * This process cannot be automated because authentication via AAF is
+     * an interactive process.
+     */
+    Util.on401 = function() {
+        sessionStorage.removeItem(Config.tokenKey); // credentials no longer good, so don't keep
+        sessionStorage.setItem(Config.flashKey, 'Your session has expired. Please reauthenticate.');
+        location.replace(Config.baseURL);
+    };
+
+    /**
      * Boilerplate for initialising a page of reports:
      *   - ensure web storage is available
      *   - ensure auth token is set
@@ -63,12 +76,7 @@ var Util = {};
             deps.push(done);
         }
 
-        var on401 = function() {
-            sessionStorage.removeItem(Config.tokenKey); // credentials no longer good, so don't keep
-            sessionStorage.setItem(Config.flashKey, 'Your session has expired. Please reauthenticate.');
-            location.replace(Config.baseURL);
-        };
-        var fetch = Fetcher(Config.endpoints, token, on401);
+        var fetch = Fetcher(Config.endpoints, token, Util.on401);
         fillNav(fetch);
         qdeps(fetch, deps);
         fetch(localStorage.getItem(Config.endpointKey));

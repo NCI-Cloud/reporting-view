@@ -143,10 +143,6 @@ var report = function(sel, data) {
         resSelect.on('change.pie', function() { updatePie() });
 
         // fetch and combine all data for given projects
-        var on401 = function() {
-            // TODO handle unexpected unauthorised
-            console.log('session (probably) expired');
-        };
         var callbacks = function(pid, callback) { // TODO show pretty error indicator
             return {
                 success : function(data) {
@@ -309,7 +305,7 @@ var report = function(sel, data) {
             .style('display', null)
             .call(progress);
         pids.forEach(function(pid) { // enqueue all data to be fetched
-            var fetch = Fetcher(Config.endpoints, sessionStorage.getItem(Config.tokenKey), on401);
+            var fetch = Fetcher(Config.endpoints, sessionStorage.getItem(Config.tokenKey), Util.on401);
             var on = callbacks(pid, fetched);
             fetch.q({
                 qks     : ['project?id='+pid, 'instance?project_id='+pid, 'volume?project_id='+pid],
