@@ -118,12 +118,12 @@ var report = function(sel, data) {
     var ep = d3.select('nav select');
     ep.on('change.project', update); // ep.on('change') is set in util.js; setting here without namespace would override
 
-    var chart = Charts.zoom();
-    chart.pointClass(function(d) { return 'instance-'+d.key });
-    chart.tip().html(function(d) { return d.label });
-    chart.xFn(function(d) { return d.x });
-    chart.yDateFn(function(d) { return d.y });
-    chart.yZoom(function(d) { return d.y });
+    // initialise line chart
+    var chart = Charts.zoom()
+        .xFn(function(d) { return d.x })
+        .yDateFn(function(d) { return d.y })
+        .yZoom(function(d) { return d.y });
+    chart.tip().html(function(d) { return d.label })
 
     var progress = Charts.progress();
     var progressContainer = s.select('.progress');
@@ -161,10 +161,9 @@ var report = function(sel, data) {
         var n = 0; // count of how many projects have had data received
         var fetched = function(pid, data) { // called after fetching individual project's data;
             // combine all fetched data
-            // TODO use concat instead of this??! what was i smoking
-            data['project?id='+pid].forEach(function(d) { project.push(d) });
-            data['instance?project_id='+pid].forEach(function(d) { instance.push(d) });
-            data['volume?project_id='+pid].forEach(function(d) { volume.push(d) });
+            project = project.concat(data['project?id='+pid]);
+            instance = instance.concat(data['instance?project_id='+pid]);
+            volume = volume.concat(data['volume?project_id='+pid]);
 
             // show progress and check if we're finished
             progressContainer.call(progress.val(++n));
@@ -283,14 +282,10 @@ var report = function(sel, data) {
             // data now ready for plotting
             var updateLine = function() {
                 var idx = resSelect.property('selectedIndex');
-                console.log('updateLine', idx);
-                chart.xFn(function(d) { return d.x });
-                chart.yDateFn(function(d) { return d.y });
-                chart.yZoom(function(d) { return d.y });
                 chart.tickFormat(resources[idx].format);
                 s.select('.chart').datum(data[idx].values).call(chart);
             };
-            resSelect.on('change.line', function() { updateLine() });
+            resSelect.on('change.line', updateLine);
             updatePie();
             updateLine();
         };
