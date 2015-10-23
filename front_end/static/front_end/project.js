@@ -278,7 +278,15 @@ var report = function(sel, data) {
                     });
                 }
             });
-            // TODO maybe append "now" data point
+
+            // append "now" data points (hack to make the graphs a bit more readable; doesn't add any extra information)
+            var now = Date.now();
+            data.forEach(function(d) {
+                if(d.values.length > 0) {
+                    var latest = d.values[d.values.length-1].y;
+                    d.values.push({x:now, y:latest, label:'now'});
+                }
+            });
 
             // data now ready for plotting
             var updateLine = function() {
