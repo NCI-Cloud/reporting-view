@@ -43,6 +43,7 @@ footer a {
     background-color: rgba(255,0,0,0.1);
     border: 2px dashed crimson;
     border-radius: 1rem;
+    box-sizing: border-box;
 }
 .error .message {
     color: crimson;

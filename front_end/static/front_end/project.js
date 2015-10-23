@@ -143,13 +143,18 @@ var report = function(sel, data) {
         resSelect.on('change.pie', function() { updatePie() });
 
         // fetch and combine all data for given projects
-        var callbacks = function(pid, callback) { // TODO show pretty error indicator
+        var callbacks = function(pid, callback) {
             return {
                 success : function(data) {
                     callback(pid, data);
                 },
-                error : function() {
-                    console.log('error for',pid);
+                error : function(error) {
+                    // any error fetching data is treated as fatal
+                    // alternatively we could try to carry on, using just whatever is successfully received,
+                    // but this would require carefully checking any joining code to make sure it handles missing data gracefully
+                    warn.style('display',null);
+                    warn.append('p').html('Fatal error getting data for project id '+pid+'.');
+                    progressContainer.style('display', 'none');
                 },
             };
         };
@@ -298,13 +303,17 @@ var report = function(sel, data) {
                 .datum(activeResources)
                 .call(pieChart);
         };
+
+        // reset and display progress indicator
         progress
             .max(pids.length)
             .val(0);
         progressContainer
             .style('display', null)
             .call(progress);
-        pids.forEach(function(pid) { // enqueue all data to be fetched
+
+        // enqueue all data to be fetched
+        pids.forEach(function(pid) {
             var fetch = Fetcher(Config.endpoints, sessionStorage.getItem(Config.tokenKey), Util.on401);
             var on = callbacks(pid, fetched);
             fetch.q({

@@ -6,7 +6,7 @@ label {
 input[type=radio] {
     margin-right: 1.0rem;
 }
-div.controls p {
+div.controls > p {
     text-align: justify;
 }
 div.square { /* http://www.mademyday.de/css-height-equals-width-with-pure-css.html */
