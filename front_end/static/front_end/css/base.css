@@ -48,6 +48,9 @@ footer a {
 .error .message {
     color: crimson;
 }
+.title.error {
+    margin-top: 7rem;
+}
 nav {
     text-transform: uppercase;
     font-size: 1.2rem;

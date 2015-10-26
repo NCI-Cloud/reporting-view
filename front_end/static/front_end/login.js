@@ -1,13 +1,18 @@
 (function($) {
-    if(!Util.storageAvailable('sessionStorage')) {
-        // TODO handle fatal error
-        console.log('need web storage api');
-    } else if(sessionStorage.getItem(Config.tokenKey)) {
-        // token already set; not sure if it's better here to re-authenticate or just assume the token's good
-        location.replace(Config.baseURL + Config.reports[0].url);
-    }
 
     $(function() {
+        // check for web storage api
+        if(!Util.storageAvailable('sessionStorage') || !Util.storageAvailable('localStorage')) {
+            $('section').css('display', 'none');
+            $('section.error').css('display', '');
+            $('footer').css('display', 'none');
+            $('.error .message').html('These reports require a modern web browser (with the web storage API).<br>Any recent version of Chrome, Firefox, Internet Explorer, or Safari should work.');
+        } else if(sessionStorage.getItem(Config.tokenKey)) {
+            // token already set; not sure if it's better here to re-authenticate or just assume the token's good
+            location.replace(Config.baseURL + Config.reports[0].url);
+        }
+
+        // hook up forms
         $('form.aaf').attr('action', 'https://accounts.rc.nectar.org.au/rcshibboleth?return-path='+encodeURIComponent(Config.baseURL));
         $('form.manual').on('submit', function() { getTokenTenjin(); return false; });
         var message = sessionStorage.getItem(Config.flashKey);

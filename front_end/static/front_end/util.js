@@ -50,10 +50,6 @@ var Util = {};
      *     (N.B. this modifies the "deps" argument)
      */
     Util.initReport = function(deps, done) {
-        if(!Util.storageAvailable('sessionStorage') || !Util.storageAvailable('localStorage')) {
-            console.log('need web storage api');
-            return; // TODO handle fatal error
-        }
         var token = sessionStorage.getItem(Config.tokenKey);
         if(!token) {
             location.replace(Config.baseURL);
