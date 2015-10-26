@@ -130,8 +130,10 @@ var pp = function(sel, g) {
     var pid = null;
 
     // pollute data to avoid re-parsing dates every time
+    var oldest = Infinity; // creation of first VM
     g.instance.forEach(function(ins) {
         ins._meta = {created : Date.parse(ins.created), deleted : Date.parse(ins.deleted)};
+        if(ins._meta.created < oldest) oldest = ins._meta.created;
         if(isNaN(ins._meta.created)) ins._meta.created = -Infinity; // so everything can be treated uniformly,
         if(isNaN(ins._meta.deleted)) ins._meta.deleted = Infinity;  // making filtering easier
         ins._meta.hostAggregates = [];
@@ -228,9 +230,10 @@ var pp = function(sel, g) {
         s.style('display', null);
 
         // calculate su for months prior to extent, and plot as horizontal bar chart
-        // TODO don't show further back in the past than data exist
-        var nMonths = 6;
-        var d0 = new Date(extent[0]);
+        var d0 = new Date(extent[0]); // first date in range
+        var dO = new Date(oldest); // oldest date in working set (creation of first vm)
+        var maxMonths = isNaN(Date.parse(dO)) ? 0 : d0.getMonth()-dO.getMonth() + 12*(d0.getFullYear()-dO.getFullYear()); // don't show further back into the past than data exist
+        var nMonths = Math.min(6, maxMonths);
         var d = new Date(d0.getFullYear(), d0.getMonth() - nMonths, 1);
         var data = [];
         for(var i=0; i<nMonths; i++) {
