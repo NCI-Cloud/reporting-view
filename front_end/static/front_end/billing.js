@@ -67,9 +67,8 @@ var controls = function(sel) {
 
     dispatch.on('datesChanged.'+sel, function(sender, extent) {
         if(sender === sel) return; // avoid infinite loop
-        // TODO set dates
-        // (take day previous to extent[1] for endPicker's display date)
-        console.log('set bounds on date pickers');
+        // if this ever gets implemented (because some additional date picker is added),
+        // take day previous to extent[1] for endPicker's display date
     });
     dispatch.on('register.'+sel, function(sender, data) {
         if(sender === sel) return; // don't talk to myself
@@ -159,12 +158,7 @@ var pp = function(sel, g) {
             desc   : 'User id; in some cases need to get details from LDAP...',
             fn     : function(instance) {
                 var u = g.user.find(function(u) { return u.id === instance.created_by });
-                if(u) {
-                    // user exists in keystone
-                    return u.name;
-                }
-                // TODO look up in ldap
-                return instance.created_by
+                return u ? u.name : instance.created_by;
             },
         },
         {

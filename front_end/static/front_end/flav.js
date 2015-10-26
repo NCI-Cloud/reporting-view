@@ -60,12 +60,26 @@ function report_flavs(sel, g) {
     // generate <select> for controlling pie
     var slct = s.select('select') // "select" is a word overused yet reserved
         .on('change', function() { var fid = this.value; dispatch.flavChanged(sel, g.flavour.find(function(f){ return f.id==fid })); });
+
+    // remove any old placeholders before doing data join
+    slct.selectAll('option[disabled]').remove();
+
+    // create <option>s
     var opts = slct.selectAll('option').data(g.flavour);
     opts.enter().append('option');
     opts
         .attr('value', function(d) { return d.id; })
         .text(function(d) { return d.name; });
     opts.exit().remove();
+
+    // add placeholder for no project selected
+    slct.insert('option', 'option')
+        .attr('value', '')
+        .attr('disabled', '')
+        .attr('selected', '')
+        .style('display', 'none')
+        .text('Select flavour...');
+
     dispatch.flavChanged(sel, null);
 
     var sumHeight = 50; // pixels
@@ -78,9 +92,9 @@ function report_flavs(sel, g) {
         var data = [];
         if(f) {
             data = res.map(function(r) { return r.accessor.flavour(f) });
-            // TODO set <option selected>
+            slct.property('value', f.id);
         } else {
-            // TODO pick "select flavour" option
+            slct.property('value', ''); // select hidden 'Select flavour...' placeholder
         }
         var span = sum.selectAll('div').data(data);
         span.enter().append('div');
@@ -95,8 +109,8 @@ function report_flavs(sel, g) {
 function report_list(sel, g) {
     var s = d3.select(sel);
 
-    // TODO join hypervisors and active instances
-    var data = g.hypervisor.map(function(ins) { // shallow copy of g.hypervisor
+    // make shallow copy of g.hypervisor, with additional _allocated array corresponding to global "res"
+    var data = g.hypervisor.map(function(ins) {
         var ret = {};
         for(var k in ins) {
             ret[k] = ins[k];
@@ -105,8 +119,10 @@ function report_list(sel, g) {
         return ret;
     });
 
+    // maximum of each resource available on any hypervisor
     resMax = res.map(function(r) { return d3.max(g.hypervisor, r.accessor.hypervisor); });
 
+    // calculate totals of allocated resources on each hypervisor
     g['instance?active=1'].forEach(function(ins) {
         // assume that instance.hypervisor matches substr of hypervisor.hostname from start to before '.'
         var hyp = data.find(function(h) {
@@ -153,10 +169,7 @@ function report_list(sel, g) {
         .html(function(d) { return d.key })
         .on('click', function() { sortBy(this.className) });
 
-    // TODO is there a bug here?
-    // i'd have thought that this code would never clean up the <div>s it creates,
-    // so flicking between endpoints would result in 3, 6, 9... resources.
-    // but this doesn't acutally seem to happen so what is going on
+    // add columns for resources
     res.forEach(function(r, i) {
         resources.append('div')
             .attr('class', r.key)

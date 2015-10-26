@@ -480,10 +480,10 @@ var Charts = {};
                 var td = row.selectAll('td').data(function(ins) {
                     // map instance to array, where each element corresponds to one in cols
                     return cols.map(function(column) {
-                        return { // TODO make this generic, not key-dependent
+                        return {
                             title : column.title,
                             html  : (column.format || String)(column.fn(ins)),
-                            cl    : column.cl || null,
+                            cl    : column.cl,
                         };
                     });
                 });
