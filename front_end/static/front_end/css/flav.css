@@ -92,8 +92,12 @@
     position: relative;
     top: -1.8em;
 }
-p.sum {
+.sum p {
     margin-bottom: 0; /* BabyRage */
+}
+.sum aside {
+    color: gray;
+    font-size: 1rem;
 }
 
 .historical .chart {
