@@ -17,15 +17,15 @@ var Config = {
     ],
     reports : [
         {
-            name : 'Load',
+            name : 'Node Aggregates',
             url  : '/load/',
         },
         {
-            name : 'Project',
+            name : 'Project Details',
             url  : '/project/',
         },
         {
-            name : 'Flavours',
+            name : 'Flavour Capacity',
             url  : '/flav/',
         },
         {
