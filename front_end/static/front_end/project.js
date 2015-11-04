@@ -18,7 +18,7 @@ Project.init = function() {
     Util.initReport([
         {
             sel : '.report',
-            dep : ['project'],
+            dep : ['project?personal=0'],
             fun : report,
         },
     ], {
@@ -65,7 +65,7 @@ var report = function(sel, data) {
     var warn = s.select('.warning');
 
     // make shallow copy of data, for sorting without altering original
-    var project = data.project
+    var project = data['project?personal=0']
         .map(function(d) { return {id:d.id, display_name:d.display_name} })
         .sort(function(a, b) { return d3.ascending(a.display_name.toLowerCase(), b.display_name.toLowerCase()) });
 

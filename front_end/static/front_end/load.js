@@ -44,7 +44,7 @@ Load.init = function() {
     Util.initReport([
         {
             sel : '.live',
-            dep : ['project', 'hypervisor', 'volume?active=1', 'instance?active=1'],
+            dep : ['project?personal=0', 'hypervisor', 'volume?active=1', 'instance?active=1'],
             fun : live,
         },
         {
@@ -93,6 +93,7 @@ var live = function(sel, data) {
     // relabel for convenience
     var instance = data['instance?active=1'];
     var volume = data['volume?active=1'];
+    var project = data['project?personal=0'];
     var s = d3.select(sel);
 
     // generate <select> for controlling pie
@@ -124,7 +125,7 @@ var live = function(sel, data) {
     //  memory        : total over active instances,
     //  local_storage : total over active instances
     // }
-    var activeResources = data.project.map(function(p) {
+    var activeResources = project.map(function(p) {
         return instance
             .filter(function(ins) { return ins.project_id === p.id })
             .reduce(agg, {key:p.id, label:p.display_name, vcpus:0, memory:0, local_storage:0});
