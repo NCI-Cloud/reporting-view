@@ -293,7 +293,7 @@ var Charts = {};
                     .call(xAxisZoom);
                 gZoom.select('g.axis.y')
                     .call(yAxisZoom);
-                gZoom.select('clippath rect')
+                gZoom.select('clipPath rect')
                     .attr('width', width + 1) // because stroke width is 2px, so could overflow
                     .attr('height', heightZoom);
                 gZoom.select('g.brush')
