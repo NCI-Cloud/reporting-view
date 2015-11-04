@@ -187,6 +187,9 @@ var Charts = {};
         return progress;
     };
 
+    /**
+     * This chart assumes that its data will be ordered (according to values returned by xFn accessor).
+     */
     Charts.zoom = function() {
         var margin     = {t:30, r:60, b:30, l:60, s:30}, /// top, right, bottom, left, separation between zoomed/finder charts
             width      = 840, /// both charts have same width; margins are extra
@@ -326,22 +329,25 @@ var Charts = {};
                 // change domain of zoom chart to extent (show full domain for null extent)
                 // redraws as necessary
                 var zoomTo = function(extent) {
-                    var ws; // working set, data with x values in extent
+                    // find indices in data bounding elements within extent (assumes data is ordered)
+                    var bisect = d3.bisector(xFn);
+                    var lb = extent ? bisect.left(data, extent[0]) : 0;
+                    var ub = extent ? bisect.right(data, extent[1]) : data.length;
+                    var ws = data.slice(lb, ub);
                     if(extent) {
-                        ws = data.filter(function(d) { var x = xFn(d); return extent[0] <= x && x < extent[1] });
                         brushDate.extent(extent); // keep brushes in sync
                         xZoom.domain(extent);
                         gBrushDate.transition().call(brushDate);
                     } else {
-                        ws = data;
                         brushDate.clear();
                         gBrushDate.call(brushDate); // no transition when clearing (moves to x=0, looks silly)
                         xZoom.domain(xDate.domain());
                     }
                     var yExtent = d3.extent(ws, yZoomFn);
                     if(yExtent[0] !== undefined && yExtent[1] !== undefined) {
-                        // don't try to show [undefined, undefined] extent when no data points are selected
-                        yZoom.domain(d3.extent(ws, yZoomFn));
+                        // don't try to show [undefined, undefined] extent when no data points are selected.
+                        // re-slice to include the points immediately before and after the extent
+                        yZoom.domain(d3.extent(data.slice(Math.max(0, lb-1), ub+1), yZoomFn));
                     }
 
                     // never show brush on zoom chart, since it would always be 100% selected
