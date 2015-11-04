@@ -79,18 +79,25 @@ var report = function(sel, data) {
         .text(function(d) { return d.display_name });
     projectOpt.exit().remove();
 
-    // TODO gather institutions
-    var inst = [{id:'id', name:'coming Soon\u2122'}, {id:'2',name:'2'}];
+    // gather institutions
+    var inst = {}; // this will be {'Institution Name' : [pid1, pid2, ..]} (since the organisation name seems to be the only identifier for the institution, there's no id field)
+    data['project?personal=0'].forEach(function(p) {
+        if(!p.organisation) return; // don't try calling null.split
+        p.organisation.split(';').forEach(function(o) {
+            if(!inst[o]) inst[o] = [];
+            inst[o].push(p.id);
+        });
+    });
+    var organisation = Object.keys(inst).sort(); // make an array, for calling selection.data
 
     // generate institution <select>
     var instSelect = s.select('select#institution');
     var instOpt = instSelect.selectAll('option')
-        .data(inst);
+        .data(organisation);
     instOpt.enter().append('option');
     instOpt
-        .attr('value', function(d) { return d.id })
-        .attr('disabled', '')
-        .text(function(d) { return d.name });
+        .attr('value', function(d) { return d })
+        .text(function(d) { return d });
     instOpt.exit().remove();
 
     // keep in sync radio, select and label elements
@@ -130,13 +137,11 @@ var report = function(sel, data) {
 
     var update = function() {
         // create list of projects whose data should be fetched
-        var pids = [];
+        var pids;
         if(s.select('label[for=institution] input[type=radio]').property('checked')) {
-            // TODO append all projects for this institution
-            var inst = instSelect.property('value');
-            console.log('inst', inst);
+            pids = inst[instSelect.property('value')];
         } else {
-            pids.push(projSelect.property('value'));
+            pids = [projSelect.property('value')];
         }
 
         // don't need to re-fetch data when changing displayed resource; jump straight to fetchedAll
