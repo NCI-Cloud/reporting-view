@@ -1,5 +1,4 @@
 (function($) {
-
     $(function() {
         // check for web storage api
         if(!Util.storageAvailable('sessionStorage') || !Util.storageAvailable('localStorage')) {
@@ -9,12 +8,12 @@
             $('.error .message').html('These reports require a modern web browser (with the web storage API).<br>Any recent version of Chrome, Firefox, Internet Explorer, or Safari should work.');
         } else if(sessionStorage.getItem(Config.tokenKey)) {
             // token already set; not sure if it's better here to re-authenticate or just assume the token's good
-            location.replace(Config.baseURL + Config.reports[0].url);
+            redirect();
         }
 
         // hook up forms
         $('form.aaf').attr('action', 'https://accounts.rc.nectar.org.au/rcshibboleth?return-path='+encodeURIComponent(Config.baseURL));
-        $('form.manual').on('submit', function() { getTokenTenjin(); return false; });
+        $('form.manual').on('submit', function() { getTokenTenjin(); return false });
         var message = sessionStorage.getItem(Config.flashKey);
         if(message) {
             $('.instructions').prepend('<p>'+message+'</p>');
@@ -48,18 +47,40 @@
         redirect();
     };
 
+    var onError = function(message) {
+        $('.manual').addClass('error');
+        $('.manual p.message').html(String(message));
+    };
+
+    /**
+     * please make sure this never throws
+     */
     var getTokenTenjin = function() {
-        keystone = new osclient.Keystone({
-            authURL       : $('#url').val(),
-            domainName    : 'default',
-            username      : $('#username').val(),
-            password      : $('#password').val(),
-        });
-        keystone.defaultParams.error = function(jqxhr, status, err) {
-            $('.manual').addClass('error');
-            $('.manual p.message').html(err);
-        };
-        keystone.authenticate().done(onAuthenticated);
+        // remove any error display (actually redundant, since if token gets obtained the browser redirects anyway)
+        $('.manual').removeClass('error');
+        $('.manual p.message').html('');
+
+        // constructing Keystone instance can throw (e.g. on empty authURL); need to catch that here
+        try {
+            keystone = new osclient.Keystone({
+                authURL       : $('#url').val(),
+                domainName    : 'default',
+                username      : $('#username').val(),
+                password      : $('#password').val(),
+            });
+            keystone.defaultParams.error = function(jqxhr, status, err) {
+                onError(err);
+            };
+        } catch(exception) {
+            onError(exception);
+            return; // don't bother trying to authenticate if something has already failed
+        }
+        keystone.authenticate().then(
+            onAuthenticated,
+            function(error) {
+                onError(error);
+            }
+        );
     };
 
     var redirect = function() {

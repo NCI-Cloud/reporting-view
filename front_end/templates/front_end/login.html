@@ -17,7 +17,7 @@
   <link rel="stylesheet" href="{% static 'front_end/css/base.css' %}">
 </head>
 <body>
-{% if token %}{# context['token'] gets set when a token is POSTed to login page; then we want to put it in local storage #}
+{% if token %}{# TODO this won't work #}
 <script>
 var token = '{{ token|escapejs }}';
 sessionStorage.setItem(Config.tokenKey, token);
