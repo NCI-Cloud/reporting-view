@@ -339,7 +339,10 @@ var report = function(sel, data) {
 
 var footer = function(sel, data) {
     // we only care about updates of tables listed in "data", not all tables in the database
-    var tables = Object.keys(data);
+    var tables = Object.keys(data).map(function(qk) {
+        var i = qk.indexOf('?'); // remove any query parameters from table names
+        return i === -1 ? qk : qk.substring(0, i);
+    });
     var md = data.metadata.filter(function(m) { return tables.indexOf(m.table_name) >= 0 });
 
     // convert oldest timestamp from milliseconds to seconds
