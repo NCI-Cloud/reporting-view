@@ -18,12 +18,12 @@ Billing.init = function() {
         },
         {
             sel : '#pid',
-            dep : ['project'],
+            dep : ['project?personal=0'],
             fun : projects,
         },
         {
             sel : '.perproject',
-            dep : ['instance', 'user', 'flavour', 'aggregate_host'],
+            dep : ['user', 'flavour', 'aggregate_host'],
             fun : pp,
         },
     ]);
@@ -87,7 +87,7 @@ var projects = function(sel, g) {
     slct.selectAll('option[disabled]').remove();
 
     // make shallow copy of data, for sorting without altering original
-    var project = g.project
+    var project = g['project?personal=0']
         .map(function(d) { return {id:d.id, display_name:d.display_name} })
         .sort(function(a, b) { return d3.ascending(a.display_name.toLowerCase(), b.display_name.toLowerCase()) });
 
@@ -129,20 +129,8 @@ var pp = function(sel, g) {
     // currently selected project id
     var pid = null;
 
-    // pollute data to avoid re-parsing dates every time
-    var oldest = Infinity; // creation of first VM
-    g.instance.forEach(function(ins) {
-        ins._meta = {created : Date.parse(ins.created), deleted : Date.parse(ins.deleted)};
-        if(ins._meta.created < oldest) oldest = ins._meta.created;
-        if(isNaN(ins._meta.created)) ins._meta.created = -Infinity; // so everything can be treated uniformly,
-        if(isNaN(ins._meta.deleted)) ins._meta.deleted = Infinity;  // making filtering easier
-        ins._meta.hostAggregates = [];
-        g.aggregate_host.forEach(function(ah) {
-            if(ah.host === ins.hypervisor) {
-                ins._meta.hostAggregates.push(ah.aggregate);
-            }
-        });
-    });
+    // current working data set (subset of instance table)
+    var instance = [];
 
     // for formatting
     var round = d3.format('.1f');
@@ -231,14 +219,14 @@ var pp = function(sel, g) {
 
         // calculate su for months prior to extent, and plot as horizontal bar chart
         var d0 = new Date(extent[0]); // first date in range
-        var dO = new Date(oldest); // oldest date in working set (creation of first vm)
+        var dO = new Date(d3.min(instance, function(ins) { return ins.created })); // oldest date in working set (creation of first VM)
         var maxMonths = isNaN(Date.parse(dO)) ? 0 : d0.getMonth()-dO.getMonth() + 12*(d0.getFullYear()-dO.getFullYear()); // don't show further back into the past than data exist
         var nMonths = Math.min(6, maxMonths);
         var d = new Date(d0.getFullYear(), d0.getMonth() - nMonths, 1);
         var data = [];
         for(var i=0; i<nMonths; i++) {
             var e = new Date(d.getFullYear(), d.getMonth()+1, d.getDate()); // end one month after start
-            var ws = countHours(g.instance, pid, [d.getTime(), e.getTime()]);
+            var ws = countHours(instance, [d.getTime(), e.getTime()]);
             data.push({month:d.getMonth(), su:su.agg(ws)});
             d = e;
         }
@@ -260,7 +248,7 @@ var pp = function(sel, g) {
         row.exit().remove();
 
         // find instances to be included in bill for this period for this project
-        var ws = countHours(g.instance, pid, extent);
+        var ws = countHours(instance, extent);
 
         // update table
         tbl.datum(ws).call(t);
@@ -284,7 +272,45 @@ var pp = function(sel, g) {
 
     dispatch.on('projectChanged.'+sel, function(sender, pid_) {
         pid = pid_;
-        updateTable();
+        if(!pid) {
+            // TODO hide everything, since no project has been selected
+            return;
+        }
+
+        // TODO refactor Fetcher so it has optional arguments with these as default
+        var fetch = Fetcher(Config.endpoint, sessionStorage.getItem(Config.tokenKey), Util.on401);
+        fetch.q({
+            qks     : ['instance?project_id='+pid],
+            start   : function() {
+                // update ui
+                d3.select('label[for=pid]').classed('loading', true);
+                d3.select('#pid').attr('disabled', '');
+            },
+            success : function(data) {
+                // update ui
+                d3.select('#pid').attr('disabled', null);
+                d3.select('label[for=pid]').classed('loading', false);
+
+                // capture data, then pollute to avoid re-parsing dates every time
+                instance = data['instance?project_id='+pid];
+                instance.forEach(function(ins) {
+                    ins._meta = {created : Date.parse(ins.created), deleted : Date.parse(ins.deleted)};
+                    if(isNaN(ins._meta.created)) ins._meta.created = -Infinity; // so everything can be treated uniformly,
+                    if(isNaN(ins._meta.deleted)) ins._meta.deleted = Infinity;  // making filtering easier
+                    ins._meta.hostAggregates = [];
+                    g.aggregate_host.forEach(function(ah) {
+                        if(ah.host === ins.hypervisor) {
+                            ins._meta.hostAggregates.push(ah.aggregate);
+                        }
+                    });
+                });
+                updateTable();
+            },
+            error   : function(error) {
+                console.log('error',error); // TODO handle
+            },
+        });
+        fetch();
     });
 
     dispatch.on('datesChanged.'+sel, function(sender, extent_) {
@@ -319,17 +345,16 @@ var updateScalingFactors = function(keys) {
  * each instance has been allocated during extent.
  * @param
  *    instance   array of all instances
- *    pid        id of project being billed
  *    extent     billing period: extent[0] <= time < extent[1] (units of milliseconds)
  * @return
  *    filtered copy of input array corresponding to instances included in integration,
  *    each element annotated with ._meta.hours, giving how many hours each instance has
  *    been allocated during extent.
  */
-var countHours = function(instance, pid, extent) {
+var countHours = function(instance, extent) {
     // find working set (all instances of current project in current time window)
     var ws = instance.filter(function(i) {
-        return i.project_id === pid && i._meta.created < extent[1] && i._meta.deleted >= extent[0];
+        return i._meta.created < extent[1] && i._meta.deleted >= extent[0];
     });
 
     // calculate instances' usage over time window

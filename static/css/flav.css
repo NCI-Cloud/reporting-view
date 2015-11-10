@@ -13,6 +13,7 @@
     height: 30px; /* match rowHeight in flav.js */
     line-height: 30px;
     display: table;
+    table-layout: fixed;
 }
 .hypervisors div.hypervisor.selected {
     font-weight: bold;
@@ -24,6 +25,9 @@
 .hypervisors span.hostname {
     display: table-cell;
     width: 9em;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
     border: 1px solid white;
     vertical-align: middle;
 }

@@ -10,7 +10,7 @@ Load.init = function() {
             .margin({top:0, right:0, bottom:0, left:0})
             .donut(true)
             .donutRatio(0.35)
-            .showLegend(true) // draw (interactive) keys above the chart
+            .showLegend(false) // do not draw (interactive) keys above the chart
             .showLabels(false); // do not draw keys on the chart
         nv.utils.windowResize(function() { pieChart.update() });
         return pieChart;
@@ -44,7 +44,7 @@ Load.init = function() {
     Util.initReport([
         {
             sel : '.live',
-            dep : ['project', 'hypervisor', 'volume?active=1', 'instance?active=1'],
+            dep : ['project?personal=0', 'hypervisor', 'volume?active=1', 'instance?active=1'],
             fun : live,
         },
         {
@@ -93,6 +93,7 @@ var live = function(sel, data) {
     // relabel for convenience
     var instance = data['instance?active=1'];
     var volume = data['volume?active=1'];
+    var project = data['project?personal=0'];
     var s = d3.select(sel);
 
     // generate <select> for controlling pie
@@ -124,7 +125,7 @@ var live = function(sel, data) {
     //  memory        : total over active instances,
     //  local_storage : total over active instances
     // }
-    var activeResources = data.project.map(function(p) {
+    var activeResources = project.map(function(p) {
         return instance
             .filter(function(ins) { return ins.project_id === p.id })
             .reduce(agg, {key:p.id, label:p.display_name, vcpus:0, memory:0, local_storage:0});
@@ -187,7 +188,7 @@ var historical = function(sel, data) {
     // so we want to show just one resource at a time (so when the chart was initialised, set radioButtonMode)
     // and couldn't find an elegant way of doing this, so manually invoke the legend's click handler
     var series = s.select('.nv-series'); // yes this is hacky :c
-    series.on('click')(series.node().__data__, 0);
+    if(!series.empty()) series.on('click')(series.node().__data__, 0);
 };
 
 var footer = function(sel, data) {

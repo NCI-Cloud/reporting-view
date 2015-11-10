@@ -155,7 +155,7 @@ function report_list(sel, g) {
         .on('mouseover', function() { d3.select(this).classed('selected', true) })
         .on('mouseout',  function() { d3.select(this).classed('selected', false) });
     row
-        .html(function(d) { return '<span class="capacity"></span><span class="hostname">'+d.hostname+'</span>' })
+        .html(function(d) { return '<span class="capacity"></span><span class="hostname" title="'+d.hostname+'">'+d.hostname+'</span>' })
         .style('top', function(_, i) { return i*rowHeight+'px' });
     row.exit().remove();
 

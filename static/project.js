@@ -8,7 +8,7 @@ Project.init = function() {
     nv.addGraph(function() {
         pieChart = nv.models.pieChart()
             .margin({top:0, right:0, bottom:0, left:0})
-            .showLegend(true) // draw (interactive) keys above the chart
+            .showLegend(false) // do not draw (interactive) keys above the chart, because they take up too much space :(
             .showLabels(false); // do not draw keys on the chart
         nv.utils.windowResize(function() { pieChart.update() });
         return pieChart;
@@ -18,7 +18,7 @@ Project.init = function() {
     Util.initReport([
         {
             sel : '.report',
-            dep : ['project'],
+            dep : ['project?personal=0'],
             fun : report,
         },
     ], {
@@ -65,7 +65,7 @@ var report = function(sel, data) {
     var warn = s.select('.warning');
 
     // make shallow copy of data, for sorting without altering original
-    var project = data.project
+    var project = data['project?personal=0']
         .map(function(d) { return {id:d.id, display_name:d.display_name} })
         .sort(function(a, b) { return d3.ascending(a.display_name.toLowerCase(), b.display_name.toLowerCase()) });
 
@@ -79,18 +79,25 @@ var report = function(sel, data) {
         .text(function(d) { return d.display_name });
     projectOpt.exit().remove();
 
-    // TODO gather institutions
-    var inst = [{id:'id', name:'coming Soon\u2122'}, {id:'2',name:'2'}];
+    // gather institutions
+    var inst = {}; // this will be {'Institution Name' : [pid1, pid2, ..]} (since the organisation name seems to be the only identifier for the institution, there's no id field)
+    data['project?personal=0'].forEach(function(p) {
+        if(!p.organisation) return; // don't try calling null.split
+        p.organisation.split(';').forEach(function(o) {
+            if(!inst[o]) inst[o] = [];
+            inst[o].push(p.id);
+        });
+    });
+    var organisation = Object.keys(inst).sort(); // make an array, for calling selection.data
 
     // generate institution <select>
     var instSelect = s.select('select#institution');
     var instOpt = instSelect.selectAll('option')
-        .data(inst);
+        .data(organisation);
     instOpt.enter().append('option');
     instOpt
-        .attr('value', function(d) { return d.id })
-        .attr('disabled', '')
-        .text(function(d) { return d.name });
+        .attr('value', function(d) { return d })
+        .text(function(d) { return d });
     instOpt.exit().remove();
 
     // keep in sync radio, select and label elements
@@ -114,10 +121,6 @@ var report = function(sel, data) {
         .text(function(d) { return d.label });
     resOpt.exit().remove();
 
-    // we will have our own Fetcher, which we want to share the user-selected endpoint
-    var ep = d3.select('nav select');
-    ep.on('change.project', update); // ep.on('change') is set in util.js; setting here without namespace would override
-
     // initialise line chart
     var chart = Charts.zoom()
         .xFn(function(d) { return d.x })
@@ -130,13 +133,11 @@ var report = function(sel, data) {
 
     var update = function() {
         // create list of projects whose data should be fetched
-        var pids = [];
+        var pids;
         if(s.select('label[for=institution] input[type=radio]').property('checked')) {
-            // TODO append all projects for this institution
-            var inst = instSelect.property('value');
-            console.log('inst', inst);
+            pids = inst[instSelect.property('value')];
         } else {
-            pids.push(projSelect.property('value'));
+            pids = [projSelect.property('value')];
         }
 
         // don't need to re-fetch data when changing displayed resource; jump straight to fetchedAll
@@ -322,7 +323,7 @@ var report = function(sel, data) {
 
         // enqueue all data to be fetched
         pids.forEach(function(pid) {
-            var fetch = Fetcher(Config.endpoints, sessionStorage.getItem(Config.tokenKey), Util.on401);
+            var fetch = Fetcher(Config.endpoint, sessionStorage.getItem(Config.tokenKey), Util.on401);
             var on = callbacks(pid, fetched);
             fetch.q({
                 qks     : ['project?id='+pid, 'instance?project_id='+pid, 'volume?project_id='+pid],
@@ -330,7 +331,7 @@ var report = function(sel, data) {
                 success : on.success,
                 error   : on.error,
             });
-            fetch(ep.property('value'));
+            fetch();
         });
     }
     update();
