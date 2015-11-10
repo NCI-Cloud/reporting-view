@@ -10,7 +10,7 @@ Load.init = function() {
             .margin({top:0, right:0, bottom:0, left:0})
             .donut(true)
             .donutRatio(0.35)
-            .showLegend(true) // draw (interactive) keys above the chart
+            .showLegend(false) // do not draw (interactive) keys above the chart
             .showLabels(false); // do not draw keys on the chart
         nv.utils.windowResize(function() { pieChart.update() });
         return pieChart;
