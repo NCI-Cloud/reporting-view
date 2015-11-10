@@ -55,6 +55,11 @@ nav {
     text-transform: uppercase;
     font-size: 1.2rem;
 }
+nav img {
+    float: right;
+    height: 3rem;
+    margin-top: 1.5rem; /* nav height is approx 6rem, so this makes it approx centred */
+}
 nav ul {
     list-style-type: none;
     margin: 0;
