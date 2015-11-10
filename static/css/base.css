@@ -18,7 +18,7 @@ footer a {
     cursor: pointer;
 }
 .warning {
-    background: url('/static/front_end/img/warning.svg');
+    background: url('/static/img/warning.svg');
     background-size: contain;
     background-repeat: no-repeat;
     background-color: whitesmoke;
@@ -37,7 +37,7 @@ footer a {
 .loading {
     background-repeat: no-repeat;
     background-position: center;
-    background-image: url(../img/loading.gif); /* From https://commons.wikimedia.org/wiki/File:Loading.gif (CC-BY-SA-2.5) */
+    background-image: url('/static/img/loading.gif'); /* From https://commons.wikimedia.org/wiki/File:Loading.gif (CC-BY-SA-2.5) */
 }
 .error {
     background-color: rgba(255,0,0,0.1);

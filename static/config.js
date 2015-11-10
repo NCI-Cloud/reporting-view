@@ -8,19 +8,19 @@ var Config = {
     reports : [
         {
             name : 'Node Aggregates',
-            url  : '/load/',
+            url  : '/load',
         },
         {
             name : 'Project Details',
-            url  : '/project/',
+            url  : '/project',
         },
         {
             name : 'Flavour Capacity',
-            url  : '/flav/',
+            url  : '/flav',
         },
         {
             name : 'Billing',
-            url  : '/billing/',
+            url  : '/billing',
         },
     ],
 };
