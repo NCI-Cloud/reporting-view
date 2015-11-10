@@ -270,10 +270,6 @@ var pp = function(sel, g) {
         updateScalingFactors(usedAggregates);
     };
 
-    // we will have our own Fetcher, which we want to share the user-selected endpoint
-    var ep = d3.select('nav select');
-    ep.on('change.pp', null); // TODO need to handle this
-
     dispatch.on('projectChanged.'+sel, function(sender, pid_) {
         pid = pid_;
         if(!pid) {
@@ -282,7 +278,7 @@ var pp = function(sel, g) {
         }
 
         // TODO refactor Fetcher so it has optional arguments with these as default
-        var fetch = Fetcher(Config.endpoints, sessionStorage.getItem(Config.tokenKey), Util.on401);
+        var fetch = Fetcher(Config.endpoint, sessionStorage.getItem(Config.tokenKey), Util.on401);
         fetch.q({
             qks     : ['instance?project_id='+pid],
             start   : function() {
@@ -314,7 +310,7 @@ var pp = function(sel, g) {
                 console.log('error',error); // TODO handle
             },
         });
-        fetch(ep.property('value'));
+        fetch();
     });
 
     dispatch.on('datesChanged.'+sel, function(sender, extent_) {

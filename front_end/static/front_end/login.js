@@ -19,20 +19,6 @@
             $('.instructions').prepend('<p>'+message+'</p>');
         }
         sessionStorage.removeItem(Config.flashKey);
-
-        var s = $('select');
-        Config.endpoints.forEach(function(ep) {
-            s.append($('<option/>').val(ep.url).text(ep.name));
-        });
-        var eurl = localStorage.getItem(Config.endpointKey); // get saved endpoint url
-        if(eurl && Config.endpoints.find(function(ep) { return ep.url === eurl })) {
-            // valid endpoint url specified, so select it by default
-            s.val(localStorage.getItem(Config.endpointKey));
-        }
-        s.change(function(e) {
-            // update local storage whenever selected option changes
-            localStorage.setItem(Config.endpointKey, this.value);
-        });
     });
 
     var keystone;

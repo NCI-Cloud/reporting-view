@@ -55,10 +55,6 @@ nav {
     text-transform: uppercase;
     font-size: 1.2rem;
 }
-nav select {
-    float: right;
-    margin-top: 1rem; /* nav height is approx 6rem; select height is approx 4rem; this makes it approx centred */
-}
 nav ul {
     list-style-type: none;
     margin: 0;

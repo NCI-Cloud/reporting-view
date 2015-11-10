@@ -35,14 +35,13 @@ var Util = {};
      * Boilerplate for initialising a page of reports:
      *   - ensure web storage is available
      *   - ensure auth token is set
-     *   - ensure endpoint url is set
      *   - fetch data for reports described by deps, which is a list of
      *        {
      *          sel : css selector for container of report,
      *          dep : list of reports (to be requested from reporting-api) required for this section,
      *          fun : function called back after dep reports are all loaded,
      *                called as fun(sel, data) where data.x = reporting-api results for report x (for all x in dep);
-     *                this function is called every time an endpoint is queried for data
+     *                this function is called every time the endpoint is queried for data
      *        }
      *   - if "done" argument is specified (should be an object "f" with f.sel, f.dep and f.fun defined),
      *     set f.dep = union of f.dep, and x.dep for all x in deps
@@ -54,11 +53,6 @@ var Util = {};
         if(!token) {
             location.replace(Config.baseURL);
             return;
-        }
-        var url = localStorage.getItem(Config.endpointKey);
-        if(!url || !Config.endpoints.find(function(e) { return e.url === url })) {
-            // if no valid endpoint is specified, assume the user just didn't change the dropdown
-            localStorage.setItem(Config.endpointKey, Config.endpoints[0].url);
         }
 
         if(done) {
@@ -72,10 +66,10 @@ var Util = {};
             deps.push(done);
         }
 
-        var fetch = Fetcher(Config.endpoints, token, Util.on401);
+        var fetch = Fetcher(Config.endpoint, token, Util.on401);
         fillNav(fetch);
         qdeps(fetch, deps);
-        fetch(localStorage.getItem(Config.endpointKey));
+        fetch();
     }
 
     var qdeps = function(fetch, deps) {
@@ -92,15 +86,6 @@ var Util = {};
 
     var fillNav = function(fetch) {
         var nav = d3.select('nav');
-
-        // make endpoints dropdown
-        var slct = nav.select('select')
-            .on('change', function() { localStorage.setItem(Config.endpointKey, this.value); fetch(this.value) });
-        var opts = slct.selectAll('option').data(Config.endpoints);
-        opts.enter().append('option')
-            .attr('value', function(d) { return d.url })
-            .html(function(d) { return d.name });
-        slct.property('value', Config.endpoints.find(function(e) { return e.url === localStorage.getItem(Config.endpointKey) }).url);
 
         // make nav links
         var ul = nav.select('ul');

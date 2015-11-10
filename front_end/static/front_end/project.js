@@ -121,10 +121,6 @@ var report = function(sel, data) {
         .text(function(d) { return d.label });
     resOpt.exit().remove();
 
-    // we will have our own Fetcher, which we want to share the user-selected endpoint
-    var ep = d3.select('nav select');
-    ep.on('change.project', update); // ep.on('change') is set in util.js; setting here without namespace would override
-
     // initialise line chart
     var chart = Charts.zoom()
         .xFn(function(d) { return d.x })
@@ -327,7 +323,7 @@ var report = function(sel, data) {
 
         // enqueue all data to be fetched
         pids.forEach(function(pid) {
-            var fetch = Fetcher(Config.endpoints, sessionStorage.getItem(Config.tokenKey), Util.on401);
+            var fetch = Fetcher(Config.endpoint, sessionStorage.getItem(Config.tokenKey), Util.on401);
             var on = callbacks(pid, fetched);
             fetch.q({
                 qks     : ['project?id='+pid, 'instance?project_id='+pid, 'volume?project_id='+pid],
@@ -335,7 +331,7 @@ var report = function(sel, data) {
                 success : on.success,
                 error   : on.error,
             });
-            fetch(ep.property('value'));
+            fetch();
         });
     }
     update();
