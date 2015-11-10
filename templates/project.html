@@ -1,4 +1,3 @@
-{% load staticfiles %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -6,23 +5,23 @@
   <title>Project Summary</title>
   <script src="//cdn.jsdelivr.net/humanize/0.0.9/humanize.min.js"></script>{# required (footer "Last updated") #}
   <script src="//cdn.jsdelivr.net/d3js/3.5.6/d3.min.js"></script>{# required #}
-  <script src="{% static 'front_end/nv.d3.min.js' %}"></script>{# required #}
-  <script src="{% static 'front_end/polyfill.js' %}"></script>{# required #}
-  <script src="{% static 'front_end/config.js' %}"></script>{# required #}
-  <script src="{% static 'front_end/util.js' %}"></script>{# required #}
-  <script src="{% static 'front_end/formatters.js' %}"></script>
-  <script src="{% static 'front_end/fetcher.js' %}"></script>{# required #}
-  <script src="{% static 'front_end/d3-tip.min.js' %}"></script>
-  <script src="{% static 'front_end/charts.js' %}"></script>
-  <script src="{% static 'front_end/project.js' %}"></script>{# report-specific code #}
+  <script src="/static/nv.d3.min.js"></script>{# required #}
+  <script src="/static/polyfill.js"></script>{# required #}
+  <script src="/static/config.js"></script>{# required #}
+  <script src="/static/util.js"></script>{# required #}
+  <script src="/static/formatters.js"></script>
+  <script src="/static/fetcher.js"></script>{# required #}
+  <script src="/static/d3-tip.min.js"></script>
+  <script src="/static/charts.js"></script>
+  <script src="/static/project.js"></script>{# report-specific code #}
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link href='//fonts.googleapis.com/css?family=Open+Sans' rel='stylesheet' type='text/css'>
-  <link rel="stylesheet" href="{% static 'front_end/css/nv.d3.css' %}">
-  <link rel="stylesheet" href="{% static 'front_end/css/normalize.css' %}">{# required #}
-  <link rel="stylesheet" href="{% static 'front_end/css/skeleton.css' %}">{# required #}
-  <link rel="stylesheet" href="{% static 'front_end/css/base.css' %}">
-  <link rel="stylesheet" href="{% static 'front_end/css/d3-tip.css' %}">
-  <link rel="stylesheet" href="{% static 'front_end/css/project.css' %}">{# report-specific style #}
+  <link rel="stylesheet" href="/static/css/nv.d3.css">
+  <link rel="stylesheet" href="/static/css/normalize.css">{# required #}
+  <link rel="stylesheet" href="/static/css/skeleton.css">{# required #}
+  <link rel="stylesheet" href="/static/css/base.css">
+  <link rel="stylesheet" href="/static/css/d3-tip.css">
+  <link rel="stylesheet" href="/static/css/project.css">{# report-specific style #}
 </head>
 <body>
 

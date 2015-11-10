@@ -1,25 +1,24 @@
-{% load staticfiles %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
   <title>Authenticate</title>
   <script src="//cdn.jsdelivr.net/jquery/2.1.4/jquery.min.js"></script>
-  <script src="{% static 'front_end/polyfill.js' %}"></script>
-  <script src="{% static 'front_end/js-openstackclient.min.js' %}"></script>
-  <script src="{% static 'front_end/config.js' %}"></script>
-  <script src="{% static 'front_end/util.js' %}"></script>
-  <script src="{% static 'front_end/login.js' %}"></script>
+  <script src="/static/polyfill.js"></script>
+  <script src="/static/js-openstackclient.min.js"></script>
+  <script src="/static/config.js"></script>
+  <script src="/static/util.js"></script>
+  <script src="/static/login.js"></script>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link href='//fonts.googleapis.com/css?family=Open+Sans' rel='stylesheet' type='text/css'>
-  <link rel="stylesheet" href="{% static 'front_end/css/normalize.css' %}">
-  <link rel="stylesheet" href="{% static 'front_end/css/skeleton.css' %}">
-  <link rel="stylesheet" href="{% static 'front_end/css/base.css' %}">
+  <link rel="stylesheet" href="/static/css/normalize.css">
+  <link rel="stylesheet" href="/static/css/skeleton.css">
+  <link rel="stylesheet" href="/static/css/base.css">
 </head>
 <body>
 {% if token %}{# context['token'] gets set when a token is POSTed to login page; then we want to put it in local storage #}
 <script>
-var token = '{{ token|escapejs }}';
+var token = '{{ token }}';
 sessionStorage.setItem(Config.tokenKey, token);
 location.replace(Config.baseURL + Config.reports[0].url);
 </script>
