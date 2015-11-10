@@ -188,7 +188,7 @@ var historical = function(sel, data) {
     // so we want to show just one resource at a time (so when the chart was initialised, set radioButtonMode)
     // and couldn't find an elegant way of doing this, so manually invoke the legend's click handler
     var series = s.select('.nv-series'); // yes this is hacky :c
-    series.on('click')(series.node().__data__, 0);
+    if(!series.empty()) series.on('click')(series.node().__data__, 0);
 };
 
 var footer = function(sel, data) {
