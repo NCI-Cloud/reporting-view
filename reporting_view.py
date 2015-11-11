@@ -20,7 +20,7 @@ def report(report):
     try:
         return render_template(report)
     except flask.templating.TemplateNotFound:
-        abort(404)
+        flask.abort(404)
 
 @app.errorhandler(404)
 def page_not_found(error):
