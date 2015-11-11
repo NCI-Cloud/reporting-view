@@ -1,0 +1,9 @@
+reporting-view for Debian
+-------------------------
+
+This package is almost completely javascript, with a single minimal flask based
+wsgi application. To configure it, modify the provided apache.conf file
+according to your site requirements, pointing mod_wsgi at the reporting_view.py
+script.
+
+ -- NCI Cloud Team <cloud.team@nci.org.au>  Wed, 11 Nov 2015 17:51:37 +1100

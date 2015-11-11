@@ -1,0 +1,12 @@
+Source: reporting-view
+Section: python
+Priority: optional
+Maintainer: NCI Cloud Team <cloud.team@nci.org.au>
+Build-Depends: debhelper (>= 9), dh-python
+Standards-Version: 3.9.5
+
+Package: reporting-view
+Architecture: any
+Depends: ${python:Depends}, ${misc:Depends}, python-flask (>=0.10.1)
+Description: OpenStack Reporting View Layer
+ This package provides the view layer for the OpenStack Reporting system.
