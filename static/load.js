@@ -107,7 +107,7 @@ var live = function(sel, data) {
     //var modeSelect = s.select('select.mode')
     //    .on('change', function() { updateChart() });
 
-    // we will sum fields [vcpus, memory, local_storage] over instances
+    // function for reducing over array of instances, extracting what we want to plot
     var agg = function(val, instance) {
         return {
             vcpus         : val.vcpus         + instance.vcpus,
@@ -118,22 +118,39 @@ var live = function(sel, data) {
         };
     };
 
-    // create array of {
-    //  key           : project id,
-    //  label         : project display name,
-    //  vcpus         : total over active instances,
-    //  memory        : total over active instances,
-    //  local_storage : total over active instances
-    // }
-    var activeResources = project.map(function(p) {
-        return instance
-            .filter(function(ins) { return ins.project_id === p.id })
-            .reduce(agg, {key:p.id, label:p.display_name, vcpus:0, memory:0, local_storage:0});
+    // instances belonging to projects with personal=1 will have organisation "undefined",
+    // and instances belonging to projects with no organisatoin will get "null";
+    // later on, when we would store this in an object, javascript will convert that to string
+    // which gets confusing e.g. because strings "null" and "undefined" evaluate to true.
+    // SO instead we define these 'pseudo-organisations' with string names that will never
+    // be used by actual organisations, and compare against these
+    var pseudoOrg = {'__null' : 'No organisation', '__undefined' : 'Personal trial'};
+
+    // construct reverse mapping {project_id : "Organisation name"}
+    var po = {};
+    project.forEach(function(p) {
+        po[p.id] = p.organisation || '__null';
     });
+
+    // construct {"Organisation name" : [instances]}
+    var oi = {};
+    instance.forEach(function(i) {
+        var organisation = po[i.project_id] || '__undefined';
+        if(!(organisation in oi)) oi[organisation] = [];
+        oi[organisation].push(i);
+    });
+
+    // reduce oi to get {"Organisation name" : {key, label, vcpus, etc.}}
+    var activeResources = Object.keys(oi).map(function(o) {
+        return oi[o].reduce(agg, {key:o, label:o in pseudoOrg ? pseudoOrg[o] : o, vcpus:0, memory:0, local_storage:0});
+    });
+
+    // sort ascending by first resource (vcpus)
+    activeResources.sort(function(a, b) { return b[resources[0].key] - a[resources[0].key] });
 
     // sum each project's volume storage
     activeResources.forEach(function(res) {
-        res.volume_storage = d3.sum(volume.filter(function(v) { return v.project_id === res.key }), function(v) { return v.size });
+        res.volume_storage = d3.sum(volume.filter(function(v) { return po[v.project_id] === res.key }), function(v) { return v.size });
     });
 
     // find how much of each resource is available across all hypervisors
