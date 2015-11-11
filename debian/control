@@ -8,5 +8,6 @@ Standards-Version: 3.9.5
 Package: reporting-view
 Architecture: any
 Depends: ${python:Depends}, ${misc:Depends}, python-flask (>=0.10.1)
+Recommends: apache2, libapache2-mod-wsgi
 Description: OpenStack Reporting View Layer
  This package provides the view layer for the OpenStack Reporting system.
