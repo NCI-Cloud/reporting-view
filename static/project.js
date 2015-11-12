@@ -109,7 +109,7 @@ var report = function(sel, data) {
     var radio = s.selectAll('input[type=radio]');
     radio.property('checked', function(d, i) { return i === 0 });
     radio.on('change', picked);
-    s.selectAll('.controls > div').classed('disabled', function(_, i) { return i !== 0 });
+    s.selectAll('.controls > div').classed('disabled', function(_, i) { return i === 1 });
     s.selectAll('label').on('click', picked);
     s.selectAll('#project,#institution').on('change', picked);
 
