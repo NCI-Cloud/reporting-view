@@ -299,7 +299,10 @@ var pp = function(sel, g) {
                     ins._meta.hostAggregates = [];
                     g.aggregate_host.forEach(function(ah) {
                         if(ah.host === ins.hypervisor) {
-                            ins._meta.hostAggregates.push(ah.availability_zone);
+                            if(ins._meta.hostAggregates.indexOf(ah.availability_zone) === -1) {
+                                // work around buggy data with many duplicate records
+                                ins._meta.hostAggregates.push(ah.availability_zone);
+                            }
                         }
                     });
                 });
