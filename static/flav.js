@@ -121,9 +121,6 @@ function report_list(sel, g) {
         return ret;
     });
 
-    // maximum of each resource available on any hypervisor
-    resMax = res.map(function(r) { return d3.max(g.hypervisor, r.accessor.hypervisor); });
-
     // calculate totals of allocated resources on each hypervisor
     instance.forEach(function(ins) {
         // assume that instance.hypervisor matches substr of hypervisor.hostname from start to before '.'
@@ -184,9 +181,8 @@ function report_list(sel, g) {
             .attr('class', r.key)
           .append('div')
             .attr('class', 'bar')
-            .style('width', function(d) { return r.accessor.hypervisor(d)/resMax[i]*100+'%' })
           .append('div')
-            .html(function(d) { return r.format(d._allocated[i]) })
+            .html(function(d) { return r.format(d._allocated[i])+' / '+r.format(r.accessor.hypervisor(d)) })
             .style('width', function(d) { return d._allocated[i]/r.accessor.hypervisor(d)*100+'%' }) // could use a d3 scale for this, but can't be bothered
             .attr('class', function(d) { return d._allocated[i] > r.accessor.hypervisor(d) ? 'oversubscribed' : '' });
     });

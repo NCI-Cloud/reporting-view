@@ -48,6 +48,7 @@
     height: 50%;
     position: relative;
     top: 24%;
+    width: 100%;
 }
 .hypervisors div.resources div.bar div {
     background: steelblue;
