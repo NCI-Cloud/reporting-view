@@ -139,7 +139,20 @@ var report = function(sel, data) {
         if(s.select('label[for=institution] input[type=radio]').property('checked')) {
             pids = inst[instSelect.property('value')];
         } else {
-            pids = [projSelect.property('value')];
+            // picking a single project: make array with length 1
+            var pid = projSelect.property('value');
+            pids = [pid];
+
+            // if there's an organisation associated with this project, select it
+            var o = organisation.find(function(o) {
+                return inst[o].find(function(p) {
+                    return p === pid
+                }) !== undefined;
+            });
+            if(o) {
+                // found matching organisation
+                instSelect.property('value', o);
+            }
         }
 
         // don't need to re-fetch data when changing displayed resource; jump straight to fetchedAll
