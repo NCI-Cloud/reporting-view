@@ -107,7 +107,9 @@ function report_flavs(sel, g) {
 }
 
 function report_list(sel, g) {
+    // relabel for convenience
     var s = d3.select(sel);
+    var instance = g['instance?active=1'];
 
     // make shallow copy of g.hypervisor, with additional _allocated array corresponding to global "res"
     var data = g.hypervisor.map(function(ins) {
@@ -123,7 +125,7 @@ function report_list(sel, g) {
     resMax = res.map(function(r) { return d3.max(g.hypervisor, r.accessor.hypervisor); });
 
     // calculate totals of allocated resources on each hypervisor
-    g['instance?active=1'].forEach(function(ins) {
+    instance.forEach(function(ins) {
         // assume that instance.hypervisor matches substr of hypervisor.hostname from start to before '.'
         var hyp = data.find(function(h) {
             var dIdx = h.hostname.indexOf('.');
@@ -136,10 +138,14 @@ function report_list(sel, g) {
         }
     });
 
-    var sortKey = res[0].key, sortOrder = d3.descending;
-    var sortAccessor = {'capacity' : function(d) { return +d._capacity }, 'hostname' : function(d) { return d.hostname }};
+    // sortAccessor elements must be ordered matching DOM order (dom elements must have class "th")
+    var sortIdx = 0, sortOrder = d3.descending;
+    var sortAccessor = [
+        function(d) { return +d._capacity },
+        function(d) { return d.hostname },
+    ];
     res.forEach(function(r, i) {
-        sortAccessor[r.key] = function(d) { return +d._allocated[i] };
+        sortAccessor.push(function(d) { return +d._allocated[i] });
     });
 
     var rowHeight = 30; //px, has to match some stuff in flav.css
@@ -165,9 +171,12 @@ function report_list(sel, g) {
     s.selectAll('.controls span');
     var h = header.selectAll('div').data(res);
     h.enter().append('div')
-        .attr('class', function(d) { return d.key })
-        .html(function(d) { return d.key })
-        .on('click', function() { sortBy(this.className) });
+        .attr('class', function(d) { return 'th ' + d.key })
+        .html(function(d) { return d.key });
+
+    // bind column sorting
+    var th = s.selectAll('.th');
+    th.on('click', function(_, i) { sortBy(i) });
 
     // add columns for resources
     res.forEach(function(r, i) {
@@ -182,17 +191,22 @@ function report_list(sel, g) {
             .attr('class', function(d) { return d._allocated[i] > r.accessor.hypervisor(d) ? 'oversubscribed' : '' });
     });
 
-    var sortBy = function(key, order) {
+    // sort rows according to sortAccessor[i]
+    var sortBy = function(i, order) {
         if(order !== undefined) sortOrder = order;
-        else if(sortKey === key) sortOrder = sortOrder === d3.ascending ? d3.descending : d3.ascending;
-        sortKey = key;
+        else if(sortIdx === i) sortOrder = sortOrder === d3.ascending ? d3.descending : d3.ascending;
+        sortIdx = i;
 
-        var s = sortAccessor[sortKey];
+        // apply classes to draw sort direction arrow
+        th.classed('ascending', function(_, i) { return i === sortIdx && sortOrder === d3.ascending });
+        th.classed('descending', function(_, i) { return i === sortIdx && sortOrder === d3.descending });
 
+        var sa = sortAccessor[sortIdx];
         data
-            .sort(function(a, b) { return sortOrder(s(a), s(b)); })
+            .sort(function(a, b) { return sortOrder(sa(a), sa(b)); })
             .forEach(function(d, i) { d.index = i });
 
+        // rearrange rows
         row.transition()
             .style('top', function(d) { return d.index*rowHeight+'px' });
     };
@@ -222,7 +236,8 @@ function report_list(sel, g) {
             sum.style('display', null);
             sum.select('span').html(tot + ' instance' + (tot===1 ? '':'s'));
 
-            sortBy('capacity', d3.descending);
+            // sort by first column (capacity)
+            sortBy(0, d3.descending);
         } else {
             // no flavour selected
             row.selectAll('.capacity').html('');

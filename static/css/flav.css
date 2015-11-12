@@ -110,3 +110,13 @@
     color: gray;
     font-size: 80%;
 }
+.th::after {
+    margin-left: 1rem;
+    font-size: 80%;
+}
+.th.descending::after {
+    content: '\0025BC';
+}
+.th.ascending::after {
+    content: '\0025B2';
+}
