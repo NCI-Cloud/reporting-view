@@ -1,19 +1,58 @@
 var Load = {};
 (function() {
 
-var pieChart, lineChart;
+var resources = [
+    {
+        key    : 'vcpus', // to identify and to access data
+        label  : 'VCPUs', // for pretty printing
+        format : d3.format('d'),
+        hv     : function(hyp) { return +hyp.cpus }, // to count total resources available across all hypervisors
+        hist   : function(hu) { return hu.vcpus }, // accessor into historical_usage table
+    },
+    {
+        key    : 'memory',
+        label  : 'Memory',
+        format : function(mb) { return Formatters.si_bytes(mb*1024*1024) },
+        hv     : function(hyp) { return +hyp.memory },
+        hist   : function(hu) { return hu.memory },
+    },
+    {
+        key    : 'local_storage',
+        label  : 'Local storage',
+        format : function(gb) { return Formatters.si_bytes(gb*1024*1024*1024) },
+        hv     : function(hyp) { return +hyp.local_storage },
+        hist   : function(hu) { return hu.local_storage },
+    },
+    {
+        key    : 'volume_storage',
+        label  : 'Volume storage',
+        format : function(gb) { return Formatters.si_bytes(gb*1024*1024*1024) },
+        // no hypervisor-determined limit on this, and no historical data
+    },
+];
+
+var pieCharts = [], lineChart;
 
 Load.init = function() {
     // set up NVD3 charts
-    nv.addGraph(function() {
-        pieChart = nv.models.pieChart()
-            .margin({top:0, right:0, bottom:0, left:0})
-            .donut(true)
-            .donutRatio(0.35)
-            .showLegend(false) // do not draw (interactive) keys above the chart
-            .showLabels(false); // do not draw keys on the chart
-        nv.utils.windowResize(function() { pieChart.update() });
-        return pieChart;
+    resources.forEach(function(r) {
+        nv.addGraph(function() {
+            var pieChart = nv.models.pieChart()
+                .x(function(d) { return d.label })
+                .y(function(d) { return d[r.key] })
+                .margin({top:0, right:0, bottom:0, left:0})
+                .donut(true)
+                .donutRatio(0.35)
+                .title(r.label)
+                .showLegend(false) // do not draw (interactive) keys above the chart
+                .showLabels(false); // do not draw keys on the chart
+            pieChart
+              .tooltip
+                .valueFormatter(r.format);
+            nv.utils.windowResize(function() { pieChart.update() });
+            pieCharts.push(pieChart);
+            return pieChart;
+        });
     });
     nv.addGraph(function() {
         lineChart = nv.models.lineWithFocusChart();
@@ -59,53 +98,12 @@ Load.init = function() {
     });
 };
 
-var resources = [
-    {
-        key    : 'vcpus', // to identify and to access data
-        label  : 'VCPUs', // for pretty printing
-        format : d3.format('d'),
-        hv     : function(hyp) { return +hyp.cpus }, // to count total resources available across all hypervisors
-        hist   : function(hu) { return hu.vcpus }, // accessor into historical_usage table
-    },
-    {
-        key    : 'memory',
-        label  : 'Memory',
-        format : function(mb) { return Formatters.si_bytes(mb*1024*1024) },
-        hv     : function(hyp) { return +hyp.memory },
-        hist   : function(hu) { return hu.memory },
-    },
-    {
-        key    : 'local_storage',
-        label  : 'Local storage',
-        format : function(gb) { return Formatters.si_bytes(gb*1024*1024*1024) },
-        hv     : function(hyp) { return +hyp.local_storage },
-        hist   : function(hu) { return hu.local_storage },
-    },
-    {
-        key    : 'volume_storage',
-        label  : 'Volume storage',
-        format : function(gb) { return Formatters.si_bytes(gb*1024*1024*1024) },
-        // no hypervisor-determined limit on this, and no historical data
-    },
-];
-
 var live = function(sel, data) {
     // relabel for convenience
     var instance = data['instance?active=1'];
     var volume = data['volume?active=1'];
     var project = data['project?personal=0'];
     var s = d3.select(sel);
-
-    // generate <select> for controlling pie
-    var resourceSelect = s.select('select.resource')
-        .on('change', function() { updateChart() });
-    resourceSelect.selectAll('option')
-        .data(resources)
-      .enter().append('option')
-        .attr('value', function(d) { return d.key })
-        .text(function(d) { return d.label });
-    //var modeSelect = s.select('select.mode')
-    //    .on('change', function() { updateChart() });
 
     // function for reducing over array of instances, extracting what we want to plot
     var agg = function(val, instance) {
@@ -166,17 +164,12 @@ var live = function(sel, data) {
     activeResources.unshift(unused);
 
     var updateChart = function() {
-        var key = resourceSelect.property('value');
-        //var mod = modeSelect.property('value');
-
-        pieChart
-            .x(function(d) { return d.label })
-            .y(function(d) { return d[key] })
-          .tooltip
-            .valueFormatter(resources.find(function(r) { return r.key === key }).format);
-        s.select('svg')
-            .datum(activeResources)
-            .call(pieChart);
+        // updateChart function is redundant (only called once) right now, but eventually the charts will be interactive again, and then it will become unredundant...
+        var svg = s.selectAll('svg').data(resources);
+        svg.enter().append('svg');
+        svg.exit().remove();
+        svg.datum(activeResources);
+        svg.each(function(d, i) { d3.select(this).call(pieCharts[i]) });
     };
     updateChart();
 };
