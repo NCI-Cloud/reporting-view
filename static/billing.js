@@ -158,8 +158,7 @@ var pp = function(sel, g) {
             format : Formatters.flavourDisplay(g.flavour),
         },
         {
-            title  : 'AZ',
-            desc   : 'Host aggregates [sic]',
+            title  : 'Availability zone',
             fn     : function(instance) { return instance._meta.hostAggregates.join(' ') },
         },
         {
@@ -300,7 +299,7 @@ var pp = function(sel, g) {
                     ins._meta.hostAggregates = [];
                     g.aggregate_host.forEach(function(ah) {
                         if(ah.host === ins.hypervisor) {
-                            ins._meta.hostAggregates.push(ah.aggregate);
+                            ins._meta.hostAggregates.push(ah.availability_zone);
                         }
                     });
                 });
