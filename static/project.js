@@ -103,11 +103,13 @@ var report = function(sel, data) {
     // keep in sync radio, select and label elements
     var picked = function(d, i) {
         radio.property('checked', function(dr, ir) { return ir === i });
+        s.selectAll('.controls > div').classed('disabled', function(_, is) { return 1-is === i });
         update();
     };
     var radio = s.selectAll('input[type=radio]');
-    radio.property('checked', function(d, i) { return i===0 });
+    radio.property('checked', function(d, i) { return i === 0 });
     radio.on('change', picked);
+    s.selectAll('.controls > div').classed('disabled', function(_, i) { return i !== 0 });
     s.selectAll('label').on('click', picked);
     s.selectAll('#project,#institution').on('change', picked);
 

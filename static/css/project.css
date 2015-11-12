@@ -25,6 +25,12 @@ div.pie svg {
     right:0;
     bottom:0;
 }
+div.disabled {
+    color: lightgray;
+}
+div.disabled option {
+    color: #222;
+}
 .controls div {
     display: table;
     width: 100%;
