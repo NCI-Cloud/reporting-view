@@ -169,12 +169,14 @@ var live = function(sel, data) {
     var mode = pieCharts.map(function() { return zoom.total }); // current zoom level for each pie chart
     pieCharts.forEach(function(chart, i) {
         chart.pie.dispatch.on('elementClick', function(d) {
-            if(mode[i] === zoom.total) {
+            if(mode[i] === zoom.total && d.index === 0) {
+                // clicked on "Used" segment
                 mode[i] = zoom.organisation;
-            } else {
+                updateChart(i);
+            } else if(mode[i] === zoom.organisation) {
                 mode[i] = zoom.total;
+                updateChart(i);
             }
-            updateChart(i);
         });
     });
 
@@ -205,6 +207,27 @@ var live = function(sel, data) {
 
         // redraw
         container.call(pieCharts[i]);
+
+        // re-bind pie chart slice mouseover function so it only grows sometimes
+        // this has to be done after calling .call, else the dom doesn't exist so selectAll('g.nv-slice') is empty
+        var slice = container.selectAll('g.nv-slice');
+
+        // make a copy of original mouseover callback
+        if(!slice.on('_mouseover')) slice.on('_mouseover', slice.on('mouseover'));
+
+        if(mode[i] === zoom.total) {
+            slice.on('mouseover', function(d, sliceIdx) {
+                // only want to grow for first slice ("Used"), since clicking on "Unused" does nothing
+                pieCharts[i].growOnHover(sliceIdx===0);
+                slice.on('_mouseover').bind(this, d, sliceIdx)();
+            });
+        } else {
+            slice.on('mouseover', function(d, sliceIdx) {
+                // clicking on any institution's segment will do something
+                pieCharts[i].growOnHover(true);
+                slice.on('_mouseover').bind(this, d, sliceIdx)();
+            });
+        }
     };
     updateChart();
 };
