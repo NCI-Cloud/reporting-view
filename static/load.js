@@ -156,20 +156,55 @@ var live = function(sel, data) {
         return res.hv ? d3.sum(data.hypervisor, res.hv) : undefined;
     });
 
-    // prepend 'unused' element to data
-    var unused = {key:null, label:'Unused'};
+    // calculate "used/unused" data
+    var used = {key:'used', label:'Used'}, unused = {key:'unused', label:'Unused'};
     resources.forEach(function(res, i) {
-        unused[res.key] = capacity[i] ? capacity[i] - d3.sum(activeResources, function(red) { return red[res.key] }) : null;
+        used[res.key] = d3.sum(activeResources, function(red) { return red[res.key] });
+        unused[res.key] = capacity[i] ? capacity[i] - used[res.key] : null;
     });
-    activeResources.unshift(unused);
+    var totalResources = [used, unused];
 
-    var updateChart = function() {
-        // updateChart function is redundant (only called once) right now, but eventually the charts will be interactive again, and then it will become unredundant...
-        var svg = s.selectAll('svg').data(resources);
-        svg.enter().append('svg');
-        svg.exit().remove();
-        svg.datum(activeResources);
-        svg.each(function(d, i) { d3.select(this).call(pieCharts[i]) });
+    // bind pie chart click events
+    var zoom = Object.freeze({'total':0, 'organisation':1 /* TODO , 'project':2*/}); // enum for granularity of pie chart
+    var mode = pieCharts.map(function() { return zoom.total }); // current zoom level for each pie chart
+    pieCharts.forEach(function(chart, i) {
+        chart.pie.dispatch.on('elementClick', function(d) {
+            if(mode[i] === zoom.total) {
+                mode[i] = zoom.organisation;
+            } else {
+                mode[i] = zoom.total;
+            }
+            updateChart(i);
+        });
+    });
+
+    // create svg elements
+    var svg = s.selectAll('svg').data(resources);
+    svg.enter().append('svg');
+    svg.exit().remove();
+
+    // updateChart function is redundant (only called once) right now, but eventually the charts will be interactive again, and then it will become unredundant...
+    var updateChart = function(i) {
+        if(i === undefined) {
+            // if no chart index specified, call for every chart
+            for(var i=0; i<resources.length; i++) {
+                updateChart(i);
+            }
+            return;
+        }
+
+        // select <svg> to be updated
+        var container = d3.select(svg[0][i]);
+
+        // update datum, depending on corresponding mode
+        if(mode[i] === zoom.total) {
+            container.datum(totalResources);
+        } else {
+            container.datum(activeResources);
+        }
+
+        // redraw
+        container.call(pieCharts[i]);
     };
     updateChart();
 };
