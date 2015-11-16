@@ -215,11 +215,28 @@ var live = function(sel, data) {
             var projects = project.filter(function(p) { return p.organisation === org });
 
             // construct data array
-            container.datum(projects.map(function(p) {
-                return oi[extra] // array of all instances associated with org
-                    .filter(function(ins) { return ins.project_id === p.id })
-                    .reduce(agg, {key:p.id, label:p.display_name, vcpus:0, memory:0, local_storage:0});
-            }).sort(function(a, b) { return b[resources[0].key] - a[resources[0].key] })); // sorting by resources[i].key would make every graph sorted, but make colours inconsistent
+            var pdata;
+            if(resources[i].key === 'volume_storage') {
+                pdata = projects.map(function(p) {
+                    return {
+                        key            : p.id,
+                        label          : p.display_name,
+                        volume_storage : d3.sum(
+                                             volume.filter(function(v) { return v.project_id === p.id }),
+                                             function(v) { return v.size }
+                                         )
+                    };
+                });
+            } else {
+                pdata = projects.map(function(p) {
+                    return oi[extra] // array of all instances associated with org
+                        .filter(function(ins) { return ins.project_id === p.id })
+                        .reduce(agg, {key:p.id, label:p.display_name, vcpus:0, memory:0, local_storage:0});
+                });
+            }
+
+            // sorting by resources[i].key would make every graph individually sorted, but make colours inconsistent
+            container.datum(pdata.sort(function(a, b) { return b[resources[0].key] - a[resources[0].key] }));
         }
 
         // redraw
