@@ -4,7 +4,9 @@
     margin-right: 0.5rem;
 }
 .live svg {
-    height: 500px;
+    height: 400px;
+    width: 50%;
+    display: inline-block;
 }
 .historical svg {
     width: 100%;

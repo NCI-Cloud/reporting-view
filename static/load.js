@@ -1,19 +1,58 @@
 var Load = {};
 (function() {
 
-var pieChart, lineChart;
+var resources = [
+    {
+        key    : 'vcpus', // to identify and to access data
+        label  : 'VCPUs', // for pretty printing
+        format : d3.format('d'),
+        hv     : function(hyp) { return +hyp.cpus }, // to count total resources available across all hypervisors
+        hist   : function(hu) { return hu.vcpus }, // accessor into historical_usage table
+    },
+    {
+        key    : 'memory',
+        label  : 'Memory',
+        format : function(mb) { return Formatters.si_bytes(mb*1024*1024) },
+        hv     : function(hyp) { return +hyp.memory },
+        hist   : function(hu) { return hu.memory },
+    },
+    {
+        key    : 'local_storage',
+        label  : 'Local storage',
+        format : function(gb) { return Formatters.si_bytes(gb*1024*1024*1024) },
+        hv     : function(hyp) { return +hyp.local_storage },
+        hist   : function(hu) { return hu.local_storage },
+    },
+    {
+        key    : 'volume_storage',
+        label  : 'Volume storage',
+        format : function(gb) { return Formatters.si_bytes(gb*1024*1024*1024) },
+        // no hypervisor-determined limit on this, and no historical data
+    },
+];
+
+var pieCharts = [], lineChart;
 
 Load.init = function() {
     // set up NVD3 charts
-    nv.addGraph(function() {
-        pieChart = nv.models.pieChart()
-            .margin({top:0, right:0, bottom:0, left:0})
-            .donut(true)
-            .donutRatio(0.35)
-            .showLegend(false) // do not draw (interactive) keys above the chart
-            .showLabels(false); // do not draw keys on the chart
-        nv.utils.windowResize(function() { pieChart.update() });
-        return pieChart;
+    resources.forEach(function(r) {
+        nv.addGraph(function() {
+            var pieChart = nv.models.pieChart()
+                .x(function(d) { return d.label })
+                .y(function(d) { return d[r.key] })
+                .margin({top:0, right:0, bottom:0, left:0})
+                .donut(true)
+                .donutRatio(0.35)
+                .title(r.label)
+                .showLegend(false) // do not draw (interactive) keys above the chart
+                .showLabels(false); // do not draw keys on the chart
+            pieChart
+              .tooltip
+                .valueFormatter(r.format);
+            nv.utils.windowResize(function() { pieChart.update() });
+            pieCharts.push(pieChart);
+            return pieChart;
+        });
     });
     nv.addGraph(function() {
         lineChart = nv.models.lineWithFocusChart();
@@ -59,36 +98,6 @@ Load.init = function() {
     });
 };
 
-var resources = [
-    {
-        key    : 'vcpus', // to identify and to access data
-        label  : 'VCPUs', // for pretty printing
-        format : d3.format('d'),
-        hv     : function(hyp) { return +hyp.cpus }, // to count total resources available across all hypervisors
-        hist   : function(hu) { return hu.vcpus }, // accessor into historical_usage table
-    },
-    {
-        key    : 'memory',
-        label  : 'Memory',
-        format : function(mb) { return Formatters.si_bytes(mb*1024*1024) },
-        hv     : function(hyp) { return +hyp.memory },
-        hist   : function(hu) { return hu.memory },
-    },
-    {
-        key    : 'local_storage',
-        label  : 'Local storage',
-        format : function(gb) { return Formatters.si_bytes(gb*1024*1024*1024) },
-        hv     : function(hyp) { return +hyp.local_storage },
-        hist   : function(hu) { return hu.local_storage },
-    },
-    {
-        key    : 'volume_storage',
-        label  : 'Volume storage',
-        format : function(gb) { return Formatters.si_bytes(gb*1024*1024*1024) },
-        // no hypervisor-determined limit on this, and no historical data
-    },
-];
-
 var live = function(sel, data) {
     // relabel for convenience
     var instance = data['instance?active=1'];
@@ -96,18 +105,7 @@ var live = function(sel, data) {
     var project = data['project?personal=0'];
     var s = d3.select(sel);
 
-    // generate <select> for controlling pie
-    var resourceSelect = s.select('select.resource')
-        .on('change', function() { updateChart() });
-    resourceSelect.selectAll('option')
-        .data(resources)
-      .enter().append('option')
-        .attr('value', function(d) { return d.key })
-        .text(function(d) { return d.label });
-    //var modeSelect = s.select('select.mode')
-    //    .on('change', function() { updateChart() });
-
-    // we will sum fields [vcpus, memory, local_storage] over instances
+    // function for reducing over array of instances, extracting what we want to plot
     var agg = function(val, instance) {
         return {
             vcpus         : val.vcpus         + instance.vcpus,
@@ -118,48 +116,158 @@ var live = function(sel, data) {
         };
     };
 
-    // create array of {
-    //  key           : project id,
-    //  label         : project display name,
-    //  vcpus         : total over active instances,
-    //  memory        : total over active instances,
-    //  local_storage : total over active instances
-    // }
-    var activeResources = project.map(function(p) {
-        return instance
-            .filter(function(ins) { return ins.project_id === p.id })
-            .reduce(agg, {key:p.id, label:p.display_name, vcpus:0, memory:0, local_storage:0});
+    // instances belonging to projects with personal=1 will have organisation "undefined",
+    // and instances belonging to projects with no organisatoin will get "null";
+    // later on, when we would store this in an object, javascript will convert that to string
+    // which gets confusing e.g. because strings "null" and "undefined" evaluate to true.
+    // SO instead we define these 'pseudo-organisations' with string names that will never
+    // be used by actual organisations, and compare against these
+    var pseudoOrg = {'__null' : 'No organisation', '__undefined' : 'Personal trial'};
+
+    // construct reverse mapping {project_id : "Organisation name"}
+    var po = {};
+    project.forEach(function(p) {
+        po[p.id] = p.organisation || '__null';
     });
+
+    // construct {"Organisation name" : [instances]}
+    var oi = {};
+    instance.forEach(function(i) {
+        var organisation = po[i.project_id] || '__undefined';
+        if(!(organisation in oi)) oi[organisation] = [];
+        oi[organisation].push(i);
+    });
+
+    // reduce oi to get {"Organisation name" : {key, label, vcpus, etc.}}
+    var activeResources = Object.keys(oi).map(function(o) {
+        return oi[o].reduce(agg, {key:o, label:o in pseudoOrg ? pseudoOrg[o] : o, vcpus:0, memory:0, local_storage:0});
+    });
+
+    // sort ascending by first resource (vcpus)
+    activeResources.sort(function(a, b) { return b[resources[0].key] - a[resources[0].key] });
 
     // sum each project's volume storage
     activeResources.forEach(function(res) {
-        res.volume_storage = d3.sum(volume.filter(function(v) { return v.project_id === res.key }), function(v) { return v.size });
+        res.volume_storage = d3.sum(volume.filter(function(v) { return po[v.project_id] === res.key }), function(v) { return v.size });
     });
 
-    // find how much of each resource is available across all hypervisors
+    // calculate "used/unused" data
+    var used = {key:'used', label:'Used'}, unused = {key:'unused', label:'Unused'};
     var capacity = resources.map(function(res) {
         return res.hv ? d3.sum(data.hypervisor, res.hv) : undefined;
     });
-
-    // prepend 'unused' element to data
-    var unused = {key:null, label:'Unused'};
     resources.forEach(function(res, i) {
-        unused[res.key] = capacity[i] ? capacity[i] - d3.sum(activeResources, function(red) { return red[res.key] }) : null;
+        used[res.key] = d3.sum(activeResources, function(red) { return red[res.key] });
+        unused[res.key] = capacity[i] ? capacity[i] - used[res.key] : null;
     });
-    activeResources.unshift(unused);
+    var totalResources = [used, unused];
 
-    var updateChart = function() {
-        var key = resourceSelect.property('value');
-        //var mod = modeSelect.property('value');
+    // bind pie chart click events
+    var zoom = Object.freeze({'total':0, 'organisation':1, 'project':2}); // enum for granularity of pie chart
+    var mode = pieCharts.map(function() { return zoom.total }); // current zoom level for each pie chart
+    pieCharts.forEach(function(chart, i) {
+        chart.pie.dispatch.on('elementClick', function(d) {
+            if(mode[i] === zoom.total && d.index === 0) {
+                // clicked on "Used" segment
+                mode[i] = zoom.organisation;
+                updateChart(i);
+            } else if(mode[i] === zoom.organisation) {
+                var org = d.data.key;
+                if(org === '__undefined') return; // don't zoom in on "Personal Trial" pseudo-organisation
+                mode[i] = zoom.project;
+                updateChart(i, org);
+            } else if(mode[i] === zoom.project) {
+                mode[i] = zoom.total;
+                updateChart(i);
+            }
+        });
+    });
 
-        pieChart
-            .x(function(d) { return d.label })
-            .y(function(d) { return d[key] })
-          .tooltip
-            .valueFormatter(resources.find(function(r) { return r.key === key }).format);
-        s.select('svg')
-            .datum(activeResources)
-            .call(pieChart);
+    // create svg elements
+    var svg = s.selectAll('svg').data(resources);
+    svg.enter().append('svg');
+    svg.exit().remove();
+
+    // updateChart function is redundant (only called once) right now, but eventually the charts will be interactive again, and then it will become unredundant...
+    var updateChart = function(i, extra) {
+        if(i === undefined) {
+            // if no chart index specified, call for every chart
+            for(var i=0; i<resources.length; i++) {
+                updateChart(i);
+            }
+            return;
+        }
+
+        // select <svg> to be updated
+        var container = d3.select(svg[0][i]);
+
+        // update datum, depending on corresponding mode
+        if(mode[i] === zoom.total) {
+            container.datum(totalResources);
+        } else if(mode[i] === zoom.organisation) {
+            container.datum(activeResources);
+        } else if(mode[i] === zoom.project) {
+            // "extra" parameter is organisation name
+            var org = extra; // relabel for clarity
+            if(org === '__null') org = null; // need to reverse-map "No organisation" key (this is hacky)
+
+            // get array of all projects associated with this org
+            var projects = project.filter(function(p) { return p.organisation === org });
+
+            // construct data array
+            var pdata;
+            if(resources[i].key === 'volume_storage') {
+                pdata = projects.map(function(p) {
+                    return {
+                        key            : p.id,
+                        label          : p.display_name,
+                        volume_storage : d3.sum(
+                                             volume.filter(function(v) { return v.project_id === p.id }),
+                                             function(v) { return v.size }
+                                         )
+                    };
+                });
+            } else {
+                pdata = projects.map(function(p) {
+                    return oi[extra] // array of all instances associated with org
+                        .filter(function(ins) { return ins.project_id === p.id })
+                        .reduce(agg, {key:p.id, label:p.display_name, vcpus:0, memory:0, local_storage:0});
+                });
+            }
+
+            // sorting by resources[i].key would make every graph individually sorted, but make colours inconsistent
+            container.datum(pdata.sort(function(a, b) { return b[resources[0].key] - a[resources[0].key] }));
+        }
+
+        // redraw
+        container.call(pieCharts[i]);
+
+        // re-bind pie chart slice mouseover function so it only grows sometimes
+        // this has to be done after calling .call, else the dom doesn't exist so selectAll('g.nv-slice') is empty
+        var slice = container.selectAll('g.nv-slice');
+
+        // make a copy of original mouseover callback
+        if(!slice.on('_mouseover')) slice.on('_mouseover', slice.on('mouseover'));
+
+        if(mode[i] === zoom.total) {
+            slice.on('mouseover', function(d, sliceIdx) {
+                // only want to grow for first slice ("Used"), since clicking on "Unused" does nothing
+                pieCharts[i].growOnHover(sliceIdx===0);
+                slice.on('_mouseover').bind(this, d, sliceIdx)();
+            });
+        } else if(mode[i] === zoom.organisation) {
+            slice.on('mouseover', function(d, sliceIdx) {
+                // do not want to grow for "personal trial" slice (since there are very many personal trials, each using 1 or 2 vcpus, making a very uninformative pie chart)
+                pieCharts[i].growOnHover(d.data.key!=='__undefined');
+                slice.on('_mouseover').bind(this, d, sliceIdx)();
+            });
+        } else {
+            slice.on('mouseover', function(d, sliceIdx) {
+                // clicking on any institution's segment will do something
+                pieCharts[i].growOnHover(true);
+                slice.on('_mouseover').bind(this, d, sliceIdx)();
+            });
+        }
     };
     updateChart();
 };
