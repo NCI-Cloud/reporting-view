@@ -151,13 +151,11 @@ var live = function(sel, data) {
         res.volume_storage = d3.sum(volume.filter(function(v) { return po[v.project_id] === res.key }), function(v) { return v.size });
     });
 
-    // find how much of each resource is available across all hypervisors
+    // calculate "used/unused" data
+    var used = {key:'used', label:'Used'}, unused = {key:'unused', label:'Unused'};
     var capacity = resources.map(function(res) {
         return res.hv ? d3.sum(data.hypervisor, res.hv) : undefined;
     });
-
-    // calculate "used/unused" data
-    var used = {key:'used', label:'Used'}, unused = {key:'unused', label:'Unused'};
     resources.forEach(function(res, i) {
         used[res.key] = d3.sum(activeResources, function(red) { return red[res.key] });
         unused[res.key] = capacity[i] ? capacity[i] - used[res.key] : null;
@@ -165,7 +163,7 @@ var live = function(sel, data) {
     var totalResources = [used, unused];
 
     // bind pie chart click events
-    var zoom = Object.freeze({'total':0, 'organisation':1 /* TODO , 'project':2*/}); // enum for granularity of pie chart
+    var zoom = Object.freeze({'total':0, 'organisation':1, 'project':2}); // enum for granularity of pie chart
     var mode = pieCharts.map(function() { return zoom.total }); // current zoom level for each pie chart
     pieCharts.forEach(function(chart, i) {
         chart.pie.dispatch.on('elementClick', function(d) {
@@ -174,6 +172,11 @@ var live = function(sel, data) {
                 mode[i] = zoom.organisation;
                 updateChart(i);
             } else if(mode[i] === zoom.organisation) {
+                var org = d.data.key;
+                if(org === '__undefined') return; // don't zoom in on "Personal Trial" pseudo-organisation
+                mode[i] = zoom.project;
+                updateChart(i, org);
+            } else if(mode[i] === zoom.project) {
                 mode[i] = zoom.total;
                 updateChart(i);
             }
@@ -186,7 +189,7 @@ var live = function(sel, data) {
     svg.exit().remove();
 
     // updateChart function is redundant (only called once) right now, but eventually the charts will be interactive again, and then it will become unredundant...
-    var updateChart = function(i) {
+    var updateChart = function(i, extra) {
         if(i === undefined) {
             // if no chart index specified, call for every chart
             for(var i=0; i<resources.length; i++) {
@@ -201,8 +204,22 @@ var live = function(sel, data) {
         // update datum, depending on corresponding mode
         if(mode[i] === zoom.total) {
             container.datum(totalResources);
-        } else {
+        } else if(mode[i] === zoom.organisation) {
             container.datum(activeResources);
+        } else if(mode[i] === zoom.project) {
+            // "extra" parameter is organisation name
+            var org = extra; // relabel for clarity
+            if(org === '__null') org = null; // need to reverse-map "No organisation" key (this is hacky)
+
+            // get array of all projects associated with this org
+            var projects = project.filter(function(p) { return p.organisation === org });
+
+            // construct data array
+            container.datum(projects.map(function(p) {
+                return oi[extra] // array of all instances associated with org
+                    .filter(function(ins) { return ins.project_id === p.id })
+                    .reduce(agg, {key:p.id, label:p.display_name, vcpus:0, memory:0, local_storage:0});
+            }).sort(function(a, b) { return b[resources[0].key] - a[resources[0].key] })); // sorting by resources[i].key would make every graph sorted, but make colours inconsistent
         }
 
         // redraw
@@ -219,6 +236,12 @@ var live = function(sel, data) {
             slice.on('mouseover', function(d, sliceIdx) {
                 // only want to grow for first slice ("Used"), since clicking on "Unused" does nothing
                 pieCharts[i].growOnHover(sliceIdx===0);
+                slice.on('_mouseover').bind(this, d, sliceIdx)();
+            });
+        } else if(mode[i] === zoom.organisation) {
+            slice.on('mouseover', function(d, sliceIdx) {
+                // do not want to grow for "personal trial" slice (since there are very many personal trials, each using 1 or 2 vcpus, making a very uninformative pie chart)
+                pieCharts[i].growOnHover(d.data.key!=='__undefined');
                 slice.on('_mouseover').bind(this, d, sliceIdx)();
             });
         } else {
