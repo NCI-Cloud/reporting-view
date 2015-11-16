@@ -58,7 +58,7 @@ function report_flavs(sel, g) {
     var s = d3.select(sel);
 
     // generate <select> for controlling pie
-    var slct = s.select('select') // "select" is a word overused yet reserved
+    var slct = s.select('select.flavours') // "select" is a word overused yet reserved
         .on('change', function() { var fid = this.value; dispatch.flavChanged(sel, g.flavour.find(function(f){ return f.id==fid })); });
 
     // remove any old placeholders before doing data join
@@ -110,16 +110,48 @@ function report_list(sel, g) {
     // relabel for convenience
     var s = d3.select(sel);
     var instance = g['instance?active=1'];
+    var hyp = g.hypervisor;
 
-    // make shallow copy of g.hypervisor, with additional _allocated array corresponding to global "res"
-    var data = g.hypervisor.map(function(ins) {
-        var ret = {};
-        for(var k in ins) {
-            ret[k] = ins[k];
-        }
-        ret._allocated = res.map(function() { return 0 });
-        return ret;
+    /******************************************************/
+    // TODO this should end up in util.js, once it's site-wide
+    // extract all availability zones
+    var azs = hyp.map(function(h) {
+        var i = h.availability_zone.indexOf('!'); // only care about top level cell in az, not subcell
+        return i === -1 ? h.availability_zone : h.availability_zone.substr(0, i);
     });
+    azs = azs
+        .filter(function(az, i) { return azs.indexOf(az) === i }) // filter unique
+        .sort();
+
+    // generate <select>
+    var azslct = d3.select('select#az');
+    var azopt = azslct.selectAll('option').data(azs);
+    azopt.enter().append('option');
+    azopt.exit().remove();
+    azopt
+        .attr('value', function(az) { return az })
+        .text(function(az) { return az });
+    /******************************************************/
+    d3.select('#az').on('change.'+sel+'123', function() {
+        report_list(sel, g); // refresh list of hypervisors
+        dispatch.flavChanged(sel, null); // reset flavour selection
+    });
+
+    // make shallow copy of hypervisor array, with additional _allocated array corresponding to global "res"
+    var az = d3.select('#az').property('value');
+    var data = hyp
+        .filter(function(h) { // filter by AZ
+            var i = h.availability_zone.indexOf('!');
+            return (i === -1 ? h.availability_zone : h.availability_zone.substr(0, i)) === az;
+        })
+        .map(function(ins) {
+            var ret = {};
+            for(var k in ins) {
+                ret[k] = ins[k];
+            }
+            ret._allocated = res.map(function() { return 0 });
+            return ret;
+        });
 
     // calculate totals of allocated resources on each hypervisor
     instance.forEach(function(ins) {
@@ -147,7 +179,7 @@ function report_list(sel, g) {
 
     var rowHeight = 30; //px, has to match some stuff in flav.css
     var container = s.select('div.list');
-    container.style('height', g.hypervisor.length * rowHeight + 'px');
+    container.style('height', data.length * rowHeight + 'px');
 
     var row = container.selectAll('div.hypervisor')
         .data(data);
