@@ -1,2 +1,4 @@
 *.pyc
 sample_data.sqlite3
+.project
+.pydevproject
