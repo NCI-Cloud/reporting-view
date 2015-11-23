@@ -5,6 +5,7 @@ var Config = {
     tokenKey : 'token', // key in sessionStorage for keystone token
     flashKey : 'flash', // key in sessionStorage for temporary message storage
     endpoint : 'http://example.com:9495', // reporting api base url
+    nodeKey  : 'node',  // key in localStorage for node to be used for node-level filtering
     reports : [
         {
             name : 'Node Aggregates',

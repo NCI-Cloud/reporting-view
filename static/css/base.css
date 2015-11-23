@@ -101,3 +101,10 @@ nav li.current a {
     .container { width:100% }
     html { font-size: 50% !important }
 }
+div#az label {
+    display: inline;
+}
+div#az select {
+    margin-left: 1rem;
+    font-weight: normal;
+}

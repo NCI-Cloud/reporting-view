@@ -112,35 +112,11 @@ function report_list(sel, g) {
     var instance = g['instance?active=1'];
     var hyp = g.hypervisor;
 
-    /******************************************************/
-    // TODO this should end up in util.js, once it's site-wide
-    // extract all availability zones
-    var azs = hyp.map(function(h) {
-        var i = h.availability_zone.indexOf('!'); // only care about top level cell in az, not subcell
-        return i === -1 ? h.availability_zone : h.availability_zone.substr(0, i);
-    });
-    azs = azs
-        .filter(function(az, i) { return azs.indexOf(az) === i }) // filter unique
-        .sort();
-
-    // generate <select>
-    var azslct = d3.select('select#az');
-    var azopt = azslct.selectAll('option').data(azs);
-    azopt.enter().append('option');
-    azopt.exit().remove();
-    azopt
-        .attr('value', function(az) { return az })
-        .text(function(az) { return az });
-    /******************************************************/
-    d3.select('#az').on('change.'+sel+'123', function() {
-        report_list(sel, g); // refresh list of hypervisors
-        dispatch.flavChanged(sel, null); // reset flavour selection
-    });
-
     // make shallow copy of hypervisor array, with additional _allocated array corresponding to global "res"
-    var az = d3.select('#az').property('value');
+    var az = localStorage.getItem(Config.nodeKey);
     var data = hyp
         .filter(function(h) { // filter by AZ
+            if(!az) return true; // (unless none is specified)
             var i = h.availability_zone.indexOf('!');
             return (i === -1 ? h.availability_zone : h.availability_zone.substr(0, i)) === az;
         })

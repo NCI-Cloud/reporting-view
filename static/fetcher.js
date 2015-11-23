@@ -12,6 +12,8 @@
  *          error   : another_fn,
  *        });
  *    f(); // grab all the data
+ *
+ *  This could be more elegantly done with promises.
  */
 function Fetcher(ep, token, on401) { // "unauthorised" gets special mention because it is a status we always handle the same way (namely, asking user to re-authenticate, assuming token has expired)
     var endpoint = ep; // reporting-api base url
@@ -41,11 +43,11 @@ function Fetcher(ep, token, on401) { // "unauthorised" gets special mention beca
                     queue.forEach(function(q) {
                         if(!q.done && q.qks.every(function(qk) { return qk in data })) {
                             q.done = true;
-                            var deps = {};
+                            q.deps = {};
                             q.qks.forEach(function(qk) {
-                                deps[qk] = data[qk];
+                                q.deps[qk] = data[qk];
                             });
-                            q.success(deps);
+                            q.success(q.deps);
                         }
                     });
                 },
@@ -71,7 +73,21 @@ function Fetcher(ep, token, on401) { // "unauthorised" gets special mention beca
         if(! arguments.length) return queue;
         queue.push(d);
         return fetcher; // so we can chain Fetcher().q(d1).q(d2)...(); idk it looks cool
-    }
+    };
+
+    /// clear queue of reports to be fetched
+    fetcher.clear = function() {
+        queue = [];
+        return fetcher;
+    };
+
+    /// re-call any "success" functions for queued elements whose data have been retrieved
+    /// (does not re-fetch data)
+    fetcher.call = function() {
+        queue.forEach(function(q) {
+            if(q.done) q.success(q.deps);
+        });
+    };
 
     /// retrieve json data
     var sqldump = function(ep, qk, success, error) {
