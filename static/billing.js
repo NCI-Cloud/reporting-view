@@ -171,7 +171,7 @@ var pp = function(sel, g) {
         },
         {
             title  : 'Walltime',
-            desc   : 'Hours : minutes : seconds',
+            desc   : 'Hours:minutes:seconds, during selected time period.',
             fn     : function(instance) { return instance._meta.hours },
             format : function(hours) {
                 var z = d3.format('02d');
