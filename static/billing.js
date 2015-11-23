@@ -226,10 +226,10 @@ var pp = function(sel, g) {
         for(var i=0; i<nMonths; i++) {
             var e = new Date(d.getFullYear(), d.getMonth()+1, d.getDate()); // end one month after start
             var ws = countHours(instance, [d.getTime(), e.getTime()]);
-            data.push({month:d.getMonth(), su:su.agg(ws)});
+            data.push({year:d.getFullYear(), month:d.getMonth(), su:su.agg(ws)});
             d = e;
         }
-        var monthFormat = d3.time.format('%b');
+        var dateFormat = d3.time.format("%b '%y");
         var x = d3.scale.linear()
             .domain([0, d3.max(data, function(d) { return d.su })])
             .range([0, 100]);
@@ -240,7 +240,7 @@ var pp = function(sel, g) {
         var rowEnter = row.enter().append('div').attr('class', 'crow');
         rowEnter.append('span');
         rowEnter.append('div').append('div').attr('class','bar');
-        row.select('span').html(function(d) { var mon = new Date(); mon.setMonth(d.month); return monthFormat(mon); });
+        row.select('span').html(function(d) { var mon = new Date(); mon.setMonth(d.month); mon.setFullYear(d.year); return dateFormat(mon); });
         row.select('.bar')
             .html(function(d) { return Math.round(d.su) })
             .style('width', function(d) { return x(d.su) + '%' });
