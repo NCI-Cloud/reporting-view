@@ -172,7 +172,7 @@ var pp = function(sel, g) {
         {
             title  : 'Walltime',
             desc   : 'Hours : minutes : seconds',
-            fn     : function(instance) { return instance._meta.hours * instance.vcpus },
+            fn     : function(instance) { return instance._meta.hours },
             format : function(hours) {
                 var z = d3.format('02d');
                 var mins = (hours - Math.floor(hours))*60;
