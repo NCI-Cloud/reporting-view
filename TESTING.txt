@@ -1,0 +1,135 @@
+Testing Overview
+----------------
+This document outlines a manual testing procedure for the reporting-view
+package, which is part of the OpenStack Reporting component. The reporting-view
+package is a javascript application that accesses data from the reporting-api
+and presents it to the user in their browser.
+
+The reporting-vew application presents the user with a number of different views
+on the reporting data, primarily an overview of usage across all nodes, a
+project utilisation view, a flavour availability view, and a project details
+view.
+
+Due to the complexities of automating an interactive process like browser
+interaction the testing procedure is a manual one.
+
+Testing Procedure
+-----------------
+
+Login
+-----
+Visit the site (currently at http://130.56.253.127). You should find yourself at
+a login page that has a button to support AAF authentication and a form to
+support manual authentication. Select the Username input and enter the single
+character 'a', then click on the "Manually" button. You should be redirected to
+the http://130.56.253.127/load URL.
+
+Node Aggregates/Recurrent Workload Utilisation
+---------------
+Once the load view has finished pulling down data it will show four pie charts
+displaying VCPUs, Memory, Local Storage and Volume Storage. The charts display
+the total available resources, split into used and unused portions.  Moving the
+mouse over each segment will display a tooltip showing the value of the segment.
+
+Left-clicking on the pie chart "Used" segment will switch the chart mode to
+showing the per-institution usage. Left clicking on one segment in that mode
+will switch the chart to showing the project usage for projects owned by that
+institution. Finally, left clicking on the chart again will switch it back to
+the original used/available mode.
+
+In each display mode the contents of the charts are sorted consistently by VCPU
+use, from largest to smallest in a clockwise direction. This means that across
+all four charts the colour of an institution or project's segments will match.
+(XXX: currently not fully implemented - the volume chart is not properly drawn)
+
+Below the pie charts is a line graph displaying historical usage across all
+nodes. This graph presents three data sets: VCPUs used, Memory used and Local
+Storage used - the legend allows the user to switch between the data sets by
+clicking on the legend entry for a data set will switch to displaying that data
+set.
+
+Below the main graph is a focus bar. Left clicking and dragging on the focus
+bar allows you to zoom in on the main graph. A single left click on the focus
+bar will reset the zoom to the default.
+
+Project Details/Project Utilisation
+---------------
+The project details view allows the user to display information about detailed
+resource usage by projects and institutions.
+
+Click on the Project drop down box and scroll through the list until you find
+the ACAD project and select it. A pie chart will be drawn displaying the
+VCPUs used and available for the ACAD project. Click on the Resource drop down
+box and select Memory - the pie chart will switch to displaying the used and
+available memory. Click on the Resource drop down box and select Ephemeral
+Storage, and the chart will switch to displaying the total amount of ephemeral
+storage used. Click on the Resource drop down box and select Volume Storage, and
+the chart should disappear - there should be no volume storage used by this
+project.
+
+Click on the Project drop down box and type in GenomicsVL, and hit enter. The
+pie chart should be drawn showing volume storage usage for this project. Switch
+to a different resource and it will display the relevant data.
+
+Below the pie chart will be two line charts displaying historical usage for the
+selected resource. The top chart is a focus bar, similar to the focus bar on the
+node aggregates page. In this chart both can be used to control focus by
+clicking and dragging on the graph. With the GenomicsVL data displayed click and
+drag on part of the top graph - the bottom graph will zoom in on the selected
+data. Mouse over a visible point on the bottom graph, and a tooltip will display
+the event that caused that point on the line to be created - i.e. the creation
+or deletion of a particular resource. Click on the Resource drop down box and
+select a different resource type - the graphs will change to display the new
+data.
+
+Click on the Institution radio button to switch to displaying data per
+institution rather than per project. This will take a little while to display as
+it will need to download all the data for the University of Melbourne (the
+institution that owns the GenomicsVL project); once it has finished it will
+display resource usage totalled across all the projects owned by the University
+of Melbourne. Interaction with the historical usage graphs is the same as when
+displaying a single project.
+
+Flavour Capacity
+----------------
+The Flavour Capacity view displays resource use per hypervisor, and also
+implements a naive estimate of the number of instances of a given flavour that
+can be launced across the federation.
+
+The initial view displays two drop down boxes, one to select the node to
+display, the second to select the flavour to calculate node capacity for.
+Selecting a node will display the hypervisors for that node, and selecting a
+flavour will display the capacity estimate.
+
+Information is presented in a simple table showing hypervisors and their
+associated resources. Columns displayed are N (the number of instances of each
+flavour that a hypervisor has available capacity for), host (the hypervisor
+hostname), and horizontal bar charts for the vcpus, memory, and disk (the local
+disk capacity). Columns can be sorted either descending or ascending by left
+clicking on the column header - a small arrow will be displayed in the sorted
+column showing the sort order.
+
+Running the mouse over a row in the table will display the resources that
+hypervisor has, in the format 'used/available' (i.e. 20/32 to indicate 20 vcpus
+used out of 32 available, or 150GB/252GB indicating used/available memory). When
+a hypervisor is overcommitted on one of its resources the corresponding bar in
+the chart is outlined in red.
+
+Selecting a flavour from the flavour drop down list displays the hypervisors
+that have available capacity to run the selected flavour. The list is sorted by
+the number of instances each hypervisor can run. Hypervisors that cannot run the
+selected instance are greyed out.
+
+Billing/Invoicing/Project Details
+-------
+The Project Details view provides a report on a project's historical usage. 
+
+(XXX: this will be brief and incomplete)
+
+The page has a drop down box to select the project to display. Once a project
+has been selected the last six months of usage will be displayed in a bar graph
+on the right of the page, with aggregate usage statistics displayed to the left.
+Below these is a table displaying details about all the project's instances: the
+instance name, createor, flavour, availability zone, date started and
+terminated, walltime, and usage units (XXX: needs clarification about usage
+units). The table can be sorted by clicking on the column headers.
