@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>Load</title>
+  <title>Resource Utilisation</title>
   <script src="//cdn.jsdelivr.net/humanize/0.0.9/humanize.min.js"></script>{# required (footer "Last updated") #}
   <script src="//cdn.jsdelivr.net/d3js/3.5.6/d3.min.js"></script>{# required #}
   <script src="/static/nv.d3.min.js"></script>{# required #}
@@ -11,7 +11,7 @@
   <script src="/static/util.js"></script>{# required #}
   <script src="/static/formatters.js"></script>
   <script src="/static/fetcher.js"></script>{# required #}
-  <script src="/static/load.js"></script>{# report-specific code #}
+  <script src="/static/utilisation.js"></script>{# report-specific code #}
   <link rel="apple-touch-icon" sizes="57x57" href="/static/img/icon/apple-icon-57x57.png">
   <link rel="apple-touch-icon" sizes="60x60" href="/static/img/icon/apple-icon-60x60.png">
   <link rel="apple-touch-icon" sizes="72x72" href="/static/img/icon/apple-icon-72x72.png">
@@ -35,7 +35,7 @@
   <link rel="stylesheet" href="/static/css/normalize.css">{# required #}
   <link rel="stylesheet" href="/static/css/skeleton.css">{# required #}
   <link rel="stylesheet" href="/static/css/base.css">
-  <link rel="stylesheet" href="/static/css/load.css">{# report-specific style #}
+  <link rel="stylesheet" href="/static/css/utilisation.css">{# report-specific style #}
 </head>
 <body>
 
@@ -43,7 +43,7 @@
 <nav><img src="/static/img/logo-nectar.svg" alt="Nectar logo"><ul></ul></nav>
 
 <section class="title">
-<h4>Recurrent Work Load Utilisation by Node</h4>
+<h4>Resource Utilisation</h4>
 <div class="row">
   <div class="full columns">
     <p>The pie charts show the current resource usage. Below is a chart of historical data.</p>
@@ -52,14 +52,14 @@
 </section>
 
 <section>
-<h5>Current resource usage</h5>
+<h5>Current usage</h5>
 <div class="row">
   <div class="full column live"><p>Click on pie chart segments to toggle between viewing overall resource usage, per-organisation breakdown, and per-project within an organisation.</p></div>
 </div>
 </section>
 
 <section>
-<h5>Historical data</h5>
+<h5>Historical usage</h5>
 <div class="row historical">
   <div class="full column"><p>The data points below are recorded once per day, so may not capture an instance lasting less than a day.</p><svg/></div>
 </div>
@@ -71,7 +71,7 @@
 </div>{# /container #}
 
 <script>
-Load.init();
+Utilisation.init();
 </script>
 </body>
 </html>

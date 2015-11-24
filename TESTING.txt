@@ -22,25 +22,25 @@ Visit the site (currently at http://130.56.253.127). You should find yourself at
 a login page that has a button to support AAF authentication and a form to
 support manual authentication. Select the Username input and enter the single
 character 'a', then click on the "Manually" button. You should be redirected to
-the http://130.56.253.127/load URL.
+the http://130.56.253.127/utilisation URL.
 
-Node Aggregates/Recurrent Workload Utilisation
+Resource Utilisation
 ---------------
-Once the load view has finished pulling down data it will show four pie charts
+Once the page has finished pulling down data it will show four pie charts
 displaying VCPUs, Memory, Local Storage and Volume Storage. The charts display
 the total available resources, split into used and unused portions.  Moving the
 mouse over each segment will display a tooltip showing the value of the segment,
 and highlight corresponding segments in other pie charts.
 
 Left-clicking on the pie chart "Used" segment will switch the charts' mode to
-showing the per-institution usage. Left clicking on one segment in that mode
+showing the per-organisation usage. Left clicking on one segment in that mode
 will switch the charts to showing the project usage for projects owned by that
-institution. Finally, left clicking on a chart again will switch them back to
+organisation. Finally, left clicking on a chart again will switch them back to
 the original used/available mode.
 
 In each display mode the contents of the charts are sorted consistently by VCPU
 use, from largest to smallest in a clockwise direction. This means that across
-all four charts the colour of an institution or project's segments will match.
+all four charts the colour of an organisation or project's segments will match.
 
 Below the pie charts is a line graph displaying historical usage across all
 nodes. This graph presents three data sets: VCPUs used, Memory used and Local
@@ -52,10 +52,10 @@ Below the main graph is a focus bar. Left clicking and dragging on the focus
 bar allows you to zoom in on the main graph. A single left click on the focus
 bar will reset the zoom to the default.
 
-Project Details/Project Utilisation
+Project Details
 ---------------
 The project details view allows the user to display information about detailed
-resource usage by projects and institutions.
+resource usage by projects and organisations.
 
 Click on the Project drop down box and scroll through the list until you find
 the ACAD project and select it. A pie chart will be drawn displaying the
@@ -82,10 +82,10 @@ or deletion of a particular resource. Click on the Resource drop down box and
 select a different resource type - the graphs will change to display the new
 data.
 
-Click on the Institution radio button to switch to displaying data per
-institution rather than per project. This will take a little while to display as
+Click on the Organiation radio button to switch to displaying data per
+organisation rather than per project. This will take a little while to display as
 it will need to download all the data for the University of Melbourne (the
-institution that owns the GenomicsVL project); once it has finished it will
+organisation that owns the GenomicsVL project); once it has finished it will
 display resource usage totalled across all the projects owned by the University
 of Melbourne. Interaction with the historical usage graphs is the same as when
 displaying a single project.

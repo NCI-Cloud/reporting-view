@@ -10,7 +10,7 @@
 .hypervisors div.hypervisor { /* hypervisor */
     position: absolute;
     width: 100%;
-    height: 30px; /* match rowHeight in flav.js */
+    height: 30px; /* match rowHeight in flavour.js */
     line-height: 30px;
     display: table;
     table-layout: fixed;

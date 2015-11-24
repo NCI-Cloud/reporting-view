@@ -1,4 +1,4 @@
-var Load = {};
+var Utilisation = {};
 (function() {
 
 var resources = [
@@ -33,7 +33,7 @@ var resources = [
 
 var pieCharts = [], lineChart;
 
-Load.init = function() {
+Utilisation.init = function() {
     // set up NVD3 charts
     resources.forEach(function(r) {
         nv.addGraph(function() {
@@ -298,7 +298,7 @@ var historical = function(sel, data) {
         };
     });
 
-    var s = d3.select(sel);
+    // draw chart
     s.select('svg').datum(rearranged).call(lineChart);
 
     // by default, chart shows all of its series, but in this context that is unhelpful

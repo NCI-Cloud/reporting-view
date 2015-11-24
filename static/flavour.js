@@ -1,4 +1,4 @@
-var Report = {};
+var Flavour = {};
 (function() {
 
 /// event broadcasting
@@ -35,7 +35,7 @@ var res = [
     },
 ];
 
-Report.init = function() {
+Flavour.init = function() {
     Util.initReport([
         {
             sel : '.flavs',
@@ -153,7 +153,7 @@ function report_list(sel, g) {
         sortAccessor.push(function(d) { return +d._allocated[i] });
     });
 
-    var rowHeight = 30; //px, has to match some stuff in flav.css
+    var rowHeight = 30; //px, has to match some stuff in flavour.css
     var container = s.select('div.list');
     container.style('height', data.length * rowHeight + 'px');
 
