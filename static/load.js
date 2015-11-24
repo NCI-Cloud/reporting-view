@@ -183,7 +183,12 @@ var live = function(sel, data) {
     svg.enter().append('svg');
     svg.exit().remove();
 
-    // updateChart function is redundant (only called once) right now, but eventually the charts will be interactive again, and then it will become unredundant...
+    // array with projectOrder[i] = index of projects[i] in sorted pdata array
+    var projectOrder = null; // gets set the first time zoom.project is used on non-volume_storage chart; volume_storage chart requires it to be set before rendering; yeah this is a bit gross...
+
+    // re-render chart with specified index "i" (or all charts if i is undefined)
+    // optional "extra" parameter is additional information
+    // (used with zoom.project mode to specify which organisation to inspect)
     var updateChart = function(i, extra) {
         if(i === undefined) {
             // if no chart index specified, call for every chart
@@ -199,8 +204,10 @@ var live = function(sel, data) {
         // update datum, depending on corresponding mode
         if(mode[i] === zoom.total) {
             container.datum(totalResources);
+            projectOrder = null; // reset projectOrder, since another project may now be selected
         } else if(mode[i] === zoom.organisation) {
             container.datum(activeResources);
+            projectOrder = null; // reset projectOrder, since another project may now be selected
         } else if(mode[i] === zoom.project) {
             // "extra" parameter is organisation name
             var org = extra; // relabel for clarity
@@ -228,10 +235,18 @@ var live = function(sel, data) {
                         .filter(function(ins) { return ins.project_id === p.id })
                         .reduce(agg, {key:p.id, label:p.display_name, vcpus:0, memory:0, local_storage:0});
                 });
+
+                // make sure projectOrder is set
+                if(!projectOrder) {
+                    projectOrder = {};
+                    pdata
+                        .sort(function(a, b) { return b[resources[0].key] - a[resources[0].key] })
+                        .forEach(function(p, i) { projectOrder[p.key] = i });
+                }
             }
 
             // sorting by resources[i].key would make every graph individually sorted, but make colours inconsistent
-            container.datum(pdata.sort(function(a, b) { return b[resources[0].key] - a[resources[0].key] }));
+            container.datum(pdata.sort(function(a, b) { return projectOrder[a.key] - projectOrder[b.key] }));
         }
 
         // redraw
