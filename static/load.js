@@ -258,26 +258,26 @@ var live = function(sel, data) {
 
         // make a copy of original mouseover callback
         if(!slice.on('_mouseover')) slice.on('_mouseover', slice.on('mouseover'));
+        if(!slice.on('_mouseout')) slice.on('_mouseout', slice.on('mouseout'));
 
-        if(mode[i] === zoom.total) {
-            slice.on('mouseover', function(d, sliceIdx) {
+        slice.on('mouseover', function(d, sliceIdx) {
+            if(mode[i] === zoom.total) {
                 // only want to grow for first slice ("Used"), since clicking on "Unused" does nothing
                 pieCharts[i].growOnHover(sliceIdx===0);
-                slice.on('_mouseover').bind(this, d, sliceIdx)();
-            });
-        } else if(mode[i] === zoom.organisation) {
-            slice.on('mouseover', function(d, sliceIdx) {
+            } else if(mode[i] === zoom.organisation) {
                 // do not want to grow for "personal trial" slice (since there are very many personal trials, each using 1 or 2 vcpus, making a very uninformative pie chart)
                 pieCharts[i].growOnHover(d.data.key!=='__undefined');
-                slice.on('_mouseover').bind(this, d, sliceIdx)();
-            });
-        } else {
-            slice.on('mouseover', function(d, sliceIdx) {
+            } else {
                 // clicking on any institution's segment will do something
                 pieCharts[i].growOnHover(true);
-                slice.on('_mouseover').bind(this, d, sliceIdx)();
-            });
-        }
+            }
+            d3.selectAll('.live .nvd3-svg').selectAll('.nv-slice').classed('hover', function(d, i) { return i===sliceIdx });
+            slice.on('_mouseover').bind(this, d, sliceIdx)();
+        });
+        slice.on('mouseout', function(d, sliceIdx) {
+            d3.selectAll('.live .nvd3-svg').selectAll('.nv-slice').classed('hover', false);
+            slice.on('_mouseout').bind(this, d, sliceIdx)();
+        });
     };
     updateChart();
 };
