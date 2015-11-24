@@ -215,6 +215,9 @@ var report = function(sel, data) {
                 return ret;
             });
 
+            // sort by first resource (vcpus)
+            activeResources.sort(function(a, b) { return b[resources[0].key] - a[resources[0].key] });
+
             // prepend "Unused" element
             var unused = {pid:null, label:'Unused'};
             var warnings = []; // also keep track of any quotas exceeded
