@@ -167,18 +167,13 @@ var live = function(sel, data) {
     var mode = pieCharts.map(function() { return zoom.total }); // current zoom level for each pie chart
     pieCharts.forEach(function(chart, i) {
         chart.pie.dispatch.on('elementClick', function(d) {
-            if(mode[i] === zoom.total && d.index === 0) {
-                // clicked on "Used" segment
-                mode[i] = zoom.organisation;
-                updateChart(i);
-            } else if(mode[i] === zoom.organisation) {
-                var org = d.data.key;
-                if(org === '__undefined') return; // don't zoom in on "Personal Trial" pseudo-organisation
-                mode[i] = zoom.project;
-                updateChart(i, org);
-            } else if(mode[i] === zoom.project) {
-                mode[i] = zoom.total;
-                updateChart(i);
+            if(mode[0] === zoom.total && d.index !== 0) return; // can't click on "Unused" segment
+            if(mode[0] === zoom.organisation && d.data.key === '__undefined') return; // don't zoom in on "Personal Trial" pseudo-organisation
+            for(var i=0; i<resources.length; i++) {
+                if(mode[i] === zoom.total) mode[i] = zoom.organisation;
+                else if(mode[i] === zoom.organisation) mode[i] = zoom.project;
+                else mode[i] = zoom.total;
+                updateChart(i, d.data.key);
             }
         });
     });
