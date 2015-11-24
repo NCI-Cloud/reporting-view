@@ -29,18 +29,18 @@ Node Aggregates/Recurrent Workload Utilisation
 Once the load view has finished pulling down data it will show four pie charts
 displaying VCPUs, Memory, Local Storage and Volume Storage. The charts display
 the total available resources, split into used and unused portions.  Moving the
-mouse over each segment will display a tooltip showing the value of the segment.
+mouse over each segment will display a tooltip showing the value of the segment,
+and highlight corresponding segments in other pie charts.
 
-Left-clicking on the pie chart "Used" segment will switch the chart mode to
+Left-clicking on the pie chart "Used" segment will switch the charts' mode to
 showing the per-institution usage. Left clicking on one segment in that mode
-will switch the chart to showing the project usage for projects owned by that
-institution. Finally, left clicking on the chart again will switch it back to
+will switch the charts to showing the project usage for projects owned by that
+institution. Finally, left clicking on a chart again will switch them back to
 the original used/available mode.
 
 In each display mode the contents of the charts are sorted consistently by VCPU
 use, from largest to smallest in a clockwise direction. This means that across
 all four charts the colour of an institution or project's segments will match.
-(XXX: currently not fully implemented - the volume chart is not properly drawn)
 
 Below the pie charts is a line graph displaying historical usage across all
 nodes. This graph presents three data sets: VCPUs used, Memory used and Local
