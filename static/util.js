@@ -109,8 +109,12 @@ var Util = {};
 
         // extract all availability zones
         var azs = hyp.map(function(h) {
-            var i = h.availability_zone.indexOf('!'); // only care about top level cell in az, not subcell
-            return i === -1 ? h.availability_zone : h.availability_zone.substr(0, i);
+            var truncated = h.availability_zone; // need to trim "X!Z", "X-Y", and "X-Y!Z" all to "X" (X=node, Y=?, Z=subcell.. I think..)
+            var i = truncated.indexOf('!');
+            if(i > -1) truncated = truncated.substr(0, i);
+            i = truncated.indexOf('-');
+            if(i > -1) truncated = truncated.substr(0, i);
+            return truncated;
         });
         azs = azs
             .filter(function(az, i) { return azs.indexOf(az) === i }) // filter unique

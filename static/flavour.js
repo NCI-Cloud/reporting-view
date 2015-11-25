@@ -116,9 +116,9 @@ function report_list(sel, g) {
     var az = localStorage.getItem(Config.nodeKey);
     var data = hyp
         .filter(function(h) { // filter by AZ
-            if(!az) return true; // (unless none is specified)
             var i = h.availability_zone.indexOf('!');
-            return (i === -1 ? h.availability_zone : h.availability_zone.substr(0, i)) === az;
+            var truncated = i > -1 ? h.availability_zone.substr(0, i) : h.availability_zone;
+            return truncated.indexOf(az) === 0;
         })
         .map(function(ins) {
             var ret = {};
