@@ -24,7 +24,7 @@ support manual authentication. Select the Username input and enter the single
 character 'a', then click on the "Manually" button. You should be redirected to
 the http://130.56.253.127/utilisation URL.
 
-Resource Utilisation
+Aggregate Utilisation
 ---------------
 Once the page has finished pulling down data it will show four pie charts
 displaying VCPUs, Memory, Local Storage and Volume Storage. The charts display

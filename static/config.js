@@ -8,7 +8,7 @@ var Config = {
     nodeKey  : 'node',  // key in localStorage for node to be used for node-level filtering
     reports : [
         {
-            name : 'Resource Utilisation',
+            name : 'Aggregate Utilisation',
             url  : '/utilisation',
         },
         {
