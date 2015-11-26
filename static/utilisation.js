@@ -103,7 +103,42 @@ var live = function(sel, data) {
     var instance = data['instance?active=1'];
     var volume = data['volume?active=1'];
     var project = data['project?personal=0'];
+    var hypervisor = data['hypervisor'];
     var s = d3.select(sel);
+
+    // prepare some data for filtering by AZ
+    // need to know which projects have instances running in which AZs
+    var az = localStorage.getItem(Config.nodeKey);
+    var hypByHostname = {}; // for looking up hypervisors by hostname
+    hypervisor.forEach(function(h) {
+        var trimmed = h.hostname;
+        var i = trimmed.indexOf('.');
+        if(i !== -1) trimmed = trimmed.substr(0, i);
+        if(trimmed in hypByHostname) {
+            var other = hypByHostname[trimmed];
+            if(other.availability_zone !== h.availability_zone) {
+                console.log('Error: non-unique hostname "'+trimmed+'" ("'+h.hostname+'") with multiple availability zones');
+            } else {
+                console.log('Warning: non-unique hostname "'+trimmed+'" ("'+h.hostname+'")');
+            }
+        }
+        hypByHostname[trimmed] = h; // should really handle errors better
+    });
+    instance = instance.filter(function(i) {
+        var trimmed = i.hypervisor;
+        if(trimmed === null) return false; // ignore instances with no hypervisor, because these are never scheduled and never used any resources
+        var i = trimmed.indexOf('.');
+        if(i !== -1) trimmed = trimmed.substr(0, i);
+        if(trimmed in hypByHostname) {
+            return hypByHostname[trimmed].availability_zone.indexOf(az) === 0;
+        } else {
+            console.log('Error: could not find hypervisor for instance "'+i.id+'"');
+            return false;
+        }
+    });
+    volume = volume.filter(function(v) { return v.availability_zone.indexOf(az) === 0 });
+    project = project; // don't need to filter here, since "empty" projects don't get shown on pie chart anyway
+    hypervisor = hypervisor.filter(function(h) { return h.availability_zone.indexOf(az) === 0 });
 
     // function for reducing over array of instances, extracting what we want to plot
     var agg = function(val, instance) {
@@ -154,7 +189,7 @@ var live = function(sel, data) {
     // calculate "used/unused" data
     var used = {key:'used', label:'Used'}, unused = {key:'unused', label:'Unused'};
     var capacity = resources.map(function(res) {
-        return res.hv ? d3.sum(data.hypervisor, res.hv) : undefined;
+        return res.hv ? d3.sum(hypervisor, res.hv) : undefined;
     });
     resources.forEach(function(res, i) {
         used[res.key] = d3.sum(activeResources, function(red) { return red[res.key] });

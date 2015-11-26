@@ -108,14 +108,7 @@ var Util = {};
         var s = d3.select(sel);
 
         // extract all availability zones
-        var azs = hyp.map(function(h) {
-            var truncated = h.availability_zone; // need to trim "X!Z", "X-Y", and "X-Y!Z" all to "X" (X=node, Y=?, Z=subcell.. I think..)
-            var i = truncated.indexOf('!');
-            if(i > -1) truncated = truncated.substr(0, i);
-            i = truncated.indexOf('-');
-            if(i > -1) truncated = truncated.substr(0, i);
-            return truncated;
-        });
+        var azs = hyp.map(function(h) { return Util.truncate_az(h.availability_zone) });
         azs = azs
             .filter(function(az, i) { return azs.indexOf(az) === i }) // filter unique
             .sort();
@@ -160,5 +153,14 @@ var Util = {};
         catch(e) {
             return false;
         }
+    };
+
+    // trim "X!Z", "X-Y", and "X-Y!Z" to "X" (X=node, Y=?, Z=subcell.. I think..)
+    Util.truncate_az = function(az) {
+        var i = az.indexOf('!');
+        if(i > -1) az = az.substr(0, i);
+        i = az.indexOf('-');
+        if(i > -1) az = az.substr(0, i);
+        return az;
     };
 })();
