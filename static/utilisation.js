@@ -196,6 +196,7 @@ var live = function(sel, data) {
         unused[res.key] = capacity[i] ? capacity[i] - used[res.key] : null;
     });
     var totalResources = [used, unused];
+    var overcommit = resources.some(function(r) { return unused[r.key] < 0 });
 
     // bind pie chart click events
     var zoom = Object.freeze({'total':0, 'organisation':1, 'project':2}); // enum for granularity of pie chart
@@ -313,6 +314,9 @@ var live = function(sel, data) {
             d3.selectAll('.live .nvd3-svg').selectAll('.nv-slice').classed('hover', false);
             slice.on('_mouseout').bind(this, d, sliceIdx)();
         });
+
+        // show/hide additional explanation messages
+        s.select('.overcommit').style('display', mode.some(function(m) { return m === zoom.total }) && overcommit ? 'inline' : 'none');
     };
     updateChart();
 };

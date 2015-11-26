@@ -12,3 +12,6 @@
     width: 100%;
     height: 500px;
 }
+.overcommit {
+    display: none;
+}
