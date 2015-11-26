@@ -110,32 +110,50 @@ function report_list(sel, g) {
     // relabel for convenience
     var s = d3.select(sel);
     var instance = g['instance?active=1'];
-    var hyp = g.hypervisor;
+    var hypervisor = g.hypervisor;
 
-    // make shallow copy of hypervisor array, with additional _allocated array corresponding to global "res"
+    // filter by availability zone
     var az = localStorage.getItem(Config.nodeKey);
-    var data = hyp
-        .filter(function(h) { // filter by AZ
-            var i = h.availability_zone.indexOf('!');
-            var truncated = i > -1 ? h.availability_zone.substr(0, i) : h.availability_zone;
-            return truncated.indexOf(az) === 0;
-        })
-        .map(function(ins) {
+    hypervisor = hypervisor.filter(function(h) { return h.availability_zone.indexOf(az) === 0 });
+    // (don't really need to filter instance; won't show any instances belonging to filtered-out hypervisors)
+
+    // make shallow copy of hypervisor array, with additional:
+    //   _allocated array corresponding to global "res"
+    //   _trimmed   substring of hostname, before first '.' ("cn34.qld.nectar.org.au" -> "cn34")
+    var trimmed = {}; // to make sure _trimmed are all unique...
+    var data = hypervisor
+        .map(function(hyp) {
+            // copy all hypervisor attributes
             var ret = {};
-            for(var k in ins) {
-                ret[k] = ins[k];
+            for(var k in hyp) {
+                ret[k] = hyp[k];
             }
+
+            // trim hypervisor names
+            ret._trimmed = hyp.hostname;
+            var i = ret._trimmed.indexOf('.');
+            if(i > -1) ret._trimmed = ret._trimmed.substr(0, i);
+            if(ret._trimmed in trimmed) {
+                // TODO handle errors better...
+                console.log('Error: duplicate trimmed hostname for "'+hyp.hostname+'"');
+            }
+            trimmed[ret._trimmed] = true;
+
+            // will keep running count of resources allocated
             ret._allocated = res.map(function() { return 0 });
+
             return ret;
         });
 
     // calculate totals of allocated resources on each hypervisor
     instance.forEach(function(ins) {
-        // assume that instance.hypervisor matches substr of hypervisor.hostname from start to before '.'
-        var hyp = data.find(function(h) {
-            var dIdx = h.hostname.indexOf('.');
-            return ins.hypervisor === (dIdx === -1 ? h.hostname : h.hostname.substr(0, dIdx));
-        });
+        if(!ins.hypervisor) return; // ignore hypervisor=null, since those are not running anyway
+
+        // match instance.hypervisor and hypervisor.hostname by trimming both and comparing
+        var trimmed = ins.hypervisor;
+        var i = trimmed.indexOf('.');
+        if(i > -1) trimmed = trimmed.substr(0, i);
+        var hyp = data.find(function(h) { return h._trimmed === trimmed })
         if(hyp) {
             res.forEach(function(r, i) {
                 hyp._allocated[i] += r.accessor.instance(ins);
