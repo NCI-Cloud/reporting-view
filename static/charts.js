@@ -340,14 +340,15 @@ var Charts = {};
                         gBrushDate.transition().call(brushDate);
                     } else {
                         brushDate.clear();
-                        gBrushDate.call(brushDate); // no transition when clearing (moves to x=0, looks silly)
                         xZoom.domain(xDate.domain());
+                        gBrushDate.call(brushDate); // no transition when clearing (moves to x=0, looks silly)
                     }
                     var yExtent = d3.extent(ws, yZoomFn);
                     if(yExtent[0] !== undefined && yExtent[1] !== undefined) {
                         // don't try to show [undefined, undefined] extent when no data points are selected.
                         // re-slice to include the points immediately before and after the extent
-                        yZoom.domain(d3.extent(data.slice(Math.max(0, lb-1), ub+1), yZoomFn));
+                        var dom = d3.extent(data.slice(Math.max(0, lb-1), ub+1), yZoomFn);
+                        yZoom.domain(dom[0] === dom[1] ? [0, 2*dom[0]] : dom);
                     }
 
                     // never show brush on zoom chart, since it would always be 100% selected

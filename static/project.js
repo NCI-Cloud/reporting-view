@@ -131,16 +131,12 @@ var report = function(sel, data) {
         .yDateFn(function(d) { return d.y })
         .yZoom(function(d) { return d.y });
     chart.tip().html(function(d) { return d.label })
-    Project.c = chart;
 
     var progress = Charts.progress();
     var progressContainer = s.select('.progress');
 
     // called when a different project/institution is selected
     var update = function() {
-        // reset zoom
-        chart.dispatch.zoom(null);
-
         // create list of projects whose data should be fetched
         var pids;
         if(s.select('label[for=institution] input[type=radio]').property('checked')) {
@@ -319,6 +315,7 @@ var report = function(sel, data) {
                 var idx = resSelect.property('selectedIndex');
                 chart.tickFormat(resources[idx].format);
                 s.select('.chart').datum(data[idx].values).call(chart);
+                chart.dispatch.zoom(null); // reset zoom
             };
             resSelect.on('change.line', updateLine);
             updatePie();
