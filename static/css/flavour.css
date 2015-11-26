@@ -97,6 +97,15 @@
     position: relative;
     top: -1.8em;
 }
+label.allflav {
+    display: inline-block;
+    margin-left: 1rem;
+    font-weight: normal;
+    font-size: 80%;
+}
+label.allflav input {
+    margin-right: 0.5rem;
+}
 .sum p {
     margin-bottom: 0; /* BabyRage */
 }

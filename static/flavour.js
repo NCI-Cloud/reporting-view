@@ -55,37 +55,52 @@ Flavour.init = function() {
 };
 
 function report_flavs(sel, g) {
+    // relabel
+    var flavour = g.flavour;
     var s = d3.select(sel);
 
-    // generate <select> for controlling pie
     var slct = s.select('select.flavours') // "select" is a word overused yet reserved
         .on('change', function() { var fid = this.value; dispatch.flavChanged(sel, g.flavour.find(function(f){ return f.id==fid })); });
+    var makeSelect = function() {
+        // show just m2 range, or all?
+        var flavs;
+        if(s.select('.allflav input').property('checked')) {
+            flavs = flavour.filter(function() { return true }); // shallow copy for sorting
+            flavs.sort(function(a, b) { return a.name < b.name ? -1 : a.name > b.name ? 1 : 0 }); // sort lexicographically
+        } else {
+            flavs = flavour.filter(function(f) { return f.name.indexOf('m2.')===0 });
+            flavs.sort(function(a, b) { return a.vcpus - b.vcpus }); // sort by vcpus
+        }
 
-    // remove any old placeholders before doing data join
-    slct.selectAll('option[disabled]').remove();
+        // remove any old placeholders before doing data join
+        slct.selectAll('option[disabled]').remove();
 
-    // create <option>s
-    var opts = slct.selectAll('option').data(g.flavour);
-    opts.enter().append('option');
-    opts
-        .attr('value', function(d) { return d.id; })
-        .text(function(d) { return d.name; });
-    opts.exit().remove();
+        // create <option>s
+        var opts = slct.selectAll('option').data(flavs);
+        opts.enter().append('option');
+        opts
+            .attr('value', function(d) { return d.id; })
+            .text(function(d) { return d.name; });
+        opts.exit().remove();
 
-    // add placeholder for no project selected
-    slct.insert('option', 'option')
-        .attr('value', '')
-        .attr('disabled', '')
-        .attr('selected', '')
-        .style('display', 'none')
-        .text('Select flavour...');
+        // add placeholder for no project selected
+        slct.insert('option', 'option')
+            .attr('value', '')
+            .attr('disabled', '')
+            .attr('selected', '')
+            .style('display', 'none')
+            .text('Select flavour...');
 
-    dispatch.flavChanged(sel, null);
+        // the value of the <select> has been reset, so reset anything that might use it
+        dispatch.flavChanged(sel, null);
+    };
+    makeSelect();
+    s.select('.allflav input').on('change', makeSelect);
 
     var sumHeight = 50; // pixels
     var sum = s.select('.summary').style('height', sumHeight+'px');
     var sumScale = res.map(function(r) {
-        return d3.scale.linear().domain([0, d3.max(g.flavour, r.accessor.flavour)]).range([0, sumHeight]);
+        return d3.scale.linear().domain([0, d3.max(flavour, r.accessor.flavour)]).range([0, sumHeight]);
     });
 
     dispatch.on('flavChanged.'+sel, function(sel, f) {
