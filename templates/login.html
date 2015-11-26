@@ -19,8 +19,8 @@
 {% if token %}{# TODO this won't work #}
 <script>
 var token = '{{ token }}';
-sessionStorage.setItem(Config.tokenKey, token);
-location.replace(Config.baseURL + Config.reports[0].url);
+sessionStorage.setItem(Util.tokenKey, token);
+location.replace(Config.baseURL + Util.reports[0].url);
 </script>
 {% endif %}
 

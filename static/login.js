@@ -6,7 +6,7 @@
             $('section.error').css('display', '');
             $('footer').css('display', 'none');
             $('.error .message').html('These reports require a modern web browser (with the web storage API).<br>Any recent version of Chrome, Firefox, Internet Explorer, or Safari should work.');
-        } else if(sessionStorage.getItem(Config.tokenKey)) {
+        } else if(sessionStorage.getItem(Util.tokenKey)) {
             // token already set; not sure if it's better here to re-authenticate or just assume the token's good
             redirect();
         }
@@ -14,11 +14,11 @@
         // hook up forms
         $('form.aaf').attr('action', 'https://accounts.rc.nectar.org.au/rcshibboleth?return-path='+encodeURIComponent(Config.baseURL));
         $('form.manual').on('submit', function() { getToken(); return false });
-        var message = sessionStorage.getItem(Config.flashKey);
+        var message = sessionStorage.getItem(Util.flashKey);
         if(message) {
             $('.instructions').prepend('<p>'+message+'</p>');
         }
-        sessionStorage.removeItem(Config.flashKey);
+        sessionStorage.removeItem(Util.flashKey);
     });
 
     var keystone;
@@ -29,7 +29,7 @@
         $('.manual p.message').html('');
 
         // save token
-        sessionStorage.setItem(Config.tokenKey, keystone.getToken());
+        sessionStorage.setItem(Util.tokenKey, keystone.getToken());
         redirect();
     };
 
@@ -79,6 +79,6 @@
     };
 
     var redirect = function() {
-        location.replace(Config.baseURL + Config.reports[0].url);
+        location.replace(Config.baseURL + Util.reports[0].url);
     };
 })(jQuery);

@@ -1,3 +1,6 @@
+/**
+ * Internal helper functions and configuration.
+ */
 var Util = {};
 (function() {
     var callbacks = function(sel, callback) {
@@ -18,6 +21,10 @@ var Util = {};
         };
     };
 
+    Util.tokenKey = 'token'; /// key in sessionStorage for keystone token
+    Util.flashKey = 'flash'; /// key in sessionStorage for temporary message storage
+    Util.nodeKey  = 'node';  /// key in localStorage for node to be used for node-level filtering
+
     /**
      * Handle 401 (from reporting-api) by assuming token has expired, and
      * prompting user to re-authenticate.
@@ -26,8 +33,8 @@ var Util = {};
      * an interactive process.
      */
     Util.on401 = function() {
-        sessionStorage.removeItem(Config.tokenKey); // credentials no longer good, so don't keep
-        sessionStorage.setItem(Config.flashKey, 'Your session has expired. Please reauthenticate.');
+        sessionStorage.removeItem(Util.tokenKey); // credentials no longer good, so don't keep
+        sessionStorage.setItem(Util.flashKey, 'Your session has expired. Please reauthenticate.');
         location.replace(Config.baseURL);
     };
 
@@ -49,7 +56,7 @@ var Util = {};
      *     (N.B. this modifies the "deps" argument)
      */
     Util.initReport = function(deps, done) {
-        var token = sessionStorage.getItem(Config.tokenKey);
+        var token = sessionStorage.getItem(Util.tokenKey);
         if(!token) {
             location.replace(Config.baseURL);
             return;
@@ -117,14 +124,14 @@ var Util = {};
         // generate <select>
         var slct = s.select('select');
         if(slct.empty()) return; // no node-level filter on this report
-        slct.on('change', function() { localStorage.setItem(Config.nodeKey, this.value); fetch.call() });
+        slct.on('change', function() { localStorage.setItem(Util.nodeKey, this.value); fetch.call() });
         var opt = slct.selectAll('option').data(azs);
         opt.enter().append('option');
         opt.exit().remove();
         opt
             .attr('value', function(az) { return az || '' })
             .text(function(az) { return az || 'All' });
-        slct.property('value', localStorage.getItem(Config.nodeKey));
+        slct.property('value', localStorage.getItem(Util.nodeKey));
     };
 
     var fillNav = function(fetch) {
@@ -132,7 +139,7 @@ var Util = {};
 
         // make nav links
         var ul = nav.select('ul');
-        var li = ul.selectAll('li').data(Config.reports);
+        var li = ul.selectAll('li').data(Util.reports);
         li.enter().append('li')
             .attr('class', function(d) { return location.pathname.endsWith(d.url) ? 'current' : '' })
           .append('a')
@@ -163,4 +170,28 @@ var Util = {};
         if(i > -1) az = az.substr(0, i);
         return az;
     };
+
+    /**
+     * For rendering <nav>.
+     *  name : string to appear in each link
+     *  url  : gets appended to Config.baseURL
+     */
+    Util.reports = [
+        {
+            name : 'Aggregate Utilisation',
+            url  : '/utilisation',
+        },
+        {
+            name : 'Project Details',
+            url  : '/project',
+        },
+        {
+            name : 'Flavour Capacity',
+            url  : '/flavour',
+        },
+        {
+            name : 'Billing',
+            url  : '/billing',
+        },
+    ];
 })();

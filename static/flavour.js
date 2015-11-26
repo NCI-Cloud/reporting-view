@@ -128,7 +128,7 @@ function report_list(sel, g) {
     var hypervisor = g.hypervisor;
 
     // filter by availability zone
-    var az = localStorage.getItem(Config.nodeKey);
+    var az = localStorage.getItem(Util.nodeKey);
     hypervisor = hypervisor.filter(function(h) { return h.availability_zone.indexOf(az) === 0 });
     // (don't really need to filter instance; won't show any instances belonging to filtered-out hypervisors)
 

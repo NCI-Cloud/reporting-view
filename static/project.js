@@ -348,7 +348,7 @@ var report = function(sel, data) {
 
         // enqueue all data to be fetched
         pids.forEach(function(pid) {
-            var fetch = Fetcher(Config.endpoint, sessionStorage.getItem(Config.tokenKey), Util.on401);
+            var fetch = Fetcher(Config.endpoint, sessionStorage.getItem(Util.tokenKey), Util.on401);
             var on = callbacks(pid, fetched);
             fetch.q({
                 qks     : ['project?id='+pid, 'instance?project_id='+pid, 'volume?project_id='+pid],

@@ -277,7 +277,7 @@ var pp = function(sel, g) {
         }
 
         // TODO refactor Fetcher so it has optional arguments with these as default
-        var fetch = Fetcher(Config.endpoint, sessionStorage.getItem(Config.tokenKey), Util.on401);
+        var fetch = Fetcher(Config.endpoint, sessionStorage.getItem(Util.tokenKey), Util.on401);
         fetch.q({
             qks     : ['instance?project_id='+pid],
             start   : function() {

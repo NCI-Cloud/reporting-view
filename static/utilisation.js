@@ -116,7 +116,7 @@ var live = function(sel, data) {
 
     // prepare some data for filtering by AZ
     // need to know which projects have instances running in which AZs
-    var az = localStorage.getItem(Config.nodeKey);
+    var az = localStorage.getItem(Util.nodeKey);
     var hypByHostname = {}; // for looking up hypervisors by hostname
     hypervisor.forEach(function(h) {
         var trimmed = h.hostname;
