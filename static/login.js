@@ -13,7 +13,7 @@
 
         // hook up forms
         $('form.aaf').attr('action', 'https://accounts.rc.nectar.org.au/rcshibboleth?return-path='+encodeURIComponent(Config.baseURL));
-        $('form.manual').on('submit', function() { getTokenTenjin(); return false });
+        $('form.manual').on('submit', function() { getToken(); return false });
         var message = sessionStorage.getItem(Config.flashKey);
         if(message) {
             $('.instructions').prepend('<p>'+message+'</p>');
@@ -41,7 +41,7 @@
     /**
      * please make sure this never throws
      */
-    var getTokenTenjin = function() {
+    var getToken = function() {
         // remove any error display (actually redundant, since if token gets obtained the browser redirects anyway)
         $('.manual').removeClass('error');
         $('.manual p.message').html('');
