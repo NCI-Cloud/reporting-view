@@ -18,7 +18,7 @@ Project.init = function() {
     Util.initReport([
         {
             sel : '.report',
-            dep : ['project?personal=0'],
+            dep : ['project?personal=0&has_instances=1'],
             fun : report,
         },
     ], {
@@ -63,10 +63,12 @@ var report = function(sel, data) {
     // relabel for convenience
     var s = d3.select(sel);
     var warn = s.select('.warning');
+    var project = data['project?personal=0&has_instances=1'];
 
-    // make shallow copy of data, for sorting without altering original
-    var project = data['project?personal=0']
-        .map(function(d) { return {id:d.id, display_name:d.display_name} })
+    // extract project ids, organisations, and display names, and sort
+    project = project
+        .filter(function(p) { return p.has_instances })
+        .map(function(d) { return {id:d.id, display_name:d.display_name, organisation:d.organisation} })
         .sort(function(a, b) { return d3.ascending(a.display_name.toLowerCase(), b.display_name.toLowerCase()) });
 
     // generate project <select>
@@ -81,7 +83,7 @@ var report = function(sel, data) {
 
     // gather institutions
     var inst = {}; // this will be {'Institution Name' : [pid1, pid2, ..]} (since the organisation name seems to be the only identifier for the institution, there's no id field)
-    data['project?personal=0'].forEach(function(p) {
+    project.forEach(function(p) {
         if(!p.organisation) return; // don't try calling null.split
         p.organisation.split(';').forEach(function(o) {
             if(!inst[o]) inst[o] = [];

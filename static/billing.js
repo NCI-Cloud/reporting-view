@@ -18,7 +18,7 @@ Billing.init = function() {
         },
         {
             sel : '#pid',
-            dep : ['project?personal=0'],
+            dep : ['project?personal=0&has_instances=1'],
             fun : projects,
         },
         {
@@ -87,7 +87,7 @@ var projects = function(sel, g) {
     slct.selectAll('option[disabled]').remove();
 
     // make shallow copy of data, for sorting without altering original
-    var project = g['project?personal=0']
+    var project = g['project?personal=0&has_instances=1']
         .map(function(d) { return {id:d.id, display_name:d.display_name} })
         .sort(function(a, b) { return d3.ascending(a.display_name.toLowerCase(), b.display_name.toLowerCase()) });
 
