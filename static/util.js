@@ -47,6 +47,7 @@ var Util = {};
      * Boilerplate for initialising a page of reports:
      *   - ensure web storage is available
      *   - ensure auth token is set
+     *   - ensure node token is set
      *   - fetch data for reports described by deps, which is a list of
      *        {
      *          sel : css selector for container of report,
@@ -66,6 +67,8 @@ var Util = {};
             location.replace(Config.baseURL);
             return;
         }
+
+        if(!localStorage.getItem(Util.nodeKey)) localStorage.setItem(Util.nodeKey, '');
 
         if(done) {
             // concat
