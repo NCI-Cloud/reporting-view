@@ -25,6 +25,11 @@ var Util = {};
     Util.flashKey = 'flash'; /// key in sessionStorage for temporary message storage
     Util.nodeKey  = 'node';  /// key in localStorage for node to be used for node-level filtering
 
+    /// factory function
+    Util.fetcher = function() {
+        return Fetcher(Config.endpoint, sessionStorage.getItem(Util.tokenKey), Util.on401);
+    };
+
     /**
      * Handle 401 (from reporting-api) by assuming token has expired, and
      * prompting user to re-authenticate.
@@ -73,7 +78,7 @@ var Util = {};
             deps.push(done);
         }
 
-        var fetch = Fetcher(Config.endpoint, token, Util.on401);
+        var fetch = Util.fetcher();
 
         // before any reporting can be done, the list of availability zones must be fetched
         // so that node-level filtering can be done on any subsequent data
