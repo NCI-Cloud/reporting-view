@@ -103,3 +103,7 @@ div.disabled option {
     padding-right: 0.2rem;
     white-space: nowrap;
 }
+div.table {
+    padding-top: 6rem;
+    font-size: 1.2rem;
+}

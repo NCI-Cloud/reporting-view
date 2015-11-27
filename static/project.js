@@ -18,7 +18,7 @@ Project.init = function() {
     Util.initReport([
         {
             sel : '.report',
-            dep : ['project?personal=0&has_instances=1', 'hypervisor'], // need hypervisor data for node-level filtering (until instance.availability_zone is useful)
+            dep : ['project?personal=0&has_instances=1', 'flavour', 'hypervisor'], // need hypervisor data for node-level filtering (until instance.availability_zone is useful)
             fun : report,
         },
     ], {
@@ -65,6 +65,7 @@ var report = function(sel, data) {
     var warn = s.select('.warning');
     var project = data['project?personal=0&has_instances=1'];
     var hypervisor = data.hypervisor;
+    var flavour = data.flavour;
     var az = localStorage.getItem(Util.nodeKey);
 
     // build mapping {trimmed hypervisor name : availability zone} for node-level filtering later on
@@ -229,17 +230,23 @@ var report = function(sel, data) {
             }
         };
         var fetchedAll = function() { // called after fetching all projects' data, aggregated in project and instance
-            // filter by node
-            var instance = instanceAgg.filter(function(ins) {
+            // pollute instance data with trimmed hypervisor names
+            instanceAgg.forEach(function(ins) {
                 var trimmed = ins.hypervisor;
-                if(trimmed === null) return false; // ignore instances with no hypervisor, because these are never scheduled and never used any resources
+                if(!trimmed) return; // will be ignored later
                 var i = trimmed.indexOf('.');
                 if(i > -1) trimmed = trimmed.substr(0, i);
-                if(trimmed in hostAZ) {
-                    return hostAZ[trimmed].indexOf(az) === 0;
+                ins._trimmed = trimmed;
+            });
+
+            // filter by node
+            var instance = instanceAgg.filter(function(ins) {
+                if(!ins._trimmed) return false; // ignore instances with no hypervisor, because these are never scheduled and never used any resources
+                if(ins._trimmed in hostAZ) {
+                    return hostAZ[ins._trimmed].indexOf(az) === 0;
                 } else {
                     // TODO handle error
-                    console.log('Error: hypervisor ('+trimmed+') for instance '+ins.id+' not found');
+                    console.log('Error: hypervisor ('+ins._trimmed+') for instance '+ins.id+' not found');
                     return az === ''; // include instances with unknown hypervisors when selected node is "all"
                 }
             });
@@ -375,6 +382,82 @@ var report = function(sel, data) {
             resSelect.on('change.line', updateLine);
             updatePie();
             updateLine();
+
+            // set up DataTable
+            var sTable = $('table', $(sel));
+            if($.fn.dataTable.isDataTable(sTable)) {
+                // cannot re-initialise DataTable; have to delete it and start again
+                sTable.DataTable().clear().destroy();
+            }
+            var tbl = sTable.DataTable({
+                //dom : 'rtp', // show only processing indicator and table
+                data : instance,
+                processing : true,
+                paging : true,
+                deferRender : true,
+                columns : [
+                    {
+                        title : 'Instance',
+                        data : 'name',
+                    },
+                    {
+                        title : 'Created',
+                        data : 'created',
+                        className : 'date',
+                        render : {
+                            display : Formatters.relativeDateDisplay,
+                        },
+                    },
+                    {
+                        title : 'Deleted',
+                        data : 'deleted',
+                        className : 'date',
+                        render : {
+                            display : Formatters.relativeDateDisplay,
+                        },
+                    },
+                    {
+                        title : 'Project',
+                        data : function(ins) {
+                            return project.find(function(p){return p.id===ins.project_id;}).display_name;
+                        },
+                    },
+                    {
+                        title : 'Availability zone',
+                        data : function(ins) {
+                            return ins._trimmed in hostAZ ? hostAZ[ins._trimmed] : 'unknown';
+                        },
+                    },
+                    /*
+                    {
+                        title : 'Wall time',
+                        data : 'wall_time',
+                        render : { display : Formatters.timeDisplay },
+                    },
+                    */
+                    {
+                        title : 'Flavour',
+                        data : 'flavour',
+                        render : {
+                            display : Formatters.flavourDisplay(flavour),
+                            filter : function(fid) { return flavour.find(function(f){return f.id===fid}).name; },
+                        },
+                    },
+                    {
+                        data : 'project_id',
+                        className : 'project_id', // to identify column for filtering
+                        visible : false,
+                    },
+                    {
+                        data : 'id',
+                        visible : false,
+                    },
+                ],
+                order : [[1, 'desc']], // order by second col: most recently created first
+                language : {
+                    zeroRecords : 'No matching instances found.',
+                },
+            });
         };
         var updatePie = function() {
             var key = resSelect.property('value');
