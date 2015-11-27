@@ -47,6 +47,7 @@
 
 <section class="title">
 <h4>Project Details</h4>
+<div id="az"><label>Node<select></select></label></div>
 <div class="row">
   <div class="full columns">
     <p>View data either for a single project, or combined over all projects associated with an organisation.</p>
@@ -60,7 +61,7 @@
     <div><label for="project"><input type="radio">Project</label><select id="project"></select></div>
     <div><label for="institution"><input type="radio">Organisation</label><select id="institution"></select></div>
     <div><label for="resource">Resource</label><select id="resource"></select></div>
-    <p>The pie chart shows how much of the selected resource is being used by the selected project/s. The &quot;Unused&quot; segment, where shown, is the difference from the resource quota. The interactive line chart below shows historical usage.</p>
+    <p>The pie chart shows how much of the selected resource is being used by the selected project/s, at the selected node/s. The &quot;Unused&quot; segment, where shown, is the difference from the resource quota (across all nodes). The interactive line chart below shows historical usage at the selected node/s.</p>
     <div class="progress"></div>
     <div class="warning" style="display:none"></div>
   </div>

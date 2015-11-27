@@ -18,7 +18,7 @@ Project.init = function() {
     Util.initReport([
         {
             sel : '.report',
-            dep : ['project?personal=0&has_instances=1'],
+            dep : ['project?personal=0&has_instances=1', 'hypervisor'], // need hypervisor data for node-level filtering (until instance.availability_zone is useful)
             fun : report,
         },
     ], {
@@ -64,6 +64,26 @@ var report = function(sel, data) {
     var s = d3.select(sel);
     var warn = s.select('.warning');
     var project = data['project?personal=0&has_instances=1'];
+    var hypervisor = data.hypervisor;
+    var az = localStorage.getItem(Util.nodeKey);
+
+    // build mapping {trimmed hypervisor name : availability zone} for node-level filtering later on
+    var hostAZ = {};
+    hypervisor.forEach(function(h) {
+        var trimmed = h.hostname;
+        var i = trimmed.indexOf('.');
+        if(i !== -1) trimmed = trimmed.substr(0, i);
+        if(trimmed in hostAZ) {
+            // TODO handle errors better
+            if(hostAZ[trimmed] === h.availability_zone) {
+                console.log('Warning: duplicate hypervisor name "'+trimmed+'" (same AZ)');
+            } else {
+                console.log('Error: duplicate hypervisor name "'+trimmed+'"');
+            }
+        }
+        hostAZ[trimmed] = h.availability_zone;
+    });
+    // (when we have a table mapping project_id -> availability_zones, project list can be filtered here, to make sure that by default a nonempty chart is shown)
 
     // extract project ids, organisations, and display names, and sort
     project = project
@@ -161,6 +181,22 @@ var report = function(sel, data) {
         // don't need to re-fetch data when changing displayed resource; jump straight to fetchedAll
         resSelect.on('change.pie', function() { updatePie() });
 
+        // re-bind handler for availability zone change
+        // note that this removes the default (util.js) handler,
+        // which is what we want in this particular report
+        // because there's no need to re-call report()
+        // (and consequently reset UI state) -- just need to
+        // re-call fetchedAll.
+        // n.b. I ran into trouble trying to avoid this overriding:
+        // doing .on('change.foo', ...) had no effect.
+        // But then I realised that actually I wanted to remove
+        // the default behaviour anyway, so whatever... :\
+        d3.selectAll('#az select').on('change', function() {
+            localStorage.setItem(Util.nodeKey, this.value); // TODO this should really be refactored (DRY, cf util.js); add Util.on dispatch object and have each report specify how it should respond to az change
+            az = this.value;
+            fetchedAll();
+        });
+
         // fetch and combine all data for given projects
         var callbacks = function(pid, callback) {
             return {
@@ -177,13 +213,13 @@ var report = function(sel, data) {
                 },
             };
         };
-        var project = [], instance = [], volume = [], activeResources; // aggregated data
+        var projectAgg = [], instanceAgg = [], volumeAgg = [], activeResources; // aggregated data
         var n = 0; // count of how many projects have had data received
         var fetched = function(pid, data) { // called after fetching individual project's data;
             // combine all fetched data
-            project = project.concat(data['project?id='+pid]);
-            instance = instance.concat(data['instance?project_id='+pid]);
-            volume = volume.concat(data['volume?project_id='+pid]);
+            projectAgg  = projectAgg.concat(data['project?id='+pid]);
+            instanceAgg = instanceAgg.concat(data['instance?project_id='+pid]);
+            volumeAgg   = volumeAgg.concat(data['volume?project_id='+pid]);
 
             // show progress and check if we're finished
             progressContainer.call(progress.val(++n));
@@ -193,6 +229,23 @@ var report = function(sel, data) {
             }
         };
         var fetchedAll = function() { // called after fetching all projects' data, aggregated in project and instance
+            // filter by node
+            var instance = instanceAgg.filter(function(ins) {
+                var trimmed = ins.hypervisor;
+                if(trimmed === null) return false; // ignore instances with no hypervisor, because these are never scheduled and never used any resources
+                var i = trimmed.indexOf('.');
+                if(i > -1) trimmed = trimmed.substr(0, i);
+                if(trimmed in hostAZ) {
+                    return hostAZ[trimmed].indexOf(az) === 0;
+                } else {
+                    // TODO handle error
+                    console.log('Error: hypervisor ('+trimmed+') for instance '+ins.id+' not found');
+                    return az === ''; // include instances with unknown hypervisors when selected node is "all"
+                }
+            });
+            var volume = volumeAgg.filter(function(v) { return v.availability_zone.indexOf(az) === 0 });
+            var project = projectAgg.filter(function() { return true });
+
             // fill activeResources, array of {
             //  pid    : project id,
             //  label  : for pretty printing,
@@ -217,26 +270,28 @@ var report = function(sel, data) {
             activeResources.sort(function(a, b) { return b[resources[0].key] - a[resources[0].key] });
 
             // prepend "Unused" element
-            var unused = {pid:null, label:'Unused'};
             var warnings = []; // also keep track of any quotas exceeded
-            resources.forEach(function(r, i) {
-                unused[r.key] = null; // chart breaks if keys are missing, but works with null values
-                if(r.quota) { // if quota function is defined for this resource, sum over all projects
-                    if(project.some(function(p) { return r.quota(p) < 0 })) {
-                        // some project has unlimited quota (quota=-1), so "unused" segment cannot be drawn
-                        return;
+            if(az === '') {
+                var unused = {pid:null, label:'Unused'};
+                resources.forEach(function(r, i) {
+                    unused[r.key] = null; // chart breaks if keys are missing, but works with null values
+                    if(r.quota) { // if quota function is defined for this resource, sum over all projects
+                        if(project.some(function(p) { return r.quota(p) < 0 })) {
+                            // some project has unlimited quota (quota=-1), so "unused" segment cannot be drawn
+                            return;
+                        }
+                        var quota = d3.sum(project, r.quota);
+                        var used = d3.sum(activeResources, function(ar) { return ar[r.key] });
+                        if(used > quota) {
+                            // some project has gone over quota...
+                            warnings.push('Quota exceeded for '+r.key+' ('+pids.map(function(pid) { return project.find(function(p) { return p.id === pid }).display_name }).join(', ')+').');
+                        } else {
+                            unused[r.key] = quota - used;
+                        }
                     }
-                    var quota = d3.sum(project, r.quota);
-                    var used = d3.sum(activeResources, function(ar) { return ar[r.key] });
-                    if(used > quota) {
-                        // some project has gone over quota...
-                        warnings.push('Quota exceeded for '+r.key+' ('+pids.map(function(pid) { return project.find(function(p) { return p.id === pid }).display_name }).join(', ')+').');
-                    } else {
-                        unused[r.key] = quota - used;
-                    }
-                }
-            });
-            activeResources.unshift(unused);
+                });
+                activeResources.unshift(unused);
+            }
 
             // display any quota warnings
             warn.style('display', warnings.length > 0 ? null : 'none');

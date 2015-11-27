@@ -1,8 +1,3 @@
-label {
-    display: inline;
-    font-weight: normal;
-    margin-right: 0.5rem;
-}
 input[type=radio] {
     margin-right: 1.0rem;
 }
@@ -38,6 +33,8 @@ div.disabled option {
 .controls label {
     display: table-cell;
     width: 13rem;
+    font-weight: normal;
+    margin-right: 0.5rem;
 }
 .controls select {
     display: table-cell;
